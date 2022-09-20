@@ -855,6 +855,10 @@ TEST(TripleTest, ParsedIDs) {
   EXPECT_EQ(Triple::GNU, T.getEnvironment());
   EXPECT_EQ(Triple::MipsSubArch_r6, T.getSubArch());
 
+  T = Triple("mmix");
+  EXPECT_EQ(Triple::mmix, T.getArch());
+  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+
   T = Triple("arm-oe-linux-gnueabi");
   EXPECT_EQ(Triple::arm, T.getArch());
   EXPECT_EQ(Triple::OpenEmbedded, T.getVendor());
@@ -1235,6 +1239,11 @@ TEST(TripleTest, BitWidthPredicates) {
   EXPECT_FALSE(T.isArch64Bit());
 
   T.setArch(Triple::mips64);
+  EXPECT_FALSE(T.isArch16Bit());
+  EXPECT_FALSE(T.isArch32Bit());
+  EXPECT_TRUE(T.isArch64Bit());
+
+  T.setArch(Triple::mmix);
   EXPECT_FALSE(T.isArch16Bit());
   EXPECT_FALSE(T.isArch32Bit());
   EXPECT_TRUE(T.isArch64Bit());
