@@ -38,6 +38,7 @@ namespace object {
 
 class COFFObjectFile;
 class MachOObjectFile;
+class MMIXObjectFile;
 class ObjectFile;
 class SectionRef;
 class SymbolRef;
@@ -395,6 +396,9 @@ public:
 
   static Expected<std::unique_ptr<ObjectFile>>
   createGOFFObjectFile(MemoryBufferRef Object);
+
+  static Expected<std::unique_ptr<MMIXObjectFile>>
+  createMMIXObjectFile(MemoryBufferRef Object);
 
   static Expected<std::unique_ptr<WasmObjectFile>>
   createWasmObjectFile(MemoryBufferRef Object);

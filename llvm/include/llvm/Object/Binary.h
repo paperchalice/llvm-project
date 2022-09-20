@@ -150,6 +150,8 @@ public:
 
   bool isMinidump() const { return TypeID == ID_Minidump; }
 
+  bool isMMO() const { return TypeID == ID_MMO; }
+
   bool isTapiFile() const { return TypeID == ID_TapiFile; }
 
   bool isLittleEndian() const {
