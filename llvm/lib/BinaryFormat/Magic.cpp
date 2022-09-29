@@ -249,7 +249,11 @@ file_magic llvm::identify_magic(StringRef Magic) {
     if (Magic[1] == char(0xA6))
       return file_magic::coff_object;
     break;
-
+  
+  case 0x98:
+    if (Magic[1] == 0x09)
+      return file_magic::mmo;
+    break;
   case 0x4e: // ARM64X windows
     if (Magic[1] == char(0xA6))
       return file_magic::coff_object;
