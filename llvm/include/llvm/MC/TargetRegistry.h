@@ -105,6 +105,10 @@ MCStreamer *createMachOStreamer(MCContext &Ctx,
                                 std::unique_ptr<MCCodeEmitter> &&CE,
                                 bool RelaxAll, bool DWARFMustBeAtTheEnd,
                                 bool LabelSections = false);
+MCStreamer *createMMOStreamer(MCContext &Ctx,
+                              std::unique_ptr<MCAsmBackend> &&TAB,
+                              std::unique_ptr<MCObjectWriter> &&OW,
+                              std::unique_ptr<MCCodeEmitter> &&CE);
 MCStreamer *createWasmStreamer(MCContext &Ctx,
                                std::unique_ptr<MCAsmBackend> &&TAB,
                                std::unique_ptr<MCObjectWriter> &&OW,
@@ -209,6 +213,11 @@ public:
                       std::unique_ptr<MCObjectWriter> &&OW,
                       std::unique_ptr<MCCodeEmitter> &&Emitter, bool RelaxAll,
                       bool DWARFMustBeAtTheEnd);
+  
+  using MMOStreamerCtorTy =
+      MCStreamer *(*)(MCContext &Ctx, std::unique_ptr<MCAsmBackend> &&TAB,
+                      std::unique_ptr<MCObjectWriter> &&OW,
+                      std::unique_ptr<MCCodeEmitter> &&Emitter);
   using COFFStreamerCtorTy =
       MCStreamer *(*)(MCContext &Ctx, std::unique_ptr<MCAsmBackend> &&TAB,
                       std::unique_ptr<MCObjectWriter> &&OW,
@@ -338,7 +347,9 @@ private:
   COFFStreamerCtorTy COFFStreamerCtorFn = nullptr;
   GOFFStreamerCtorTy GOFFStreamerCtorFn = nullptr;
   MachOStreamerCtorTy MachOStreamerCtorFn = nullptr;
+  MMOStreamerCtorTy MMOStreamerCtorFn = nullptr;
   ELFStreamerCtorTy ELFStreamerCtorFn = nullptr;
+
   WasmStreamerCtorTy WasmStreamerCtorFn = nullptr;
   XCOFFStreamerCtorTy XCOFFStreamerCtorFn = nullptr;
   SPIRVStreamerCtorTy SPIRVStreamerCtorFn = nullptr;
@@ -589,6 +600,12 @@ public:
         S = createMachOStreamer(Ctx, std::move(TAB), std::move(OW),
                                 std::move(Emitter), RelaxAll,
                                 DWARFMustBeAtTheEnd);
+      break;
+    case Triple::MMO:
+      if (MMOStreamerCtorFn)
+        S = MMOStreamerCtorFn(Ctx, std::move(TAB), std::move(OW), std::move(Emitter));
+      else
+        S = createMMOStreamer(Ctx, std::move(TAB), std::move(OW), std::move(Emitter));
       break;
     case Triple::ELF:
       if (ELFStreamerCtorFn)
