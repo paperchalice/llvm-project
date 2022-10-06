@@ -17,6 +17,7 @@
 #include "llvm/Object/COFF.h"
 #include "llvm/Object/Error.h"
 #include "llvm/Object/MachO.h"
+#include "llvm/Object/MMIXObjectFile.h"
 #include "llvm/Object/Wasm.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -182,6 +183,8 @@ ObjectFile::createObjectFile(MemoryBufferRef Object, file_magic Type,
   case file_magic::macho_kext_bundle:
   case file_magic::macho_file_set:
     return createMachOObjectFile(Object);
+  case file_magic::mmo:
+    return createMMIXObjectFile(Object);
   case file_magic::coff_object:
   case file_magic::coff_import_library:
   case file_magic::pecoff_executable:

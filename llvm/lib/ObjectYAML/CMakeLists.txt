@@ -15,6 +15,8 @@ add_llvm_component_library(LLVMObjectYAML
   ELFYAML.cpp
   MachOEmitter.cpp
   MachOYAML.cpp
+  MMOEmitter.cpp
+  MMOYAML.cpp
   ObjectYAML.cpp
   MinidumpEmitter.cpp
   MinidumpYAML.cpp

@@ -47,6 +47,9 @@ static Error dumpObject(const ObjectFile &Obj, raw_ostream &OS) {
 
   if (Obj.isWasm())
     return errorCodeToError(wasm2yaml(OS, cast<WasmObjectFile>(Obj)));
+  
+  if (Obj.isMMO())
+    return mmo2yaml(outs(), cast<MMIXObjectFile>(Obj));
 
   llvm_unreachable("unexpected object file format");
 }

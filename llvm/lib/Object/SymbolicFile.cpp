@@ -64,6 +64,7 @@ SymbolicFile::createSymbolicFile(MemoryBufferRef Object, file_magic Type,
   case file_magic::macho_dsym_companion:
   case file_magic::macho_kext_bundle:
   case file_magic::macho_file_set:
+  case file_magic::mmo:
   case file_magic::pecoff_executable:
   case file_magic::xcoff_object_32:
   case file_magic::xcoff_object_64:
@@ -115,6 +116,7 @@ bool SymbolicFile::isSymbolicFile(file_magic Type, const LLVMContext *Context) {
   case file_magic::macho_dsym_companion:
   case file_magic::macho_kext_bundle:
   case file_magic::macho_file_set:
+  case file_magic::mmo:
   case file_magic::pecoff_executable:
   case file_magic::xcoff_object_32:
   case file_magic::xcoff_object_64:

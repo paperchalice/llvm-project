@@ -13,6 +13,7 @@
 #define LLVM_TOOLS_OBJ2YAML_OBJ2YAML_H
 
 #include "llvm/Object/COFF.h"
+#include "llvm/Object/MMIXObjectFile.h"
 #include "llvm/Object/Minidump.h"
 #include "llvm/Object/Wasm.h"
 #include "llvm/Object/XCOFFObjectFile.h"
@@ -29,6 +30,8 @@ llvm::Error macho2yaml(llvm::raw_ostream &Out, const llvm::object::Binary &Obj,
                        unsigned RawSegments);
 llvm::Error minidump2yaml(llvm::raw_ostream &Out,
                           const llvm::object::MinidumpFile &Obj);
+llvm::Error mmo2yaml(llvm::raw_ostream &Out,
+                     const llvm::object::MMIXObjectFile &Obj);
 llvm::Error xcoff2yaml(llvm::raw_ostream &Out,
                        const llvm::object::XCOFFObjectFile &Obj);
 std::error_code wasm2yaml(llvm::raw_ostream &Out,
