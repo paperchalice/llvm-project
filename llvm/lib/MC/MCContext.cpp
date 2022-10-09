@@ -84,6 +84,9 @@ MCContext::MCContext(const Triple &TheTriple, const MCAsmInfo *mai,
   case Triple::MachO:
     Env = IsMachO;
     break;
+  case Triple::MMO:
+    Env = IsMMO;
+    break;
   case Triple::COFF:
     if (!TheTriple.isOSWindows() && !TheTriple.isUEFI())
       report_fatal_error(
@@ -249,6 +252,8 @@ MCSymbol *MCContext::createSymbolImpl(const StringMapEntry<bool> *Name,
     return new (Name, *this) MCSymbolGOFF(Name, IsTemporary);
   case MCContext::IsMachO:
     return new (Name, *this) MCSymbolMachO(Name, IsTemporary);
+  case MCContext::IsMMO:
+    break;
   case MCContext::IsWasm:
     return new (Name, *this) MCSymbolWasm(Name, IsTemporary);
   case MCContext::IsXCOFF:

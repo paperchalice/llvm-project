@@ -36,6 +36,10 @@ namespace MinidumpYAML {
 struct Object;
 }
 
+namespace MMOYAML {
+struct Object;
+}
+
 namespace OffloadYAML {
 struct Binary;
 }
@@ -69,6 +73,7 @@ bool yaml2elf(ELFYAML::Object &Doc, raw_ostream &Out, ErrorHandler EH,
 bool yaml2macho(YamlObjectFile &Doc, raw_ostream &Out, ErrorHandler EH);
 bool yaml2minidump(MinidumpYAML::Object &Doc, raw_ostream &Out,
                    ErrorHandler EH);
+bool yaml2mmo(MMOYAML::Object &Doc, raw_ostream &Out, ErrorHandler EH);
 bool yaml2offload(OffloadYAML::Binary &Doc, raw_ostream &Out, ErrorHandler EH);
 bool yaml2wasm(WasmYAML::Object &Doc, raw_ostream &Out, ErrorHandler EH);
 bool yaml2xcoff(XCOFFYAML::Object &Doc, raw_ostream &Out, ErrorHandler EH);

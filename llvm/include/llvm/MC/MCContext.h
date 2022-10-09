@@ -81,6 +81,7 @@ public:
                          std::vector<const MDNode *> &)>;
   enum Environment {
     IsMachO,
+    IsMMO,
     IsELF,
     IsGOFF,
     IsCOFF,

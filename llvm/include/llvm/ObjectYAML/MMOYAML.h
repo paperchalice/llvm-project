@@ -27,19 +27,21 @@
 #include <variant>
 #include <vector>
 
+// TODO: use std::optional
 namespace llvm {
 namespace MMOYAML {
 
 LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_SYMBOL_TYPE)
-LLVM_YAML_STRONG_TYPEDEF(std::uint32_t, MMO_SEGMENT_TYPE)
+LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_SEGMENT_TYPE)
 LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_LOP_TYPE)
 
 struct Preamble {
   std::uint8_t Version;
-  std::optional<std::time_t> CreatedTime;
-  std::optional<yaml::BinaryRef> Content;
+  Optional<std::time_t> CreatedTime;
+  Optional<yaml::BinaryRef> Content;
 
   Preamble(const object::MMOPreamble &P);
+  Preamble();
 };
 
 struct Postamble {
@@ -47,6 +49,7 @@ struct Postamble {
   std::vector<yaml::Hex64> Items;
 
   Postamble(const object::MMOPostamble &P);
+  Postamble();
 };
 
 struct Quote {
@@ -78,7 +81,7 @@ struct Fixrx {
 
 struct File {
   std::uint8_t Number;
-  std::optional<StringRef> Name;
+  Optional<StringRef> Name;
 };
 
 struct Line {
@@ -89,9 +92,7 @@ struct Spec {
   std::uint16_t Type;
 };
 
-struct Lop {
-  std::variant<Quote, Loc, Skip, Fixo, Fixr, Fixrx, File, Line, Spec> Content;
-};
+using Lop = std::variant<Quote, Loc, Skip, Fixo, Fixr, Fixrx, File, Line, Spec>;
 
 struct Symbol {
   StringRef Name;
@@ -105,10 +106,11 @@ using Segment = std::variant<yaml::BinaryRef, Lop>;
 struct Object {
   Preamble Pre;
   std::vector<Segment> Segments;
-  std::vector<Symbol> Symbols;
   Postamble Post;
+  std::vector<Symbol> Symbols;
 
   Object(const object::MMIXObjectFile &O);
+  Object() = default;
 };
 } // end namespace MMOYAML
 } // end namespace llvm
@@ -132,16 +134,20 @@ template <> struct ScalarEnumerationTraits<MMOYAML::MMO_LOP_TYPE> {
 };
 
 // lops
-template <> struct MappingTraits<MMOYAML::Lop> {
-  static void mapping(IO &IO, MMOYAML::Lop &L);
+template <>
+struct CustomMappingTraits<MMOYAML::Lop> {
+  static void inputOne(IO &io, StringRef key, MMOYAML::Lop &L);
+  static void output(IO &io, MMOYAML::Lop &L);
 };
 
 template <> struct MappingTraits<MMOYAML::Preamble> {
   static void mapping(IO &IO, MMOYAML::Preamble &P);
 };
 
-template <> struct MappingTraits<MMOYAML::Segment> {
-  static void mapping(IO &IO, MMOYAML::Segment &Seg);
+template <>
+struct CustomMappingTraits<MMOYAML::Segment> {
+  static void inputOne(IO &io, StringRef key, MMOYAML::Segment &elem);
+  static void output(IO &io, MMOYAML::Segment &elem);
 };
 
 template <> struct MappingTraits<MMOYAML::Symbol> {

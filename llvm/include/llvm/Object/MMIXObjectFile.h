@@ -23,17 +23,11 @@
 #include <ctime>
 #include <optional>
 
+// TODO: use std::optional
+
 namespace llvm {
 
 namespace object {
-
-struct SymNode {};
-
-struct TernayTrieNode {
-public:
-  std::uint16_t ch;
-  TernayTrieNode *left, *mid, *right;
-};
 
 struct MMOLOp {
   struct Quote {
@@ -58,7 +52,7 @@ struct MMOLOp {
     std::int64_t Delta;
   };
   struct File {std::uint8_t FileNumber;
-    std::optional<StringRef> FileName;};
+    Optional<StringRef> FileName;};
   struct Line {
     std::uint16_t LineNumber;
   };
@@ -70,8 +64,8 @@ struct MMOLOp {
 
 struct MMOPreamble {
   std::uint8_t Version = 1;
-  std::optional<std::time_t> CreatedTime;
-  std::optional<ArrayRef<std::uint8_t>> ExtraData;
+  Optional<std::time_t> CreatedTime;
+  Optional<ArrayRef<std::uint8_t>> ExtraData;
 };
 
 struct MMOPostamble {
@@ -85,6 +79,27 @@ struct MMOSymbol {
   std::uint64_t Address = 0;
   std::uint32_t SerialNumber;
   const std::uint8_t *PrintPos; //< for mmotype to determine when output tetra
+};
+
+struct MMOSymNode {
+std::uint32_t Serial;
+std::uint64_t Equiv;
+bool IsRegister = false;
+};
+
+struct MMOTrieNode {
+public:
+  std::uint8_t Ch = ':';
+  std::shared_ptr<MMOTrieNode> left, mid, right;
+  std::optional<MMOSymNode> SymNode;
+
+};
+
+struct MMOTrie {
+  std::shared_ptr<MMOTrieNode> Root;
+  public:
+  MMOTrie();
+  void insertSymbol(const MMOSymbol &S);
 };
 
 class MMIXObjectFile : public ObjectFile {
@@ -178,6 +193,7 @@ private:
   std::vector<std::variant<ArrayRef<std::uint8_t>, MMOLOp>> Content;
   MMOPostamble Postamble;
   SmallVector<MMOSymbol, 32> SymbTab;
+  MMOTrieNode TrieRoot;
   using SymbItT = decltype(SymbTab.begin());
 
 private:
@@ -185,7 +201,7 @@ private:
   Error initPreamble(const unsigned char *&Iter);
   Error initContent(const unsigned char *&Iter);
   Error initSymbolTable(const unsigned char *&Iter);
-  Error initSpecialData(const unsigned char *&Iter);
+  void initSymbolTrie();
   Error initPostamble(const unsigned char *&Iter);
   void decodeSymbolTable(const unsigned char *&Start,
                          SmallVector<UTF16, 32> &Name, Error &E);

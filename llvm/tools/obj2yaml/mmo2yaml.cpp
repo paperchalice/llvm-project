@@ -64,47 +64,47 @@ void MMODumper::dumpContent() {
       case MMO::LOP_QUOTE: {
         const auto &Q = get<MMOLOp::Quote>(Op.Content);
         MMOYAML::Quote YQ = {Q.Value};
-        YLop.Content = YQ;
+        YLop = YQ;
       } break;
       case MMO::LOP_LOC: {
         const auto &L = get<MMOLOp::Loc>(Op.Content);
         MMOYAML::Loc YL = {L.HighByte, L.Offset};
-        YLop.Content = YL;
+        YLop = YL;
       } break;
       case MMO::LOP_SKIP: {
         const auto &S = get<MMOLOp::Skip>(Op.Content);
         MMOYAML::Skip YS = {S.Delta};
-        YLop.Content = YS;
+        YLop = YS;
       } break;
       case MMO::LOP_FIXO: {
         const auto &F = get<MMOLOp::Fixo>(Op.Content);
         MMOYAML::Fixo YF = {F.HighByte, F.Offset};
-        YLop.Content = YF;
+        YLop = YF;
       } break;
       case MMO::LOP_FIXR: {
         const auto &F = get<MMOLOp::Fixr>(Op.Content);
         MMOYAML::Fixo YF = {F.Delta};
-        YLop.Content = YF;
+        YLop = YF;
       } break;
       case MMO::LOP_FIXRX: {
         const auto &F = get<MMOLOp::Fixrx>(Op.Content);
         MMOYAML::Fixo YF = {F.Z, F.Delta};
-        YLop.Content = YF;
+        YLop = YF;
       } break;
       case MMO::LOP_FILE: {
         const auto &F = get<MMOLOp::File>(Op.Content);
         MMOYAML::File YF = {F.FileNumber, F.FileName};
-        YLop.Content = YF;
+        YLop = YF;
       } break;
       case MMO::LOP_LINE: {
         const auto &L = get<MMOLOp::Line>(Op.Content);
         MMOYAML::Line YL = {L.LineNumber};
-        YLop.Content = YL;
+        YLop = YL;
       } break;
       case MMO::LOP_SPEC: {
         const auto &S = get<MMOLOp::Spec>(Op.Content);
         MMOYAML::Line YS = {S.Type};
-        YLop.Content = YS;
+        YLop = YS;
       }
       default:
         break;

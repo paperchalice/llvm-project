@@ -27,6 +27,11 @@ namespace {
   }
 }
 
+MMOTrie::MMOTrie(): Root(new MMOTrieNode()) {}
+void MMOTrie::insertSymbol(const MMOSymbol &S) {
+  
+}
+
 bool MMIXObjectFile::classof(Binary const *v) { return v->isMMO(); }
 
 // constructor
@@ -51,6 +56,7 @@ MMIXObjectFile::create(MemoryBufferRef Object) {
   if (Status) {
     return std::move(Status);
   }
+  Obj->initSymbolTrie();
   return std::move(Obj);
 }
 
@@ -179,6 +185,10 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
 Error MMIXObjectFile::initSymbolTable(const unsigned char *&Iter) {
   Iter+=4;
   return decodeSymbolTable(Iter);
+}
+
+void MMIXObjectFile::initSymbolTrie() {
+
 }
 
 Error MMIXObjectFile::initPostamble(const unsigned char *&Iter) {

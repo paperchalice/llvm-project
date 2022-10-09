@@ -1099,6 +1099,7 @@ MCSection *MCObjectFileInfo::getDwarfComdatSection(const char *Name,
     return Ctx->getWasmSection(Name, SectionKind::getMetadata(), 0,
                                utostr(Hash), MCContext::GenericSectionID);
   case Triple::MachO:
+  case Triple::MMO:
   case Triple::COFF:
   case Triple::GOFF:
   case Triple::SPIRV:
