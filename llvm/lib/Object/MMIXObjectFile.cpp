@@ -27,11 +27,6 @@ namespace {
   }
 }
 
-MMOTrie::MMOTrie(): Root(new MMOTrieNode()) {}
-void MMOTrie::insertSymbol(const MMOSymbol &S) {
-  
-}
-
 bool MMIXObjectFile::classof(Binary const *v) { return v->isMMO(); }
 
 // constructor
@@ -119,7 +114,7 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
       } break;
       case MMO::LOP_FIXO: {
         MMOLOp::Fixo F;
-        F.HighByte = Iter[1];
+        F.HighByte = Iter[2];
         uint8_t TetraCount = Iter[3];
         Iter += 4;
         switch (TetraCount) {
@@ -188,7 +183,17 @@ Error MMIXObjectFile::initSymbolTable(const unsigned char *&Iter) {
 }
 
 void MMIXObjectFile::initSymbolTrie() {
-
+  if(auto Root = get_if<MMOTrieUTF8>(&TrieRoot)) {
+    for(const auto &S : SymbTab) {
+      Root->insert(S);
+    }
+    Root->prune();
+  } else if(auto Root = get_if<MMOTrieUTF16>(&TrieRoot)) {
+    for(const auto &S : SymbTab) {
+      Root->insert(S);
+    }
+    Root->prune();
+  }
 }
 
 Error MMIXObjectFile::initPostamble(const unsigned char *&Iter) {
@@ -210,10 +215,10 @@ Error MMIXObjectFile::decodeSymbolTable(const unsigned char *&Iter) {
   SmallVector<UTF16, 32> SymbolName;
   Error E = Error::success();
   decodeSymbolTable(Iter, SymbolName, E);
-  // std::sort(SymbTab.begin(), SymbTab.end(),
-  //           [](const MMOSymbol &S1, const MMOSymbol &S2) {
-  //             return S1.SerialNumber < S2.SerialNumber;
-  //           });
+  std::sort(SymbTab.begin(), SymbTab.end(),
+            [](const MMOSymbol &S1, const MMOSymbol &S2) {
+              return S1.SerialNumber < S2.SerialNumber;
+            });
   return std::move(E);
 }
 
@@ -229,9 +234,21 @@ void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
   if (M & 0x2F) {
     UTF16 C = 0;
     if (M & 0x80) { // 16-bit character
+      if (holds_alternative<monostate>(TrieRoot)) {
+        TrieRoot = MMOTrieUTF16();
+      } else if (holds_alternative<MMOTrieUTF8>(TrieRoot)) {
+        E = createError("All symbol names must have the same encoding.");
+        return;
+      }
       C = support::endian::read16be(Start);
       Start += 2;
     } else {
+      if (holds_alternative<monostate>(TrieRoot)) {
+        TrieRoot = MMOTrieUTF8();
+      } else if (holds_alternative<MMOTrieUTF16>(TrieRoot)) {
+        E = createError("All symbol names must have the same encoding.");
+        return;
+      }
       C = *Start++;
     }
     Name.push_back(C);
@@ -247,8 +264,15 @@ void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
       MMOSymbol S;
       // convert to UTF-8 encode
       std::string UTF8Name;
-      if (!convertUTF16ToUTF8String(Name, UTF8Name)) {
-        E = createError("invalid symbol name");
+      if(holds_alternative<MMOTrieUTF16>(TrieRoot)) {
+        if (!convertUTF16ToUTF8String(Name, UTF8Name)) {
+          E = createError("invalid symbol name");
+          return;
+        }
+      } else {
+        for(const auto &C : Name) {
+          UTF8Name += static_cast<char>(C);
+        }
       }
       S.Name = UTF8Name;
       uint8_t J = M & 0xF;
@@ -461,6 +485,10 @@ const MMOPreamble &MMIXObjectFile::getMMOPreamble() const { return Preamble; }
 
 const MMOPostamble &MMIXObjectFile::getMMOPostamble() const {
   return Postamble;
+}
+
+bool MMIXObjectFile::isSymbolNameUTF16() const {
+  return holds_alternative<MMOTrieUTF16>(TrieRoot);
 }
 
 //////////////////////////////////////////////////////////////

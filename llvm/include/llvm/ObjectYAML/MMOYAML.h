@@ -101,13 +101,18 @@ struct Symbol {
   MMO_SYMBOL_TYPE Type;
 };
 
+struct SymbolTable {
+  bool IsUTF16;
+  std::vector<Symbol> Symbols;
+};
+
 using Segment = std::variant<yaml::BinaryRef, Lop>;
 
 struct Object {
   Preamble Pre;
   std::vector<Segment> Segments;
   Postamble Post;
-  std::vector<Symbol> Symbols;
+  SymbolTable SymTab;
 
   Object(const object::MMIXObjectFile &O);
   Object() = default;
@@ -152,6 +157,10 @@ struct CustomMappingTraits<MMOYAML::Segment> {
 
 template <> struct MappingTraits<MMOYAML::Symbol> {
   static void mapping(IO &IO, MMOYAML::Symbol &O);
+};
+
+template <> struct MappingTraits<MMOYAML::SymbolTable> {
+  static void mapping(IO &IO, MMOYAML::SymbolTable &O);
 };
 
 template <> struct MappingTraits<MMOYAML::Object> {

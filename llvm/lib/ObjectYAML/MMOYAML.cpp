@@ -188,12 +188,17 @@ void MappingTraits<MMOYAML::Symbol>::mapping(IO &IO, MMOYAML::Symbol &S) {
   IO.mapRequired("Type", S.Type);
 }
 
+void MappingTraits<MMOYAML::SymbolTable>::mapping(IO &IO, MMOYAML::SymbolTable &S) {
+  IO.mapRequired("IsUTF16", S.IsUTF16);
+  IO.mapRequired("Symbol", S.Symbols);
+}
+
 void MappingTraits<MMOYAML::Object>::mapping(IO &IO, MMOYAML::Object &O) {
   IO.mapTag("!MMO", true);
   IO.mapRequired("Preamble", O.Pre);
   IO.mapRequired("Segments", O.Segments);
   IO.mapRequired("Postamble", O.Post);
-  IO.mapRequired("Symbols", O.Symbols);
+  IO.mapRequired("SymbolTable", O.SymTab);
 }
 
 void MappingTraits<MMOYAML::Postamble>::mapping(IO &IO, MMOYAML::Postamble &P) {

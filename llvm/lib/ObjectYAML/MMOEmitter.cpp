@@ -11,11 +11,13 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Object/MMIXObjectFile.h"
 #include "llvm/ObjectYAML/MMOYAML.h"
 #include "llvm/ObjectYAML/yaml2obj.h"
 
 using namespace llvm;
 using namespace std;
+using namespace object;
 using support::endian::write16be;
 using support::endian::write32be;
 using support::endian::write64be;
@@ -39,7 +41,7 @@ private:
   void writePreamble(raw_ostream &OS);
   void writeContent(raw_ostream &OS);
   void writePostamble(raw_ostream &OS);
-  uint16_t writeSymbolTable(raw_ostream &OS);
+  template <typename T> void writeSymbolTable(raw_ostream &OS);
 
 private:
   MMOYAML::Object &Obj;
@@ -105,12 +107,12 @@ void MMOWriter::writeContent(raw_ostream &OS) {
         OS << MMO::MM << MMO::LOP_FIXO;
         OS << pF->HighByte;
         if (is64Bit(pF->Offset)) {
-          OS << 2;
+          OS << '\x2';
           char Buf[8];
           write64be(Buf, pF->Offset.value);
           OS.write(Buf, sizeof(Buf));
         } else {
-          OS << 1;
+          OS << '\x1';
           char Buf[4];
           write32be(Buf, pF->Offset.value);
           OS.write(Buf, sizeof(Buf));
@@ -122,9 +124,10 @@ void MMOWriter::writeContent(raw_ostream &OS) {
         OS.write(Buf, sizeof(Buf));
       } else if (auto pF = get_if<MMOYAML::Fixrx>(&Lop)) {
         writeLop(OS, MMO::LOP_FIXRX);
+        OS.write_zeros(1);
         OS << pF->Z;
         char Buf[8];
-        write64be(Buf, pF->Delta.value);
+        write32be(Buf, pF->Delta.value);
         OS.write(Buf, sizeof(Buf));
       } else if (auto pF = get_if<MMOYAML::File>(&Lop)) {
         writeLop(OS, MMO::LOP_FILE);
@@ -151,28 +154,61 @@ void MMOWriter::writeContent(raw_ostream &OS) {
 }
 
 void MMOWriter::writePostamble(raw_ostream &OS) {
-  writeLop(OS, MMO::LOP_POST); OS.write(0);
+  writeLop(OS, MMO::LOP_POST);
+  OS.write(0);
   OS.write(Obj.Post.G);
   char Buf[8];
-  for(const auto & R : Obj.Post.Items) {
+  for (const auto &R : Obj.Post.Items) {
     write64be(Buf, R.value);
     OS.write(Buf, sizeof(Buf));
   }
 }
 
-uint16_t MMOWriter::writeSymbolTable(raw_ostream &OS) {
-  writeLop(OS, MMO::LOP_STAB); OS.write_zeros(2);
-  const auto &Symbols = Obj.Symbols;
-  return 1;
+template <typename T> void MMOWriter::writeSymbolTable(raw_ostream &OS) {
+  writeLop(OS, MMO::LOP_STAB);
+  OS.write_zeros(2);
+  MMOTrie<T> Root;
+  for (const auto &S : Obj.SymTab.Symbols) {
+    MMOSymbol Symb;
+    Symb.SerialNumber = S.SerialNumber;
+    Symb.Name = S.Name.drop_front(is_same<T, uint8_t>::value ? 1 : 2);
+    Symb.Address = S.Address;
+    switch (S.Type) {
+    case MMO::SymbolType::NORMAL:
+      Symb.Type = MMO::SymbolType::NORMAL;
+      break;
+    case MMO::SymbolType::REGISTER:
+      Symb.Type = MMO::SymbolType::REGISTER;
+      break;
+    default:
+      Symb.Type = MMO::SymbolType::UNDEFINED;
+      break;
+    }
+    Root.insert(Symb);
+  }
+  Root.prune();
+  Root.writeBin(OS);
 }
 
 Error MMOWriter::write(raw_ostream &OS) {
   writePreamble(OS);
   writeContent(OS);
   writePostamble(OS);
-  uint16_t TetraCount = writeSymbolTable(OS);
+  auto Start = OS.tell();
+  assert(Start % 4 == 0);
+  if (Obj.SymTab.IsUTF16) {
+    writeSymbolTable<uint16_t>(OS);
+  } else {
+    writeSymbolTable<uint8_t>(OS);
+  }
+  auto Padding = OS.tell() % 4;
+  if (Padding) OS.write_zeros(4 - Padding);
+  auto End = OS.tell();
+  assert(End % 4 == 0);
+  uint16_t TetraCount = (End - Start) / 4 - 1;
   writeLop(OS, MMO::LOP_END);
-  char Buf[2]; write16be(Buf, TetraCount);
+  char Buf[2];
+  write16be(Buf, TetraCount);
   OS.write(Buf, sizeof(Buf));
   return Error::success();
 }

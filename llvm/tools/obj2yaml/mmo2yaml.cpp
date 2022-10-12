@@ -83,12 +83,12 @@ void MMODumper::dumpContent() {
       } break;
       case MMO::LOP_FIXR: {
         const auto &F = get<MMOLOp::Fixr>(Op.Content);
-        MMOYAML::Fixo YF = {F.Delta};
+        MMOYAML::Fixr YF = {F.Delta};
         YLop = YF;
       } break;
       case MMO::LOP_FIXRX: {
         const auto &F = get<MMOLOp::Fixrx>(Op.Content);
-        MMOYAML::Fixo YF = {F.Z, F.Delta};
+        MMOYAML::Fixrx YF = {F.Z, F.Delta};
         YLop = YF;
       } break;
       case MMO::LOP_FILE: {
@@ -123,7 +123,8 @@ void MMODumper::dumpSymbols() {
     YS.Address = MMOS.Address;
     YS.SerialNumber = MMOS.SerialNumber;
     YS.Type = MMOS.Type;
-    YAMLObj.Symbols.emplace_back(YS);
+    YAMLObj.SymTab.IsUTF16 = Obj.isSymbolNameUTF16();
+    YAMLObj.SymTab.Symbols.emplace_back(YS);
   }
 }
 
