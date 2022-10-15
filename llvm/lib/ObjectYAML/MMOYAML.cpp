@@ -196,7 +196,7 @@ void CustomMappingTraits<MMOYAML::Segment>::output(IO &IO,
 
 void MappingTraits<MMOYAML::Symbol>::mapping(IO &IO, MMOYAML::Symbol &S) {
   IO.mapRequired("Name", S.Name);
-  IO.mapRequired("SerialNumber", S.Serial);
+  IO.mapRequired("Serial", S.Serial);
   IO.mapRequired("Equiv", S.Equiv);
   IO.mapRequired("Type", S.Type);
 }

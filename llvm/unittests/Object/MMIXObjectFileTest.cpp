@@ -87,6 +87,4 @@ TEST(MMIXObjectFileTest, MMORead) {
       object::ObjectFile::createMMIXObjectFile(SampleMMO);
   ASSERT_THAT_EXPECTED(MMIXObjOrErr, Succeeded());
   std::unique_ptr<MMIXObjectFile> Obj = std::move(*MMIXObjOrErr);
-  const auto &SpDataVec = Obj->getSpecialDataVec();
-  ASSERT_EQ(SpDataVec[0].Type, 5);
 }

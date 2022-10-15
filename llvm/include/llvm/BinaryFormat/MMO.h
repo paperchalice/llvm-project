@@ -123,7 +123,7 @@ struct Symbol {
   std::string Name;
   std::uint32_t Serial;
   std::uint64_t Equiv;
-  SymbolType Type;
+  SymbolType Type = MMO::NORMAL;
   const std::uint8_t *PrintPos; //< for mmotype to determine when output tetra
 };
 
