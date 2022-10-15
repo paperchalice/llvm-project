@@ -31,6 +31,129 @@ inline bool is64Bit(const yaml::Hex64 &H) {
   return (0xFFFF'FFFFUL << 32) & H.value;
 }
 } // namespace
+
+namespace llvm::MMOYAML {
+
+void Quote::writeBin(raw_ostream &OS) const {
+  writeLop(OS, MMO::LOP_QUOTE);
+  OS.write(0);
+  OS.write(1);
+  Value.writeAsBinary(OS);
+}
+
+void Loc::writeBin(raw_ostream &OS) const {
+  writeLop(OS, MMO::LOP_LOC);
+  OS << HighByte;
+  OS << (is64Bit(Offset) ? '\x2' : '\x1');
+  if (is64Bit(Offset)) {
+    char Buf[8];
+    write64be(Buf, Offset.value);
+    OS.write(Buf, sizeof(Buf));
+  } else {
+    char Buf[4];
+    write32be(Buf, Offset.value);
+    OS.write(Buf, sizeof(Buf));
+  }
+}
+
+void Skip::writeBin(raw_ostream &OS) const {
+  writeLop(OS, MMO::LOP_SKIP);
+  char Buf[2];
+  write16be(Buf, Delta);
+  OS.write(Buf, sizeof(Buf));
+}
+
+void Fixo::writeBin(raw_ostream &OS) const {
+  writeLop(OS, MMO::LOP_FIXO);
+  OS << HighByte;
+  if (is64Bit(Offset)) {
+    OS << '\x2';
+    char Buf[8];
+    write64be(Buf, Offset.value);
+    OS.write(Buf, sizeof(Buf));
+  } else {
+    OS << '\x1';
+    char Buf[4];
+    write32be(Buf, Offset.value);
+    OS.write(Buf, sizeof(Buf));
+  }
+}
+
+void Fixr::writeBin(raw_ostream &OS) const {
+  writeLop(OS, MMO::LOP_FIXR);
+  char Buf[2];
+  write16be(Buf, Delta.value);
+  OS.write(Buf, sizeof(Buf));
+}
+
+void Fixrx::writeBin(raw_ostream &OS) const {
+  writeLop(OS, MMO::LOP_FIXRX);
+  OS.write('\x0');
+  OS << Z;
+  char Buf[8];
+  write32be(Buf, Delta.value);
+  OS.write(Buf, sizeof(Buf));
+}
+
+void File::writeBin(raw_ostream &OS) const {
+  writeLop(OS, MMO::LOP_FILE);
+  OS << Number;
+  if (Name) {
+    OS << static_cast<uint8_t>(Name->size() / 4);
+    OS << *Name;
+  } else {
+    OS << 0;
+  }
+}
+
+void Line::writeBin(raw_ostream &OS) const {
+  writeLop(OS, MMO::LOP_LINE);
+  char Buf[2];
+  write16be(Buf, Number);
+  OS.write(Buf, sizeof(Buf));
+}
+
+void Spec::writeBin(raw_ostream &OS) const {
+  writeLop(OS, MMO::LOP_SPEC);
+  char Buf[2];
+  write16be(Buf, Type);
+  OS.write(Buf, sizeof(Buf));
+}
+
+void Pre::writeBin(raw_ostream &OS) const {
+  OS << MMO::MM << MMO::LOP_PRE << Version;
+  uint8_t Cnt = 0;
+  if (CreatedTime.has_value()) {
+    Cnt += 1;
+  }
+  if (ExtraData.has_value()) {
+    Cnt += ExtraData->binary_size() / 4;
+  }
+  OS << Cnt;
+
+  if (CreatedTime.has_value()) {
+    char Buf[4];
+    write32be(Buf, *CreatedTime);
+    OS.write(Buf, sizeof(Buf));
+  }
+  if (ExtraData.has_value()) {
+    ExtraData->writeAsBinary(OS);
+  }
+}
+
+void Post::writeBin(raw_ostream &OS) const {
+  writeLop(OS, MMO::LOP_POST);
+  OS.write(0);
+  OS.write(G);
+  char Buf[8];
+  for (const auto &V : Values) {
+    write64be(Buf, V.value);
+    OS.write(Buf, sizeof(Buf));
+  }
+}
+
+} // namespace llvm::MMOYAML
+
 namespace {
 class MMOWriter {
 public:
@@ -49,119 +172,21 @@ private:
 
 MMOWriter::MMOWriter(MMOYAML::Object &O) : Obj(O) {}
 
-void MMOWriter::writePreamble(raw_ostream &OS) {
-  const auto &Pre = Obj.Pre;
-  OS << MMO::MM << MMO::LOP_PRE << Pre.Version;
-  uint8_t Cnt = 0;
-  if (Pre.CreatedTime.has_value()) {
-    Cnt += 1;
-  }
-  if (Pre.Content.has_value()) {
-    Cnt += Pre.Content->binary_size() / 4;
-  }
-  OS << Cnt;
-
-  if (Pre.CreatedTime.has_value()) {
-    char Buf[4];
-    write32be(Buf, *Pre.CreatedTime);
-    OS.write(Buf, sizeof(Buf));
-  }
-  if (Pre.Content.has_value()) {
-    Pre.Content->writeAsBinary(OS);
-  }
-}
+void MMOWriter::writePreamble(raw_ostream &OS) { Obj.Preamble.writeBin(OS); }
 
 void MMOWriter::writeContent(raw_ostream &OS) {
   const auto &Content = Obj.Segments;
   for (const auto &S : Content) {
     if (auto BinRef = get_if<yaml::BinaryRef>(&S)) {
       BinRef->writeAsBinary(OS);
-    } else {
-      // it is lop
-      const auto &Lop = get<MMOYAML::Lop>(S);
-      if (holds_alternative<MMOYAML::Quote>(Lop)) {
-        auto Q = get<MMOYAML::Quote>(Lop);
-        writeLop(OS, MMO::LOP_QUOTE);
-        OS.write(0);
-        OS.write(1);
-        Q.Value.writeAsBinary(OS);
-      } else if (auto pL = get_if<MMOYAML::Loc>(&Lop)) {
-        writeLop(OS, MMO::LOP_LOC);
-        OS << pL->HighByte;
-        OS << (is64Bit(pL->Offset) ? '\x2' : '\x1');
-        if (is64Bit(pL->Offset)) {
-          char Buf[8];
-          write64be(Buf, pL->Offset.value);
-          OS.write(Buf, sizeof(Buf));
-        } else {
-          char Buf[4];
-          write32be(Buf, pL->Offset.value);
-          OS.write(Buf, sizeof(Buf));
-        }
-      } else if (auto pS = get_if<MMOYAML::Skip>(&Lop)) {
-        writeLop(OS, MMO::LOP_SKIP);
-        char Buf[2];
-        write16be(Buf, pS->Delta);
-        OS.write(Buf, sizeof(Buf));
-      } else if (auto pF = get_if<MMOYAML::Fixo>(&Lop)) {
-        OS << MMO::MM << MMO::LOP_FIXO;
-        OS << pF->HighByte;
-        if (is64Bit(pF->Offset)) {
-          OS << '\x2';
-          char Buf[8];
-          write64be(Buf, pF->Offset.value);
-          OS.write(Buf, sizeof(Buf));
-        } else {
-          OS << '\x1';
-          char Buf[4];
-          write32be(Buf, pF->Offset.value);
-          OS.write(Buf, sizeof(Buf));
-        }
-      } else if (auto pF = get_if<MMOYAML::Fixr>(&Lop)) {
-        writeLop(OS, MMO::LOP_FIXR);
-        char Buf[2];
-        write16be(Buf, pF->Delta.value);
-        OS.write(Buf, sizeof(Buf));
-      } else if (auto pF = get_if<MMOYAML::Fixrx>(&Lop)) {
-        writeLop(OS, MMO::LOP_FIXRX);
-        OS.write_zeros(1);
-        OS << pF->Z;
-        char Buf[8];
-        write32be(Buf, pF->Delta.value);
-        OS.write(Buf, sizeof(Buf));
-      } else if (auto pF = get_if<MMOYAML::File>(&Lop)) {
-        writeLop(OS, MMO::LOP_FILE);
-        OS << pF->Number;
-        if (pF->Name) {
-          OS << static_cast<uint8_t>(pF->Name->size() / 4);
-          OS << *pF->Name;
-        } else {
-          OS << 0;
-        }
-      } else if (auto pL = get_if<MMOYAML::Line>(&Lop)) {
-        writeLop(OS, MMO::LOP_LINE);
-        char Buf[2];
-        write16be(Buf, pL->LineNumber);
-        OS.write(Buf, sizeof(Buf));
-      } else if (auto pS = get_if<MMOYAML::Spec>(&Lop)) {
-        writeLop(OS, MMO::LOP_SPEC);
-        char Buf[2];
-        write16be(Buf, pS->Type);
-        OS.write(Buf, sizeof(Buf));
-      }
+    } else if (auto pLop = get_if<MMOYAML::ContentLop>(&S)) {
+      visit([&](const auto &L) { L.writeBin(OS); }, *pLop);
     }
   }
 }
 
 void MMOWriter::writePostamble(raw_ostream &OS) {
-  writeLop(OS, MMO::LOP_POST);
-  OS.write(0);
-  OS.write(Obj.Post.G);
-  char Buf[8];
-  for (const auto &R : Obj.Post.Items) {
-    write64be(Buf, R.value);
-    OS.write(Buf, sizeof(Buf));
-  }
+  Obj.Postamble.writeBin(OS);
 }
 
 template <typename T> void MMOWriter::writeSymbolTable(raw_ostream &OS) {
@@ -169,10 +194,10 @@ template <typename T> void MMOWriter::writeSymbolTable(raw_ostream &OS) {
   OS.write_zeros(2);
   MMOTrie<T> Root;
   for (const auto &S : Obj.SymTab.Symbols) {
-    MMOSymbol Symb;
-    Symb.SerialNumber = S.SerialNumber;
+    MMO::Symbol Symb;
+    Symb.Serial = S.Serial;
     Symb.Name = S.Name.drop_front(is_same<T, uint8_t>::value ? 1 : 2);
-    Symb.Address = S.Address;
+    Symb.Equiv = S.Equiv;
     switch (S.Type) {
     case MMO::SymbolType::NORMAL:
       Symb.Type = MMO::SymbolType::NORMAL;
@@ -202,7 +227,8 @@ Error MMOWriter::write(raw_ostream &OS) {
     writeSymbolTable<uint8_t>(OS);
   }
   auto Padding = OS.tell() % 4;
-  if (Padding) OS.write_zeros(4 - Padding);
+  if (Padding)
+    OS.write_zeros(4 - Padding);
   auto End = OS.tell();
   assert(End % 4 == 0);
   uint16_t TetraCount = (End - Start) / 4 - 1;

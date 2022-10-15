@@ -35,69 +35,109 @@ LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_SYMBOL_TYPE)
 LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_SEGMENT_TYPE)
 LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_LOP_TYPE)
 
-struct Preamble {
+struct Pre {
   std::uint8_t Version;
   Optional<std::time_t> CreatedTime;
-  Optional<yaml::BinaryRef> Content;
+  Optional<yaml::BinaryRef> ExtraData;
 
-  Preamble(const object::MMOPreamble &P);
-  Preamble();
+  Pre() = default;
+  Pre(raw_ostream &OS);
+  Pre(const MMO::Pre &P);
+  void writeBin(raw_ostream &OS) const;
 };
 
-struct Postamble {
+struct Post {
   std::uint8_t G;
-  std::vector<yaml::Hex64> Items;
-
-  Postamble(const object::MMOPostamble &P);
-  Postamble();
+  std::vector<yaml::Hex64> Values;
+  Post() = default;
+  Post(const MMO::Post &P);
+  void writeBin(raw_ostream &OS) const;
 };
 
 struct Quote {
   yaml::BinaryRef Value;
+  Quote() = default;
+  Quote(yaml::IO &IO);
+  Quote(const MMO::Quote &Q);
+  void output(yaml::IO &IO);
+  void writeBin(raw_ostream &OS) const;
 };
 
 struct Loc {
   MMO_SEGMENT_TYPE HighByte;
   yaml::Hex64 Offset;
+  Loc() = default;
+  Loc(yaml::IO &IO);
+  Loc(const MMO::Loc &L);
+  void writeBin(raw_ostream &OS) const;
 };
 
 struct Skip {
   yaml::Hex16 Delta;
+  Skip() = default;
+  Skip(const MMO::Skip &S);
+  Skip(yaml::IO &IO);
+  void writeBin(raw_ostream &OS) const;
 };
 
 struct Fixo {
   yaml::Hex8 HighByte;
   yaml::Hex64 Offset;
+  Fixo() = default;
+  Fixo(yaml::IO &IO);
+  Fixo(const MMO::Fixo &F);
+  void writeBin(raw_ostream &OS) const;
 };
 
 struct Fixr {
   yaml::Hex16 Delta;
+  Fixr(const MMO::Fixr &F);
+  Fixr() = default;
+  Fixr(yaml::IO &IO);
+  void writeBin(raw_ostream &OS) const;
 };
 
 struct Fixrx {
   yaml::Hex8 Z;
   yaml::Hex32 Delta;
+  Fixrx() = default;
+  Fixrx(yaml::IO &IO);
+  Fixrx(const MMO::Fixrx &F);
+  void writeBin(raw_ostream &OS) const;
 };
 
 struct File {
-  std::uint8_t Number;
   Optional<StringRef> Name;
+  std::uint8_t Number;
+  File() = default;
+  File(yaml::IO &IO);
+  File(const MMO::File &F);
+  void writeBin(raw_ostream &OS) const;
 };
 
 struct Line {
-  std::uint16_t LineNumber;
+  std::uint16_t Number;
+  Line() = default;
+  Line(yaml::IO &IO);
+  Line(const MMO::Line &L);
+  void output(yaml::IO &IO);
+  void writeBin(raw_ostream &OS) const;
 };
 
 struct Spec {
   std::uint16_t Type;
+  Spec() = default;
+  Spec(yaml::IO &IO);
+  Spec(const MMO::Spec &S);
+  void writeBin(raw_ostream &OS) const;
 };
 
-using Lop = std::variant<Quote, Loc, Skip, Fixo, Fixr, Fixrx, File, Line, Spec>;
+using ContentLop = std::variant<Quote, Loc, Skip, Fixo, Fixr, Fixrx, File, Line, Spec>;
 
 struct Symbol {
   StringRef Name;
-  yaml::Hex64 Address;
-  uint32_t SerialNumber;
+  yaml::Hex64 Equiv;
+  uint32_t Serial;
   MMO_SYMBOL_TYPE Type;
 };
 
@@ -106,12 +146,12 @@ struct SymbolTable {
   std::vector<Symbol> Symbols;
 };
 
-using Segment = std::variant<yaml::BinaryRef, Lop>;
+using Segment = std::variant<yaml::BinaryRef, ContentLop>;
 
 struct Object {
-  Preamble Pre;
+  Pre Preamble;
   std::vector<Segment> Segments;
-  Postamble Post;
+  Post Postamble;
   SymbolTable SymTab;
 
   Object(const object::MMIXObjectFile &O);
@@ -140,13 +180,13 @@ template <> struct ScalarEnumerationTraits<MMOYAML::MMO_LOP_TYPE> {
 
 // lops
 template <>
-struct CustomMappingTraits<MMOYAML::Lop> {
-  static void inputOne(IO &io, StringRef key, MMOYAML::Lop &L);
-  static void output(IO &io, MMOYAML::Lop &L);
+struct CustomMappingTraits<MMOYAML::ContentLop> {
+  static void inputOne(IO &io, StringRef key, MMOYAML::ContentLop &L);
+  static void output(IO &io, MMOYAML::ContentLop &L);
 };
 
-template <> struct MappingTraits<MMOYAML::Preamble> {
-  static void mapping(IO &IO, MMOYAML::Preamble &P);
+template <> struct MappingTraits<MMOYAML::Pre> {
+  static void mapping(IO &IO, MMOYAML::Pre &P);
 };
 
 template <>
@@ -167,8 +207,8 @@ template <> struct MappingTraits<MMOYAML::Object> {
   static void mapping(IO &IO, MMOYAML::Object &O);
 };
 
-template <> struct MappingTraits<MMOYAML::Postamble> {
-  static void mapping(IO &IO, MMOYAML::Postamble &P);
+template <> struct MappingTraits<MMOYAML::Post> {
+  static void mapping(IO &IO, MMOYAML::Post &P);
 };
 
 } // end namespace yaml

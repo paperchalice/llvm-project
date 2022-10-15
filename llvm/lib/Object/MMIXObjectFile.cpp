@@ -22,10 +22,10 @@ using namespace object;
 using namespace support::endian;
 
 namespace {
-  inline const char *ToCharP(const unsigned char *p) {
-    return reinterpret_cast<const char *>(p);
-  }
+inline const char *ToCharP(const unsigned char *p) {
+  return reinterpret_cast<const char *>(p);
 }
+} // namespace
 
 bool MMIXObjectFile::classof(Binary const *v) { return v->isMMO(); }
 
@@ -75,121 +75,83 @@ Error MMIXObjectFile::initPreamble(const unsigned char *&Iter) {
 Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
   const unsigned char *CurrentPos = Iter;
   bool ReachPostamble = false;
-  for (; Iter != getData().bytes_end(); Iter += 4) {
+  Error Err = Error::success();
+  if (Err) return Err; // check first, even if it is success.
+  while (!ReachPostamble && Iter != getData().bytes_end()) {
     if (Iter[0] == MMO::MM) {
-      if (Iter - CurrentPos != 0) {
-        assert((Iter - CurrentPos)%4 == 0);
-        Content.emplace_back(ArrayRef<uint8_t>(
-            CurrentPos, Iter - CurrentPos));
+      if (auto Len = Iter - CurrentPos; Len != 0) {
+        if (Len % 4 != 0) {
+          return createError("Binary data should  be 4 bytes aligned.");
+        } else {
+          Content.emplace_back(ArrayRef<uint8_t>(CurrentPos, Len));
+        }
       }
+
+      // handle lop_xxx
       switch (Iter[1]) {
-      case MMO::LOP_QUOTE: {
-        Iter += 4;
-        MMOLOp::Quote QuotedVal = {
-            ArrayRef<uint8_t>(Iter, 4)};
-        MMOLOp OpQuote = {QuotedVal};
-        Content.emplace_back(OpQuote);
-      } break;
-      case MMO::LOP_LOC: {
-        MMOLOp::Loc LocVal;
-        uint8_t TetraCount = Iter[3];
-        LocVal.HighByte = Iter[2];
-        Iter += 4;
-        switch (TetraCount) {
-        case 1:
-          LocVal.Offset = read32be(Iter);
-          break;
-        case 2:
-          LocVal.Offset = read64be(Iter);
-          Iter += 4;
-          break;
-        default:
-          return createError("Z field of lop_loc must be 1 or 2!");
-        }
-        Content.emplace_back(MMOLOp{LocVal});
-      } break;
-      case MMO::LOP_SKIP: {
-        MMOLOp::Skip S = {read16be(Iter + 2)};
-        Content.emplace_back(MMOLOp{S});
-      } break;
-      case MMO::LOP_FIXO: {
-        MMOLOp::Fixo F;
-        F.HighByte = Iter[2];
-        uint8_t TetraCount = Iter[3];
-        Iter += 4;
-        switch (TetraCount) {
-        case 1:
-          F.Offset = read32be(Iter);
-          break;
-        case 2:
-          F.Offset = read64be(Iter);
-          Iter += 4;
-          break;
-        default:
-          return createError("Z field of lop_loc must be 1 or 2!");
-        }
-        Content.emplace_back(MMOLOp{F});
-      } break;
-      case MMO::LOP_FIXR: {
-        MMOLOp::Fixr F = {read16be(Iter + 2)};
-        Content.emplace_back(MMOLOp{F});
-      } break;
-      case MMO::LOP_FIXRX: {
-        uint8_t Z = Iter[3];
-        if (!(Z == 16 || Z == 24)) {
-          return createError("Z field of lop_fixrx must be 16 or 24!");
-        }
-        Iter += 4;
-        MMOLOp::Fixrx F = {Z, read32be(Iter)};
-        Content.emplace_back(MMOLOp{F});
-      } break;
-      case MMO::LOP_FILE: {
-        MMOLOp::File F = {Iter[2]};
-        uint8_t TetraCount = Iter[3];
-        if (TetraCount != 0) {
-          F.FileName =
-              StringRef(ToCharP(Iter + 4), 4 * TetraCount);
-          Iter += 4 * TetraCount;
-        }
-        Content.emplace_back(MMOLOp{F});
-      } break;
-      case MMO::LOP_LINE: {
-        MMOLOp::Line L = {read16be(Iter + 2)};
-        Content.emplace_back(MMOLOp{L});
-      } break;
-      case MMO::LOP_SPEC: {
-        MMOLOp::Spec S = {read16be(Iter + 2)};
-        Content.emplace_back(MMOLOp{S});
-      } break;
+      case MMO::LOP_QUOTE:
+        Content.emplace_back(MMO::Quote(Iter));
+        break;
+      case MMO::LOP_LOC:
+        Content.emplace_back(MMO::Loc(Iter, Err));
+        break;
+      case MMO::LOP_SKIP:
+        Content.emplace_back(MMO::Skip(Iter));
+        break;
+      case MMO::LOP_FIXO:
+        Content.emplace_back(MMO::Fixo(Iter, Err));
+        break;
+      case MMO::LOP_FIXR:
+        Content.emplace_back(MMO::Fixr(Iter));
+        break;
+      case MMO::LOP_FIXRX:
+        Content.emplace_back(MMO::Fixrx(Iter, Err));
+        break;
+      case MMO::LOP_FILE:
+        Content.emplace_back(MMO::File(Iter));
+        break;
+      case MMO::LOP_LINE:
+        Content.emplace_back(MMO::Line(Iter));
+        break;
+      case MMO::LOP_SPEC:
+        Content.emplace_back(MMO::Spec(Iter));
+        break;
       case MMO::LOP_POST:
         ReachPostamble = true;
+        break;
       default:
         break;
       }
-      if (ReachPostamble) {
-        break;
-      }
-      // Set current content position to the tetra after the lop
-      CurrentPos = Iter + 4;
+
+      // CurrentPos now should point to normal binary content;
+      CurrentPos = Iter;
+    } else {
+      Iter += 4;
     }
   }
-  assert(Iter[1] == MMO::LOP_POST && "invalid postamble must follow instructions and data");
-  return Error::success();
+  if (Err)
+    return Err;
+
+  if (Iter[1] != MMO::LOP_POST) {
+    return createError("Invalid mmo file, can't find lop_post.");
+  } else {
+    return Error::success();
+  }
 }
 
 Error MMIXObjectFile::initSymbolTable(const unsigned char *&Iter) {
-  Iter+=4;
+  Iter += 4;
   return decodeSymbolTable(Iter);
 }
 
 void MMIXObjectFile::initSymbolTrie() {
-  if(auto Root = get_if<MMOTrieUTF8>(&TrieRoot)) {
-    for(const auto &S : SymbTab) {
+  if (auto Root = get_if<MMOTrieUTF8>(&TrieRoot)) {
+    for (const auto &S : SymbTab) {
       Root->insert(S);
     }
     Root->prune();
-  } else if(auto Root = get_if<MMOTrieUTF16>(&TrieRoot)) {
-    for(const auto &S : SymbTab) {
+  } else if (auto Root = get_if<MMOTrieUTF16>(&TrieRoot)) {
+    for (const auto &S : SymbTab) {
       Root->insert(S);
     }
     Root->prune();
@@ -216,14 +178,15 @@ Error MMIXObjectFile::decodeSymbolTable(const unsigned char *&Iter) {
   Error E = Error::success();
   decodeSymbolTable(Iter, SymbolName, E);
   std::sort(SymbTab.begin(), SymbTab.end(),
-            [](const MMOSymbol &S1, const MMOSymbol &S2) {
-              return S1.SerialNumber < S2.SerialNumber;
+            [](const MMO::Symbol &S1, const MMO::Symbol &S2) {
+              return S1.Serial < S2.Serial;
             });
   return std::move(E);
 }
 
 void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
                                        SmallVector<UTF16, 32> &Name, Error &E) {
+  if (E) return;
   const uint8_t M = *Start++; /* the master control byte */
 
   if (M & 0x40) {
@@ -261,16 +224,16 @@ void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
         }
         return V;
       };
-      MMOSymbol S;
+      MMO::Symbol S;
       // convert to UTF-8 encode
       std::string UTF8Name;
-      if(holds_alternative<MMOTrieUTF16>(TrieRoot)) {
+      if (holds_alternative<MMOTrieUTF16>(TrieRoot)) {
         if (!convertUTF16ToUTF8String(Name, UTF8Name)) {
           E = createError("invalid symbol name");
           return;
         }
       } else {
-        for(const auto &C : Name) {
+        for (const auto &C : Name) {
           UTF8Name += static_cast<char>(C);
         }
       }
@@ -278,15 +241,15 @@ void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
       uint8_t J = M & 0xF;
       if (J == 0xF) { // register
         S.Type = MMO::REGISTER;
-        S.Address = *Start++;
+        S.Equiv = *Start++;
       } else if (J <= 8) { // symbol
-        S.Address = readBytes(J);
-        if (J == 2 && S.Address == 0) {
+        S.Equiv = readBytes(J);
+        if (J == 2 && S.Equiv == 0) {
           S.Type = MMO::UNDEFINED;
         }
       } else {
-        S.Address = readBytes(J - 8);
-        S.Address += 0x20'00'00'00'00'00'00'00;
+        S.Equiv = readBytes(J - 8);
+        S.Equiv += 0x20'00'00'00'00'00'00'00;
       }
       // set print position
       auto ObjBegin = getData().bytes_begin();
@@ -294,12 +257,12 @@ void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
       assert((S.PrintPos - ObjBegin) % 4 == 0);
       // serial number
       uint32_t SN = *Start++;
-      S.SerialNumber = SN;
-      while (!(S.SerialNumber & 0x80)) {
-        S.SerialNumber <<= 7;
-        S.SerialNumber += SN;
+      S.Serial = SN;
+      while (!(S.Serial & 0x80)) {
+        S.Serial <<= 7;
+        S.Serial += SN;
       }
-      S.SerialNumber -= 128;
+      S.Serial -= 128;
       SymbTab.push_back(S);
     }
 
@@ -340,13 +303,13 @@ Optional<StringRef> MMIXObjectFile::tryGetCPUName() const {
 Expected<uint64_t> MMIXObjectFile::getStartAddress() const {
   // return the address of symbol `Main` otherwise 0
   const auto &It =
-      std::find_if(SymbTab.begin(), SymbTab.end(), [](const MMOSymbol &S) {
-        return S.Name.compare(":main") == 0;
+      std::find_if(SymbTab.begin(), SymbTab.end(), [](const MMO::Symbol &S) {
+        return S.Name.compare(":Main") == 0;
       });
   if (It == SymbTab.end()) {
     return 0;
   } else {
-    return It->Address;
+    return It->Equiv;
   }
 }
 
@@ -394,11 +357,11 @@ Expected<StringRef> MMIXObjectFile::getSymbolName(DataRefImpl Symb) const {
 }
 Expected<uint64_t> MMIXObjectFile::getSymbolAddress(DataRefImpl Symb) const {
   auto S = reinterpret_cast<SymbItT>(Symb.p);
-  return S->Address;
+  return S->Equiv;
 }
 uint64_t MMIXObjectFile::getSymbolValueImpl(DataRefImpl Symb) const {
   auto S = reinterpret_cast<SymbItT>(Symb.p);
-  return S->Address;
+  return S->Equiv;
 }
 uint64_t MMIXObjectFile::getCommonSymbolSizeImpl(DataRefImpl Symb) const {
   return 4;
@@ -472,18 +435,18 @@ const MMIXObjectFile::ContentT &MMIXObjectFile::getMMOContent() const {
   return Content;
 }
 
-const MMOSymbol &MMIXObjectFile::getMMOSymbol(const DataRefImpl &Symb) const {
+const MMO::Symbol &MMIXObjectFile::getMMOSymbol(const DataRefImpl &Symb) const {
   auto S = reinterpret_cast<SymbItT>(Symb.p);
   return *S;
 }
 
-const MMOSymbol &MMIXObjectFile::getMMOSymbol(const SymbolRef &Symb) const {
+const MMO::Symbol &MMIXObjectFile::getMMOSymbol(const SymbolRef &Symb) const {
   return getMMOSymbol(Symb.getRawDataRefImpl());
 }
 
-const MMOPreamble &MMIXObjectFile::getMMOPreamble() const { return Preamble; }
+const MMO::Pre &MMIXObjectFile::getMMOPreamble() const { return Preamble; }
 
-const MMOPostamble &MMIXObjectFile::getMMOPostamble() const {
+const MMO::Post &MMIXObjectFile::getMMOPostamble() const {
   return Postamble;
 }
 

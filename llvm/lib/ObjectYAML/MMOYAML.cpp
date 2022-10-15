@@ -14,31 +14,56 @@
 
 using std::get;
 using std::holds_alternative;
+using std::visit;
 
 namespace llvm {
 
 namespace MMOYAML {
 
 Object::Object(const object::MMIXObjectFile &O)
-    : Pre(O.getMMOPreamble()), Post(O.getMMOPostamble()) {}
+    : Preamble(O.getMMOPreamble()), Postamble(O.getMMOPostamble()) {}
 
-Preamble::Preamble(const object::MMOPreamble &P)
-    : Version(P.Version), CreatedTime(P.CreatedTime) {
-      if(P.ExtraData.has_value()) {
-        Content = yaml::BinaryRef(*P.ExtraData);
-      }
-    }
+Quote::Quote(const MMO::Quote &Q) : Value(Q.Value) {}
+Quote::Quote(yaml::IO &IO) { IO.mapRequired("Value", Value); }
+Loc::Loc(const MMO::Loc &L) : HighByte(L.HighByte), Offset(L.Offset) {}
+Loc::Loc(yaml::IO &IO) {
+  IO.mapRequired("HighByte", HighByte);
+  IO.mapRequired("Offset", Offset);
+}
 
-Preamble::Preamble() {}
-
-Postamble::Postamble(const object::MMOPostamble &P) : G(P.G) {
-  for (const auto &V : P.Values) {
-    Items.push_back(V);
+Skip::Skip(const MMO::Skip &S) : Delta(S.Delta) {}
+Skip::Skip(yaml::IO &IO) { IO.mapRequired("Delta", Delta); }
+Fixo::Fixo(const MMO::Fixo &F) : HighByte(F.HighByte), Offset(F.Offset) {}
+Fixo::Fixo(yaml::IO &IO) {
+  IO.mapRequired("HighByte", HighByte);
+  IO.mapRequired("Offset", Offset);
+}
+Fixr::Fixr(const MMO::Fixr &F) : Delta(F.Delta) {}
+Fixr::Fixr(yaml::IO &IO) { IO.mapRequired("Delta", Delta); }
+Fixrx::Fixrx(const MMO::Fixrx &F) : Z(F.Z), Delta(F.Delta) {}
+Fixrx::Fixrx(yaml::IO &IO) {
+  IO.mapRequired("Z", Z);
+  IO.mapRequired("Delta", Delta);
+}
+File::File(const MMO::File &F) : Name(F.Name), Number(F.Number) {}
+File::File(yaml::IO &IO) {
+  IO.mapOptional("Name", Name);
+  IO.mapRequired("Number", Number);
+}
+Line::Line(const MMO::Line &L) : Number(L.Number) {}
+Line::Line(yaml::IO &IO) { IO.mapRequired("Number", Number); }
+Spec::Spec(const MMO::Spec &S) : Type(S.Type) {}
+Spec::Spec(yaml::IO &IO) { IO.mapRequired("Type", Type); }
+Pre::Pre(const MMO::Pre &P) : Version(P.Version), CreatedTime(P.CreatedTime) {
+  if (P.ExtraData.has_value()) {
+    ExtraData = yaml::BinaryRef(*P.ExtraData);
   }
 }
 
-Postamble::Postamble() : G(255) {
-
+Post::Post(const MMO::Post &P) : G(P.G) {
+  for (const auto &V : P.Values) {
+    Values.push_back(V);
+  }
 }
 
 } // namespace MMOYAML
@@ -46,67 +71,49 @@ Postamble::Postamble() : G(255) {
 namespace yaml {
 
 // lops
-void CustomMappingTraits<MMOYAML::Lop>::inputOne(IO &IO, StringRef key, MMOYAML::Lop &L) {
+void CustomMappingTraits<MMOYAML::ContentLop>::inputOne(
+    IO &IO, StringRef key, MMOYAML::ContentLop &L) {
   MMOYAML::MMO_LOP_TYPE OpCode;
   IO.mapRequired("OpCode", OpCode);
-  switch(OpCode) {
-    case MMO::LOP_QUOTE: {
-      MMOYAML::Quote Q;
-      IO.mapRequired("Value", Q.Value);
-      L = Q;
-    } break;
-    case MMO::LOP_LOC: {
-      MMOYAML::Loc Loc;
-      IO.mapRequired("HighByte", Loc.HighByte);
-      IO.mapRequired("Offset", Loc.Offset);
-      L = Loc;
-    } break;
-    case MMO::LOP_SKIP: {
-      MMOYAML::Skip S;
-      IO.mapRequired("Delta", S.Delta);
-      L = S;
-    } break;
-    case MMO::LOP_FIXO: {
-      MMOYAML::Fixo F;
-      IO.mapRequired("HighByte", F.HighByte);
-      IO.mapRequired("Offset", F.Offset);
-      L = F;
-    } break;
-    case MMO::LOP_FIXR: {
-      MMOYAML::Fixr F;
-      IO.mapRequired("Delta", F.Delta);
-      L = F;
-    } break;
-    case MMO::LOP_FIXRX: {
-      MMOYAML::Fixrx F;
-      IO.mapRequired("Delta", F.Delta);
-      IO.mapRequired("Z", F.Z);
-      L = F;
-    } break;
-    case MMO::LOP_FILE: {
-      MMOYAML::File F;
-      IO.mapRequired("FileNumber", F.Number);
-      IO.mapOptional("FileName", F.Name);
-      L = F;
-    } break;
-    case MMO::LOP_LINE: {
-      MMOYAML::Line LN;
-      IO.mapRequired("Line", LN.LineNumber);
-      L = LN;
-    } break;
-    case MMO::LOP_SPEC: {
-      MMOYAML::Spec S;
-      IO.mapRequired("Type", S.Type);
-      L = S;
-    } break;
-    default:
+  switch (OpCode) {
+  case MMO::LOP_QUOTE:
+    L = MMOYAML::Quote(IO);
+    break;
+  case MMO::LOP_LOC:
+    L = MMOYAML::Loc(IO);
+    break;
+  case MMO::LOP_SKIP:
+    L = MMOYAML::Skip(IO);
+    break;
+  case MMO::LOP_FIXO:
+    L = MMOYAML::Fixo(IO);
+    break;
+  case MMO::LOP_FIXR:
+    L = MMOYAML::Fixr(IO);
+    break;
+  case MMO::LOP_FIXRX:
+    L = MMOYAML::Fixrx(IO);
+    break;
+  case MMO::LOP_FILE:
+    L = MMOYAML::File(IO);
+    break;
+  case MMO::LOP_LINE:
+    L = MMOYAML::Line(IO);
+    break;
+  case MMO::LOP_SPEC:
+    L = MMOYAML::Spec(IO);
+    break;
+  default:
     break;
   }
 }
 
-void CustomMappingTraits<MMOYAML::Lop>::output(IO &IO, MMOYAML::Lop &L) {
+void CustomMappingTraits<MMOYAML::ContentLop>::output(IO &IO,
+                                                      MMOYAML::ContentLop &L) {
+  // visit([&](const auto &Op) { L.output(IO); }, L);
   if (holds_alternative<MMOYAML::Quote>(L)) {
     auto &YQ = get<MMOYAML::Quote>(L);
+    // YQ.output(IO);
     MMOYAML::MMO_LOP_TYPE LopType = MMO::LOP_QUOTE;
     IO.mapRequired("OpCode", LopType);
     IO.mapRequired("Value", YQ.Value);
@@ -142,13 +149,13 @@ void CustomMappingTraits<MMOYAML::Lop>::output(IO &IO, MMOYAML::Lop &L) {
     auto &YF = get<MMOYAML::File>(L);
     MMOYAML::MMO_LOP_TYPE LopType = MMO::LOP_FILE;
     IO.mapRequired("OpCode", LopType);
-    IO.mapRequired("FileNumber", YF.Number);
-    IO.mapOptional("FileName", YF.Name);
+    IO.mapRequired("Number", YF.Number);
+    IO.mapOptional("Name", YF.Name);
   } else if (holds_alternative<MMOYAML::Line>(L)) {
     auto &YL = get<MMOYAML::Line>(L);
     MMOYAML::MMO_LOP_TYPE LopType = MMO::LOP_LINE;
     IO.mapRequired("OpCode", LopType);
-    IO.mapRequired("Line", YL.LineNumber);
+    IO.mapRequired("Number", YL.Number);
   } else if (holds_alternative<MMOYAML::Spec>(L)) {
     auto &YS = get<MMOYAML::Spec>(L);
     MMOYAML::MMO_LOP_TYPE LopType = MMO::LOP_SPEC;
@@ -157,53 +164,60 @@ void CustomMappingTraits<MMOYAML::Lop>::output(IO &IO, MMOYAML::Lop &L) {
   }
 }
 
-void MappingTraits<MMOYAML::Preamble>::mapping(IO &IO, MMOYAML::Preamble &P) {
+void MappingTraits<MMOYAML::Pre>::mapping(IO &IO, MMOYAML::Pre &P) {
   IO.mapRequired("Version", P.Version);
   IO.mapOptional("CreatedTime", P.CreatedTime);
-  IO.mapOptional("Content", P.Content);
+  IO.mapOptional("ExtraData", P.ExtraData);
 }
 
-void CustomMappingTraits<MMOYAML::Segment>::inputOne(IO &IO, StringRef key, MMOYAML::Segment &Seg) {
+void CustomMappingTraits<MMOYAML::Segment>::inputOne(IO &IO, StringRef key,
+                                                     MMOYAML::Segment &Seg) {
   if (key == "Bin") {
-    IO.mapRequired("Bin", get<BinaryRef>(Seg));
+    BinaryRef Bin;
+    IO.mapRequired("Bin", Bin);
+    Seg = Bin;
   } else if (key == "LOP") {
-    Seg = MMOYAML::Lop();
-    IO.mapRequired("LOP", get<MMOYAML::Lop>(Seg));
+    MMOYAML::ContentLop Lop;
+    IO.mapRequired("LOP", Lop);
+    Seg = Lop;
   }
 }
 
-void CustomMappingTraits<MMOYAML::Segment>::output(IO &IO, MMOYAML::Segment &Seg) {
+void CustomMappingTraits<MMOYAML::Segment>::output(IO &IO,
+                                                   MMOYAML::Segment &Seg) {
+  
   if (holds_alternative<BinaryRef>(Seg)) {
     IO.mapRequired("Bin", get<BinaryRef>(Seg));
-  } else if (holds_alternative<MMOYAML::Lop>(Seg)) {
-    auto &YLop = get<MMOYAML::Lop>(Seg);
+  } else if (holds_alternative<MMOYAML::ContentLop>(Seg)) {
+    auto &YLop = get<MMOYAML::ContentLop>(Seg);
     IO.mapRequired("LOP", YLop);
   }
 }
 
 void MappingTraits<MMOYAML::Symbol>::mapping(IO &IO, MMOYAML::Symbol &S) {
   IO.mapRequired("Name", S.Name);
-  IO.mapRequired("SerialNumber", S.SerialNumber);
-  IO.mapRequired("Address", S.Address);
+  IO.mapRequired("SerialNumber", S.Serial);
+  IO.mapRequired("Equiv", S.Equiv);
   IO.mapRequired("Type", S.Type);
 }
 
-void MappingTraits<MMOYAML::SymbolTable>::mapping(IO &IO, MMOYAML::SymbolTable &S) {
+void MappingTraits<MMOYAML::SymbolTable>::mapping(IO &IO,
+                                                  MMOYAML::SymbolTable &S) {
   IO.mapRequired("IsUTF16", S.IsUTF16);
   IO.mapRequired("Symbol", S.Symbols);
 }
 
 void MappingTraits<MMOYAML::Object>::mapping(IO &IO, MMOYAML::Object &O) {
   IO.mapTag("!MMO", true);
-  IO.mapRequired("Preamble", O.Pre);
+  IO.mapRequired("Preamble", O.Preamble);
   IO.mapRequired("Segments", O.Segments);
-  IO.mapRequired("Postamble", O.Post);
+  IO.mapRequired("Postamble", O.Postamble);
   IO.mapRequired("SymbolTable", O.SymTab);
 }
 
-void MappingTraits<MMOYAML::Postamble>::mapping(IO &IO, MMOYAML::Postamble &P) {
+void MappingTraits<MMOYAML::Post>::mapping(IO &IO, MMOYAML::Post &P) {
   IO.mapRequired("G", P.G);
-  IO.mapRequired("Values", P.Items);
+  IO.mapRequired("Values", P.Values);
 }
 
 void ScalarEnumerationTraits<MMOYAML::MMO_SYMBOL_TYPE>::enumeration(

@@ -824,89 +824,90 @@ FileHeader:
 
 # RUN: obj2yaml %p/Inputs/test.mmo | FileCheck %s --check-prefix MMO
 
-# MMO: --- !MMO
-# MMO: Preamble:
-# MMO:   Version:         1
-# MMO:   CreatedTime:     1656759227
-# MMO: Segments:
-# MMO:   - LOP:
-# MMO:       OpCode:          LOC
-# MMO:       HighByte:        DATA
-# MMO:       Offset:          0x0
-# MMO:   - Bin:             '000000000000000061620000'
-# MMO:   - LOP:
-# MMO:       OpCode:          LOC
-# MMO:       HighByte:        INSTRUCTION
-# MMO:       Offset:          0x12345678C
-# MMO:   - LOP:
-# MMO:       OpCode:          FILE
-# MMO:       FileNumber:      0
-# MMO:       FileName:        test.mms
-# MMO:   - LOP:
-# MMO:       OpCode:          LINE
-# MMO:       Line:            7
-# MMO:   - Bin:             F0000000
-# MMO:   - LOP:
-# MMO:       OpCode:          SKIP
-# MMO:       Delta:           0x4000
-# MMO:   - LOP:
-# MMO:       OpCode:          LINE
-# MMO:       Line:            9
-# MMO:   - Bin:             8103FE0142030000
-# MMO:   - LOP:
-# MMO:       OpCode:          LINE
-# MMO:       Line:            10
-# MMO:   - Bin:             '00000000'
-# MMO:   - LOP:
-# MMO:       OpCode:          LOC
-# MMO:       HighByte:        INSTRUCTION
-# MMO:       Offset:          0x12345A768
-# MMO:   - LOP:
-# MMO:       OpCode:          FIXO
-# MMO:       HighByte:        0x10
-# MMO:       Offset:          0x100FFF5
-# MMO:   - LOP:
-# MMO:       OpCode:          FIXO
-# MMO:       HighByte:        0xF7
-# MMO:       Offset:          0x0
-# MMO:   - LOP:
-# MMO:       OpCode:          FIXO
-# MMO:       HighByte:        0x3
-# MMO:       Offset:          0x0
-# MMO:   - LOP:
-# MMO:       OpCode:          FILE
-# MMO:       FileNumber:      1
-# MMO:       FileName:        "foo.mms\0"
-# MMO:   - LOP:
-# MMO:       OpCode:          LINE
-# MMO:       Line:            4
-# MMO:   - Bin:             F000000A
-# MMO:   - LOP:
-# MMO:       OpCode:          LINE
-# MMO:       Line:            5
-# MMO:   - Bin:             0000020000FE0000
-# MMO:   - LOP:
-# MMO:       OpCode:          LOC
-# MMO:       HighByte:        DATA
-# MMO:       Offset:          0xA
-# MMO:   - Bin:             '00006364'
-# MMO:   - LOP:
-# MMO:       OpCode:          QUOTE
-# MMO:       Value:           '98000000'
-# MMO: Symbols:
-# MMO:   - Name:            ':ABCD'
-# MMO:     SerialNumber:    3
-# MMO:     Address:         0x2000000000000008
-# MMO:     Type:            NORMAL
-# MMO:   - Name:            ':Main'
-# MMO:     SerialNumber:    1
-# MMO:     Address:         0x12345678C
-# MMO:     Type:            NORMAL
-# MMO:   - Name:            ':a'
-# MMO:     SerialNumber:    2
-# MMO:     Address:         0xFE
-# MMO:     Type:            REGISTER
-# MMO: Postamble:
-# MMO:   G:               254
-# MMO:   Values:          [ 0x2000000000000008, 0x12345678C ]
-# MMO: ...
+MMO:      --- !MMO
+MMO-NEXT: Preamble:
+MMO-NEXT:   Version:         1
+MMO:   CreatedTime:     1656759227
+MMO: Segments:
+MMO:   - LOP:
+MMO:       OpCode:          LOC
+MMO:       HighByte:        DATA
+MMO:       Offset:          0x0
+MMO:   - Bin:             '000000000000000061620000'
+MMO:   - LOP:
+MMO:       OpCode:          LOC
+MMO:       HighByte:        INSTRUCTION
+MMO:       Offset:          0x12345678C
+MMO:   - LOP:
+MMO:       OpCode:          FILE
+MMO:       FileNumber:      0
+MMO:       FileName:        test.mms
+MMO:   - LOP:
+MMO:       OpCode:          LINE
+MMO:       Line:            7
+MMO:   - Bin:             F0000000
+MMO:   - LOP:
+MMO:       OpCode:          SKIP
+MMO:       Delta:           0x4000
+MMO:   - LOP:
+MMO:       OpCode:          LINE
+MMO:       Line:            9
+MMO:   - Bin:             8103FE0142030000
+MMO:   - LOP:
+MMO:       OpCode:          LINE
+MMO:       Line:            10
+MMO:   - Bin:             '00000000'
+MMO:   - LOP:
+MMO:       OpCode:          LOC
+MMO:       HighByte:        INSTRUCTION
+MMO:       Offset:          0x12345A768
+MMO:   - LOP:
+MMO:       OpCode:          FIXRX
+MMO:       Z:               0x10
+MMO:       Delta:           0x100FFF5
+MMO:   - LOP:
+MMO:       OpCode:          FIXR
+MMO:       Delta:           0xFF7
+MMO:   - LOP:
+MMO:       OpCode:          FIXO
+MMO:       HighByte:        0x20
+MMO:       Offset:          0x0
+MMO:   - LOP:
+MMO:       OpCode:          FILE
+MMO:       FileNumber:      1
+MMO:       FileName:        "foo.mms\0"
+MMO:   - LOP:
+MMO:       OpCode:          LINE
+MMO:       Line:            4
+MMO:   - Bin:             F000000A
+MMO:   - LOP:
+MMO:       OpCode:          LINE
+MMO:       Line:            5
+MMO:   - Bin:             0000020000FE0000
+MMO:   - LOP:
+MMO:       OpCode:          LOC
+MMO:       HighByte:        DATA
+MMO:       Offset:          0xA
+MMO:   - Bin:             '00006364'
+MMO:   - LOP:
+MMO:       OpCode:          QUOTE
+MMO:       Value:           '98000000'
+MMO: Postamble:
+MMO:   G:               254
+MMO:   Values:          [ 0x2000000000000008, 0x12345678C ]
+MMO: SymbolTable:
+MMO:   IsUTF16:         false
+MMO:   Symbol:
+MMO:     - Name:            ':Main'
+MMO:       SerialNumber:    1
+MMO:       Address:         0x12345678C
+MMO:       Type:            NORMAL
+MMO:     - Name:            ':a'
+MMO:       SerialNumber:    2
+MMO:       Address:         0xFE
+MMO:       Type:            REGISTER
+MMO:     - Name:            ':ABCD'
+MMO:       SerialNumber:    3
+MMO:       Address:         0x2000000000000008
+MMO:       Type:            NORMAL
+MMO: ...

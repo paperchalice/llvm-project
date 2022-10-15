@@ -9,8 +9,12 @@
 #ifndef LLVM_BINARYFORMAT_MMO_H
 #define LLVM_BINARYFORMAT_MMO_H
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/Support/Error.h"
 #include <cstdint>
+#include <ctime>
+#include <variant>
 
 namespace llvm {
 namespace MMO {
@@ -49,6 +53,78 @@ enum SegmentBaseAddr : std::uint8_t {
   DATA_SEGMENT = 0x20,
   POOL_SEGMENT = 0x40,
   STACK_SEGMENT = 0x60,
+};
+
+struct Quote {
+  ArrayRef<std::uint8_t> Value;
+  Quote(const std::uint8_t *&Iter);
+};
+struct Loc {
+  std::uint8_t HighByte;
+  std::uint64_t Offset;
+  Loc(const std::uint8_t *&Iter, Error &E);
+};
+struct Skip {
+  std::uint16_t Delta;
+  Skip(const std::uint8_t *&Iter);
+};
+struct Fixo {
+  std::uint8_t HighByte;
+  std::uint64_t Offset;
+  Fixo(const std::uint8_t *&Iter, Error &E);
+};
+struct Fixr {
+  std::uint16_t Delta;
+  Fixr(const std::uint8_t *&Iter);
+};
+struct Fixrx {
+  std::uint8_t Z;
+  std::int64_t Delta;
+  Fixrx(const std::uint8_t *&Iter, Error &E);
+};
+struct File {
+  std::uint8_t Number;
+  Optional<StringRef> Name;
+  File(const std::uint8_t *&Iter);
+};
+struct Line {
+  std::uint16_t Number;
+  Line(const std::uint8_t *&Iter);
+};
+struct Spec {
+  std::uint16_t Type;
+  Spec(const std::uint8_t *&Iter);
+};
+
+struct Pre {
+  std::uint8_t Version = 1;
+  Optional<std::time_t> CreatedTime;
+  Optional<ArrayRef<std::uint8_t>> ExtraData;
+};
+
+struct Post {
+  std::uint8_t G;
+  std::vector<std::uint64_t> Values;
+};
+
+using ContentLop =
+    std::variant<Quote, Loc, Skip, Fixo, Fixr, Fixrx, File, Line, Spec>;
+
+struct SymNode {
+  std::uint32_t Serial;
+  std::uint64_t Equiv;
+  bool IsRegister = false;
+  void computeMasterByte(int &M);
+  void writeBinEquiv(raw_ostream &OS, int &M);
+  void writeBinSerial(raw_ostream &OS, int &M);
+};
+
+struct Symbol {
+  std::string Name;
+  std::uint32_t Serial;
+  std::uint64_t Equiv;
+  SymbolType Type;
+  const std::uint8_t *PrintPos; //< for mmotype to determine when output tetra
 };
 
 } // namespace MMO

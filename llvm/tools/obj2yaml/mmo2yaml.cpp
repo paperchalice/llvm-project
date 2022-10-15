@@ -17,11 +17,9 @@
 #include "llvm/Support/YAMLTraits.h"
 #include <variant>
 
+using namespace std;
 using namespace llvm;
 using namespace object;
-using std::get;
-using std::holds_alternative;
-using std::uint8_t;
 
 namespace {
 
@@ -53,63 +51,13 @@ Error MMODumper::dump() {
 
 void MMODumper::dumpContent() {
   const auto Content = Obj.getMMOContent();
-  for (const auto S : Content) {
-    if (holds_alternative<ArrayRef<uint8_t>>(S)) {
-      yaml::BinaryRef BinRef(get<ArrayRef<uint8_t>>(S));
-      YAMLObj.Segments.emplace_back(BinRef);
-    } else if (holds_alternative<MMOLOp>(S)) {
-      MMOYAML::Lop YLop;
-      const auto &Op = get<MMOLOp>(S);
-      switch (Op.Content.index()) {
-      case MMO::LOP_QUOTE: {
-        const auto &Q = get<MMOLOp::Quote>(Op.Content);
-        MMOYAML::Quote YQ = {Q.Value};
-        YLop = YQ;
-      } break;
-      case MMO::LOP_LOC: {
-        const auto &L = get<MMOLOp::Loc>(Op.Content);
-        MMOYAML::Loc YL = {L.HighByte, L.Offset};
-        YLop = YL;
-      } break;
-      case MMO::LOP_SKIP: {
-        const auto &S = get<MMOLOp::Skip>(Op.Content);
-        MMOYAML::Skip YS = {S.Delta};
-        YLop = YS;
-      } break;
-      case MMO::LOP_FIXO: {
-        const auto &F = get<MMOLOp::Fixo>(Op.Content);
-        MMOYAML::Fixo YF = {F.HighByte, F.Offset};
-        YLop = YF;
-      } break;
-      case MMO::LOP_FIXR: {
-        const auto &F = get<MMOLOp::Fixr>(Op.Content);
-        MMOYAML::Fixr YF = {F.Delta};
-        YLop = YF;
-      } break;
-      case MMO::LOP_FIXRX: {
-        const auto &F = get<MMOLOp::Fixrx>(Op.Content);
-        MMOYAML::Fixrx YF = {F.Z, F.Delta};
-        YLop = YF;
-      } break;
-      case MMO::LOP_FILE: {
-        const auto &F = get<MMOLOp::File>(Op.Content);
-        MMOYAML::File YF = {F.FileNumber, F.FileName};
-        YLop = YF;
-      } break;
-      case MMO::LOP_LINE: {
-        const auto &L = get<MMOLOp::Line>(Op.Content);
-        MMOYAML::Line YL = {L.LineNumber};
-        YLop = YL;
-      } break;
-      case MMO::LOP_SPEC: {
-        const auto &S = get<MMOLOp::Spec>(Op.Content);
-        MMOYAML::Line YS = {S.Type};
-        YLop = YS;
-      }
-      default:
-        break;
-      }
-      YAMLObj.Segments.emplace_back(YLop);
+  for (const auto &S : Content) {
+    if (auto BinRef = get_if<ArrayRef<uint8_t>>(&S)) {
+      YAMLObj.Segments.emplace_back(*BinRef);
+    }
+
+    if (const auto pLOp = get_if<MMO::ContentLop>(&S)) {
+      visit([&](const auto &L) { YAMLObj.Segments.emplace_back(L); }, *pLOp);
     }
   }
 }
@@ -120,8 +68,8 @@ void MMODumper::dumpSymbols() {
     MMOYAML::Symbol YS;
     const auto &MMOS = Obj.getMMOSymbol(S);
     YS.Name = MMOS.Name;
-    YS.Address = MMOS.Address;
-    YS.SerialNumber = MMOS.SerialNumber;
+    YS.Equiv = MMOS.Equiv;
+    YS.Serial = MMOS.Serial;
     YS.Type = MMOS.Type;
     YAMLObj.SymTab.IsUTF16 = Obj.isSymbolNameUTF16();
     YAMLObj.SymTab.Symbols.emplace_back(YS);

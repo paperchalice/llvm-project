@@ -31,71 +31,11 @@ namespace llvm {
 
 namespace object {
 
-struct MMOLOp {
-  struct Quote {
-    ArrayRef<std::uint8_t> Value;
-  };
-  struct Loc {
-    std::uint8_t HighByte;
-    std::uint64_t Offset;
-  };
-  struct Skip {
-    std::uint16_t Delta;
-  };
-  struct Fixo {
-    std::uint8_t HighByte;
-    std::uint64_t Offset;
-  };
-  struct Fixr {
-    std::uint16_t Delta;
-  };
-  struct Fixrx {
-    std::uint8_t Z;
-    std::int64_t Delta;
-  };
-  struct File {
-    std::uint8_t FileNumber;
-    Optional<StringRef> FileName;
-  };
-  struct Line {
-    std::uint16_t LineNumber;
-  };
-  struct Spec {
-    std::uint16_t Type;
-  };
-  std::variant<Quote, Loc, Skip, Fixo, Fixr, Fixrx, File, Line, Spec> Content;
-};
-
-struct MMOPreamble {
-  std::uint8_t Version = 1;
-  Optional<std::time_t> CreatedTime;
-  Optional<ArrayRef<std::uint8_t>> ExtraData;
-};
-
-struct MMOPostamble {
-  std::uint8_t G;
-  std::vector<std::uint64_t> Values;
-};
-
-struct MMOSymbol {
-  SmallString<32> Name;
-  MMO::SymbolType Type = MMO::SymbolType::NORMAL;
-  std::uint64_t Address = 0;
-  std::uint32_t SerialNumber;
-  const std::uint8_t *PrintPos; //< for mmotype to determine when output tetra
-};
-
-struct MMOSymNode {
-  std::uint32_t Serial;
-  std::uint64_t Equiv;
-  bool IsRegister = false;
-};
-
 template <typename T> struct MMOTrieNode {
 public:
   T Ch;
   std::shared_ptr<MMOTrieNode> Left, Mid, Right;
-  std::optional<MMOSymNode> SymNode;
+  std::optional<MMO::SymNode> SymNode;
   MMOTrieNode(const T &C) : Ch(C) {}
 };
 
@@ -135,9 +75,9 @@ public:
     }
   }
 
-  void insert(const MMOSymbol &S) {
+  void insert(const MMO::Symbol &S) {
     auto Tt = search(S.Name);
-    Tt->SymNode = {S.SerialNumber, S.Address,
+    Tt->SymNode = {S.Serial, S.Equiv,
                    S.Type == MMO::SymbolType::REGISTER};
   }
 
@@ -225,28 +165,7 @@ private:
       M += 0x10;
 
     if (N->SymNode) {
-      const auto S = N->SymNode.value();
-      if (S.IsRegister)
-        M += 0xF;
-      else {
-        std::uint32_t X = 0;
-        if ((S.Equiv & (0xFFFFUL << (32 + 16))) == (0x20000000UL << 32)) {
-          M += 8;
-          X = ((S.Equiv - (0x20000000UL << 32)) >> 32);
-        } else {
-          X = (S.Equiv >> 32);
-        }
-        if (X)
-          M += 4;
-        else
-          X = S.Equiv & 0xFFFF'FFFF;
-        int j = 1;
-        for (; j < 4; ++j) {
-          if (X < (unsigned int)(1 << (8 * j)))
-            break;
-        }
-        M += j;
-      }
+      N->SymNode->computeMasterByte(M);
     }
     OS << static_cast<std::uint8_t>(M);
 
@@ -263,30 +182,8 @@ private:
       }
       M &= 0xF;
       if (M && N->SymNode) {
-        if (M == 0xF)
-          M = 1;
-        else if (M > 8)
-          M -= 8;
-        for (; M != 0; --M) {
-          if (M > 4) {
-            OS << static_cast<std::uint8_t>(
-                ((N->SymNode->Equiv >> 32) >> (8 * (M - 5))) & 0xFF);
-          } else {
-            OS << static_cast<std::uint8_t>(
-                static_cast<std::uint32_t>((N->SymNode->Equiv & 0xFFFF'FFFF)) >>
-                    (8 * (M - 1)) &
-                0xFF);
-          }
-        }
-        for (M = 0; M < 4; ++M) {
-          if (N->SymNode->Serial <
-              static_cast<std::uint32_t>(1 << (7 * (M + 1))))
-            break;
-        }
-        for (; M >= 0; --M) {
-          OS << static_cast<std::uint8_t>(
-              (N->SymNode->Serial >> (7 * (M)) & 0x7F) + (M ? 0 : 0x80));
-        }
+        N->SymNode->writeBinEquiv(OS, M);
+        N->SymNode->writeBinSerial(OS, M);
       }
       if (N->Mid)
         writeBin(OS, N->Mid);
@@ -383,11 +280,11 @@ protected:
                              SmallVectorImpl<char> &Result) const override;
 
 private:
-  MMOPreamble Preamble;
+  MMO::Pre Preamble;
   ArrayRef<std::uint8_t> ContentRef;
-  std::vector<std::variant<ArrayRef<std::uint8_t>, MMOLOp>> Content;
-  MMOPostamble Postamble;
-  SmallVector<MMOSymbol, 32> SymbTab;
+  std::vector<std::variant<ArrayRef<std::uint8_t>, MMO::ContentLop>> Content;
+  MMO::Post Postamble;
+  SmallVector<MMO::Symbol, 32> SymbTab;
   using MMOTrieUTF8 = MMOTrie<std::uint8_t>;
   using MMOTrieUTF16 = MMOTrie<std::uint16_t>;
   std::variant<std::monostate, MMOTrieUTF8, MMOTrieUTF16> TrieRoot;
@@ -407,10 +304,10 @@ private:
 public:
 public:
   using ContentT = decltype(Content);
-  const MMOSymbol &getMMOSymbol(const SymbolRef &Symb) const;
-  const MMOSymbol &getMMOSymbol(const DataRefImpl &Symb) const;
-  const MMOPreamble &getMMOPreamble() const;
-  const MMOPostamble &getMMOPostamble() const;
+  const MMO::Symbol &getMMOSymbol(const SymbolRef &Symb) const;
+  const MMO::Symbol &getMMOSymbol(const DataRefImpl &Symb) const;
+  const MMO::Pre &getMMOPreamble() const;
+  const MMO::Post &getMMOPostamble() const;
   const ContentT &getMMOContent() const;
   bool isSymbolNameUTF16() const;
 };
