@@ -77,8 +77,7 @@ public:
 
   void insert(const MMO::Symbol &S) {
     auto Tt = search(S.Name);
-    Tt->SymNode = {S.Serial, S.Equiv,
-                   S.Type == MMO::SymbolType::REGISTER};
+    Tt->SymNode = {S.Serial, S.Equiv, S.Type == MMO::SymbolType::REGISTER};
   }
 
   auto search(const StringRef &S) {
@@ -309,6 +308,7 @@ public:
   const MMO::Pre &getMMOPreamble() const;
   const MMO::Post &getMMOPostamble() const;
   const ContentT &getMMOContent() const;
+  const auto &getSTab() const { return SymbTab; }
   bool isSymbolNameUTF16() const;
 };
 

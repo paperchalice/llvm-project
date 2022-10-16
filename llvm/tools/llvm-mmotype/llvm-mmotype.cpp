@@ -2,25 +2,28 @@
 #include "llvm/Object/MMIXObjectFile.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
+#include <iomanip>
+#include <sstream>
 #include <string>
 using namespace llvm;
+using namespace std;
 using namespace llvm::object;
+using namespace support::endian;
 
 namespace {
-cl::opt<bool> ListSymbolTableOnly("s", cl::desc("List only the symbol table"));
+cl::opt<bool> Lst("s", cl::desc("List only the symbol table"));
 cl::opt<bool> Verbose("v", cl::desc("List tetrabytes of input"));
 cl::opt<std::string> InputFilename(cl::Positional, cl::desc("<input file>"),
                                    cl::init("-"));
 
-void dumpAddress(const uint64_t Addr, uint64_t Value) {
-  outs() << format_hex_no_prefix(Addr, 16) << ": " << format_hex_no_prefix(Value, 16) << "\n";
-}
-void dumpAddress(const uint64_t Addr, uint32_t Value) {
-  outs() << format_hex_no_prefix(Addr, 16) << ": " << format_hex_no_prefix(Value, 8) << "\n";
-}
+inline uint8_t getX(const uint8_t *A) { return A[1]; }
+inline uint8_t getY(const uint8_t *A) { return A[2]; }
+inline uint8_t getZ(const uint8_t *A) { return A[3]; }
+inline uint16_t getYZ(const uint8_t *A) { return read16be(A + 2); }
 
 [[noreturn]] void reportError(StringRef File, const Twine &Message,
                               int ExitCode) {
@@ -36,65 +39,232 @@ void reportWarning(StringRef File, const Twine &Message) {
       << "'" << File << "': " << Message << "\n";
 }
 
-void outputTetra(const unsigned char *Addr) {
-  if (!Verbose)
-    return;
-  outs() << "  ";
-  for (int i = 0; i != 4; ++i) {
-    outs() << format_hex_no_prefix(Addr[i], 2);
+class MMOType {
+  const MMIXObjectFile &Obj;
+  size_t CurLoc = 0;
+  size_t TetraCnt = 0;
+  int ListedFile = -1;
+  int CurFile = -1;
+  int CurLine = 0;
+  vector<StringRef> FileNames;
+  uint64_t Tmp;
+  const uint8_t *Iter;
+
+  uint32_t outTetra() {
+    auto Ret = read32be(Iter);
+    if (Verbose) {
+      outs() << "  " << format_hex_no_prefix(Ret, 8) << "\n";
+    }
+    Iter += 4;
+    ++TetraCnt;
+    return Ret;
   }
-  outs() << "\n";
-}
 
-int dumpMMO(MMIXObjectFile *Obj) {
-  auto CurrentTetraBegin = Obj->getData().bytes_begin();
-  uint64_t CurrentLoc = 0;
-  outputTetra(CurrentTetraBegin);
+  void listPreamble() {
+    uint8_t Z = getZ(Iter);
+    outTetra();
+    if (Z) {
+      time_t Time = outTetra();
+      if (!Lst) {
+        outs() << "File was created " << asctime(localtime(&Time));
+      }
+    }
+    for (int I = 1; I < Z; ++I) {
+      outTetra();
+    }
+  }
 
-  for (auto CurrentTetraBegin = Obj->getData().bytes_begin();
-       CurrentTetraBegin < Obj->getData().bytes_end(); CurrentTetraBegin += 4) {
-    if (CurrentTetraBegin[0] == MMO::MM) {
-      switch (CurrentTetraBegin[1]) {
-      case MMO::LOP_QUOTE:
-        CurrentTetraBegin += 4;
-        outputTetra(CurrentTetraBegin);
-        break;
-      case MMO::LOP_LOC: {
-        uint64_t Addr = CurrentTetraBegin[2] << 56;
-        if (CurrentTetraBegin[3] == 1) {
-          CurrentTetraBegin += 4;
-          outputTetra(CurrentTetraBegin);
-          Addr += support::endian::read32be(CurrentTetraBegin);
-        } else if (CurrentTetraBegin[3] == 2) {
-          CurrentTetraBegin += 4;
-          outputTetra(CurrentTetraBegin);
-          Addr += support::endian::read64be(CurrentTetraBegin);
-          CurrentTetraBegin += 4;
-          outputTetra(CurrentTetraBegin);
-        } else {
-          reportWarning(Obj->getFileName(),
-                        "Z field of lop_loc should be 1 or 2");
+  void listStab() {
+    outs() << formatv("Symbol table (beginning at tetra {0}):\n", TetraCnt);
+    auto STabVec = Obj.getSTab();
+    std::sort(STabVec.begin(), STabVec.end(),
+              [](const MMO::Symbol &S1, const MMO::Symbol &S2) {
+                return S1.PrintPos < S2.PrintPos;
+              });
+    for (const auto &S : STabVec) {
+      while (Iter < S.PrintPos) {
+        outTetra();
+      }
+      if (S.Type == MMO::REGISTER) {
+        outs() << formatv("    {0} = ${1} ({2})\n", S.Name, S.Equiv, S.Serial);
+      } else {
+        outs() << formatv("    {0} = #{1} ({2})\n", S.Name,
+                          format_hex_no_prefix(S.Equiv, 1), S.Serial);
+      }
+    }
+    assert(Iter[0] == MMO::MM && Iter[1] == MMO::LOP_END);
+    if (Verbose) {
+      outs() << "  " << format_hex_no_prefix(read32be(Iter), 8) << "\n";
+      outs() << "Symbol table ends at tetra " << TetraCnt + 1 << "\n";
+    }
+  }
+
+  void listContent() {
+    auto End = Obj.getData().bytes_end();
+    bool Stop = false;
+    while (Iter != End && !Stop) {
+      if (Iter[0] == MMO::MM) {
+        switch (getX(Iter)) {
+        case MMO::LOP_QUOTE:
+          outTetra();
+          outTetra();
+          break;
+        case MMO::LOP_LOC:
+          CurLoc = static_cast<uint64_t>(Iter[2]) << 56;
+          if (getZ(Iter) == 1) {
+            outTetra();
+            CurLoc += read32be(Iter);
+            outTetra();
+          } else if (getZ(Iter) == 2) {
+            outTetra();
+            CurLoc += read64be(Iter);
+            outTetra();
+            outTetra();
+          } else {
+            reportWarning(Obj.getFileName(),
+                          "Z field of lop_loc should be 1 or 2.");
+          }
+          break;
+        case MMO::LOP_SKIP:
+          CurLoc += getYZ(Iter);
+          outTetra();
+          break;
+        case MMO::LOP_FIXO: {
+          uint64_t Y = getY(Iter);
+          switch (getZ(Iter)) {
+          case 1:
+            outTetra();
+            Tmp = (Y << 56) + outTetra();
+            break;
+          case 2:
+            outTetra();
+            Tmp = (Y << 56) + read64be(Iter);
+            outTetra();
+            outTetra();
+            break;
+          default:
+            break;
+          }
         }
-      } break;
-      case MMO::LOP_SKIP:
-        CurrentLoc += support::endian::read16be(CurrentTetraBegin + 2);
-        break;
-      case MMO::LOP_FIXO: {
-        uint64_t Addr = CurrentTetraBegin[1] << 56;
-        if (CurrentTetraBegin[2] == 1) {
-          CurrentTetraBegin += 4;
-          outputTetra(CurrentTetraBegin);
-          Addr += support::endian::read32be(CurrentTetraBegin);
-          dumpAddress(Addr, CurrentLoc);
+          if (!Lst) {
+            outs() << formatv("{0}: {1}\n", format_hex_no_prefix(Tmp, 16),
+                              format_hex_no_prefix(CurLoc, 16));
+          }
+
+          break;
+        case MMO::LOP_FIXR: {
+          uint32_t Delta = getYZ(Iter);
+          outTetra();
+          Tmp = CurLoc - 4 * Delta;
+          if (!Lst) {
+            outs() << format_hex_no_prefix(Tmp, 16) << ": "
+                   << format_hex_no_prefix(Delta, 8) << "\n";
+          }
+        } break;
+        case MMO::LOP_FIXRX: {
+          uint8_t Z = getZ(Iter);
+          outTetra();
+          bool IsNeg = Iter[0];
+          int64_t Delta = outTetra();
+          int64_t Offset = Delta & 0x00FF'FFFF;
+          if (Z == 16 || Z == 24) {
+            if (IsNeg)
+              Offset -= (1 << Z);
+          } else {
+            reportWarning(Obj.getFileName(),
+                          "YZ field of loc_fixrx should be 16 or 24!");
+          }
+          Tmp = CurLoc - Offset * 4;
+          if (!Lst) {
+            outs() << format_hex_no_prefix(Tmp, 16) << ": "
+                   << format_hex_no_prefix(Delta, 8) << "\n";
+          }
+        } break;
+        case MMO::LOP_FILE: {
+          uint8_t Cnt = getZ(Iter);
+          outTetra();
+          CurFile++;
+          CurLine = 0;
+          FileNames.emplace_back(
+              StringRef(reinterpret_cast<const char *>(Iter), 4 * Cnt));
+          for (int i = 0; i != Cnt; i++) {
+            outTetra();
+          }
+        } break;
+        case MMO::LOP_LINE:
+          CurLine = getYZ(Iter);
+          outTetra();
+          break;
+        case MMO::LOP_SPEC: {
+          uint16_t Type = getYZ(Iter);
+          outTetra();
+          if (!Lst) {
+            outs() << formatv("Special data {0} at loc {1}", Type,
+                              format_hex_no_prefix(CurLoc, 16));
+            if (!CurLine)
+              outs() << "\n";
+            else if (CurFile == ListedFile) {
+              outs() << formatv(" (line {0})\n", CurLine);
+            } else {
+              outs() << formatv("(\"{0}\", line {1})", FileNames[CurFile],
+                                CurLine);
+              ListedFile = CurFile;
+            }
+          }
+          // list spec data
+          while (!(Iter[0] == MMO::MM && getX(Iter) != MMO::LOP_QUOTE)) {
+            if (Iter[0] == MMO::MM && getX(Iter) == MMO::LOP_QUOTE) {
+              outTetra();
+            }
+            uint32_t Tet = outTetra();
+            if (!Lst) {
+              outs() << formatv("{0,+20}\n", format_hex_no_prefix(Tet, 8));
+            }
+          }
+        } break;
+        case MMO::LOP_STAB:
+          Stop = true;
+          outTetra();
+          break;
+        default:
+          outTetra();
+          break;
         }
-      } break;
-      default:
-        break;
+      } else {
+        auto Data = outTetra();
+        if (!Lst) {
+          outs() << format_hex_no_prefix(CurLoc, 16) << ": "
+                 << format_hex_no_prefix(Data, 8);
+          if (CurLine == 0) {
+            outs() << "\n";
+          } else if (CurLoc & (0xEUL << 60)) {
+            outs() << "\n";
+          } else {
+            if (CurFile == ListedFile) {
+              outs() << formatv(" (line {0})\n", CurLine);
+            } else {
+              outs() << formatv(" (\"{0}\", line {1})\n", FileNames[CurFile],
+                                CurLine);
+              ListedFile = CurFile;
+            }
+          }
+        }
+        CurLoc += 4;
+        ++CurLine;
       }
     }
   }
-  return 0;
-}
+
+public:
+  MMOType(const MMIXObjectFile &Obj)
+      : Obj(Obj), Iter(Obj.getData().bytes_begin()) {}
+  void list() {
+    listPreamble();
+    listContent();
+    listStab();
+  }
+};
+
 } // namespace
 
 int main(int argc, char *argv[]) {
@@ -108,7 +278,8 @@ int main(int argc, char *argv[]) {
   Binary &Binary = *OBinary.getBinary();
 
   if (MMIXObjectFile *MMO = dyn_cast<MMIXObjectFile>(&Binary)) {
-    return dumpMMO(MMO);
+    MMOType M(*MMO);
+    M.list();
   } else {
     outs().flush();
     WithColor::error(errs(), "llvm-mmotype")

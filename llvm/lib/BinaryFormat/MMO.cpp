@@ -29,17 +29,15 @@ Loc::Loc(const std::uint8_t *&Iter, Error &E) : HighByte(Iter[2]) {
     Iter += 8;
     break;
   default:
-    E = createStringError(std::errc::invalid_argument, "Z field of lop_loc must be 1 or 2!");
+    E = createStringError(std::errc::invalid_argument,
+                          "Z field of lop_loc must be 1 or 2!");
     break;
   }
 }
 
-Skip::Skip(const std::uint8_t *&Iter) : Delta(read16be(Iter + 2)) {
-  Iter += 4;
-}
+Skip::Skip(const std::uint8_t *&Iter) : Delta(read16be(Iter + 2)) { Iter += 4; }
 
-Fixo::Fixo(const std::uint8_t *&Iter, Error &E)
-    : HighByte(Iter[2]) {
+Fixo::Fixo(const std::uint8_t *&Iter, Error &E) : HighByte(Iter[2]) {
   uint8_t TetraCount = Iter[3];
   Iter += 4;
   switch (TetraCount) {
@@ -52,18 +50,18 @@ Fixo::Fixo(const std::uint8_t *&Iter, Error &E)
     Iter += 8;
     break;
   default:
-    E = createStringError(std::errc::invalid_argument, "`Z` field of `lop_fixo` must be 1 or 2!");
+    E = createStringError(std::errc::invalid_argument,
+                          "`Z` field of `lop_fixo` must be 1 or 2!");
     break;
   }
 }
 
-Fixr::Fixr(const std::uint8_t *&Iter) : Delta(read16be(Iter + 2)) {
-  Iter += 4;
-}
+Fixr::Fixr(const std::uint8_t *&Iter) : Delta(read16be(Iter + 2)) { Iter += 4; }
 
 Fixrx::Fixrx(const std::uint8_t *&Iter, Error &E) : Z(Iter[3]) {
   if (!(Z == 16 || Z == 24))
-    E = createStringError(std::errc::invalid_argument, "Z field in lop_fixrx must be 16 or 24!");
+    E = createStringError(std::errc::invalid_argument,
+                          "Z field in lop_fixrx must be 16 or 24!");
   Iter += 4;
   Delta = read64be(Iter);
   Iter += 8;
@@ -82,9 +80,7 @@ Line::Line(const std::uint8_t *&Iter) : Number(read16be(Iter + 2)) {
   Iter += 4;
 }
 
-Spec::Spec(const std::uint8_t *&Iter) : Type(read16be(Iter + 2)) {
-  Iter += 4;
-}
+Spec::Spec(const std::uint8_t *&Iter) : Type(read16be(Iter + 2)) { Iter += 4; }
 
 void SymNode::computeMasterByte(int &M) {
   if (IsRegister) {

@@ -56,6 +56,7 @@ MMIXObjectFile::create(MemoryBufferRef Object) {
 }
 
 Error MMIXObjectFile::initPreamble(const unsigned char *&Iter) {
+  auto Start = Iter;
   assert(*Iter == MMO::MM && "Invalid MM");
   assert(Iter[1] == MMO::LOP_PRE && "Invalid file header");
   Preamble.Version = Iter[2];
@@ -253,7 +254,7 @@ void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
       }
       // set print position
       auto ObjBegin = getData().bytes_begin();
-      S.PrintPos = ObjBegin + ((Start - ObjBegin) & ~3);
+      S.PrintPos = Start + (4 - ((Start - ObjBegin) % 4));
       assert((S.PrintPos - ObjBegin) % 4 == 0);
       // serial number
       uint32_t SN = *Start++;
