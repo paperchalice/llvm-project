@@ -40,8 +40,6 @@ public:
   bool isAsmClobberable(const MachineFunction &MF,
                         MCRegister PhysReg) const override;
 
-  bool isConstantPhysReg(MCRegister PhysReg) const override;
-
   void eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
                            unsigned FIOperandNum,
                            RegScavenger *RS = nullptr) const override;

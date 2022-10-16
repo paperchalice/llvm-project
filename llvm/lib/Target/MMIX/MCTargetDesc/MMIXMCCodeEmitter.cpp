@@ -46,7 +46,6 @@ MMIXMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
 
 
 MCCodeEmitter *createMMIXMCCodeEmitter(const MCInstrInfo &MCII,
-                                                const MCRegisterInfo &MRI,
                                                 MCContext &Ctx) {
   return new MMIXMCCodeEmitter(MCII, Ctx);
 }

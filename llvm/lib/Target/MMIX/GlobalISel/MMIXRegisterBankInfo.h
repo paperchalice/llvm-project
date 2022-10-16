@@ -9,7 +9,7 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MMIXREGISTERBANKINFO_H
 #define LLVM_LIB_TARGET_MMIX_MMIXREGISTERBANKINFO_H
 
-#include "llvm/CodeGen/GlobalISel/RegisterBankInfo.h"
+#include "llvm/CodeGen/RegisterBankInfo.h"
 
 #define GET_REGBANK_DECLARATIONS
 #include "MMIXGenRegisterBank.inc"

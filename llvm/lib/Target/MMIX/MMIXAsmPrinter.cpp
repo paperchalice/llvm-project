@@ -1,7 +1,7 @@
 #include "MMIXAsmPrinter.h"
 #include "TargetInfo/MMIXTargetInfo.h"
 #include "llvm/MC/MCInstBuilder.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "MMIXInstrInfo.h"
 
 namespace llvm {

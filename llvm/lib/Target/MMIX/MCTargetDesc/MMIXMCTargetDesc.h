@@ -17,6 +17,7 @@
 #include "llvm/MC/MCSchedule.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCTargetOptions.h"
+#include "llvm/MC/MCInstPrinter.h"
 #include "llvm/Support/DataTypes.h"
 #include <memory>
 
@@ -38,7 +39,6 @@ MCAsmBackend *createMMIXAsmBackend(const Target &T, const MCSubtargetInfo &STI,
 MCInstrAnalysis *createMMIXInstrAnalysis(const MCInstrInfo *Info);
 
 MCCodeEmitter *createMMIXMCCodeEmitter(const MCInstrInfo &MCII,
-                                       const MCRegisterInfo &MRI,
                                        MCContext &Ctx);
 
 MCAsmInfo *createMMIXMCAsmInfo(const MCRegisterInfo &MRI,

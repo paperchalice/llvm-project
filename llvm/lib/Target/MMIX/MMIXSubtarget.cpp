@@ -17,7 +17,7 @@
 #include "GlobalISel/MMIXInstructionSelector.h"
 #include "MMIXRegisterInfo.h"
 
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include <memory>
 
 #define DEBUG_TYPE "mmix-subtarget"

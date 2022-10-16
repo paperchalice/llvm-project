@@ -50,10 +50,6 @@ bool MMIXRegisterInfo::isAsmClobberable(const MachineFunction &MF,
   return false;
 }
 
-bool MMIXRegisterInfo::isConstantPhysReg(MCRegister PhysReg) const {
-  return false;
-}
-
 void MMIXRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
                                            int SPAdj, unsigned FIOperandNum,
                                            RegScavenger *RS) const {}

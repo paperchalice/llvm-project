@@ -16,7 +16,8 @@
 
 #include "llvm/CodeGen/Register.h"
 #include "llvm/Support/Endian.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/MC/MCDecoderOps.h"
 
 using namespace llvm;
 using DecodeStatus = MCDisassembler::DecodeStatus;
