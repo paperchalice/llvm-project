@@ -90,9 +90,15 @@ void Fixrx::writeBin(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_FIXRX);
   OS.write('\x0');
   OS << Z;
-  char Buf[8];
-  write32be(Buf, Delta.value);
-  OS.write(Buf, sizeof(Buf));
+  char Buf[4];
+  if (Delta < 0) {
+    OS.write('\x1');
+    write32be(Buf, Delta + (1 << Z));
+  } else {
+    OS.write('\x0');
+    write32be(Buf, Delta);
+  }
+  OS.write(Buf + 1, sizeof(Buf) - 1);
 }
 
 void File::writeBin(raw_ostream &OS) const {
@@ -185,9 +191,7 @@ void MMOWriter::writeContent(raw_ostream &OS) {
   }
 }
 
-void MMOWriter::writePostamble(raw_ostream &OS) {
-  Obj.Postamble.writeBin(OS);
-}
+void MMOWriter::writePostamble(raw_ostream &OS) { Obj.Postamble.writeBin(OS); }
 
 template <typename T> void MMOWriter::writeSymbolTable(raw_ostream &OS) {
   writeLop(OS, MMO::LOP_STAB);

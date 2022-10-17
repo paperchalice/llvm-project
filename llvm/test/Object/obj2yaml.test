@@ -840,7 +840,7 @@ FileHeader:
 # MMO-NEXT:       Offset:          0x12345678C
 # MMO:        - LOP:
 # MMO-NEXT:       OpCode:          FILE
-# MMO-NEXT:       Number:          2
+# MMO-NEXT:       Number:          0
 # MMO-NEXT:       Name:            test.mms
 # MMO:        - LOP:
 # MMO-NEXT:       OpCode:          LINE
@@ -863,8 +863,8 @@ FileHeader:
 # MMO-NEXT:       Offset:          0x12345A768
 # MMO:        - LOP:
 # MMO-NEXT:       OpCode:          FIXRX
-# MMO-NEXT:       Z:               0x10
-# MMO-NEXT:       Delta:           0x98040FF7
+# MMO-NEXT:       Z:               OTHERWISE
+# MMO-NEXT:       Delta:           -11
 # MMO:        - LOP:
 # MMO-NEXT:       OpCode:          FIXO
 # MMO-NEXT:       HighByte:        0x20

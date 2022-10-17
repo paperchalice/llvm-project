@@ -56,7 +56,6 @@ MMIXObjectFile::create(MemoryBufferRef Object) {
 }
 
 Error MMIXObjectFile::initPreamble(const unsigned char *&Iter) {
-  auto Start = Iter;
   assert(*Iter == MMO::MM && "Invalid MM");
   assert(Iter[1] == MMO::LOP_PRE && "Invalid file header");
   Preamble.Version = Iter[2];

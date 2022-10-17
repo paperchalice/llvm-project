@@ -34,6 +34,7 @@ namespace MMOYAML {
 LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_SYMBOL_TYPE)
 LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_SEGMENT_TYPE)
 LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_LOP_TYPE)
+LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_FIXRX_TYPE)
 
 struct Pre {
   std::uint8_t Version;
@@ -98,8 +99,8 @@ struct Fixr {
 };
 
 struct Fixrx {
-  yaml::Hex8 Z;
-  yaml::Hex32 Delta;
+  MMO_FIXRX_TYPE Z;
+  std::int32_t Delta;
   Fixrx() = default;
   Fixrx(yaml::IO &IO);
   Fixrx(const MMO::Fixrx &F);
@@ -176,6 +177,10 @@ template <> struct ScalarEnumerationTraits<MMOYAML::MMO_SEGMENT_TYPE> {
 
 template <> struct ScalarEnumerationTraits<MMOYAML::MMO_LOP_TYPE> {
   static void enumeration(IO &IO, MMOYAML::MMO_LOP_TYPE &Value);
+};
+
+template <> struct ScalarEnumerationTraits<MMOYAML::MMO_FIXRX_TYPE> {
+  static void enumeration(IO &IO, MMOYAML::MMO_FIXRX_TYPE &Value);
 };
 
 // lops

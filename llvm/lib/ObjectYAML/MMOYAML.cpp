@@ -185,7 +185,7 @@ void CustomMappingTraits<MMOYAML::Segment>::inputOne(IO &IO, StringRef key,
 
 void CustomMappingTraits<MMOYAML::Segment>::output(IO &IO,
                                                    MMOYAML::Segment &Seg) {
-  
+
   if (holds_alternative<BinaryRef>(Seg)) {
     IO.mapRequired("Bin", get<BinaryRef>(Seg));
   } else if (holds_alternative<MMOYAML::ContentLop>(Seg)) {
@@ -261,5 +261,13 @@ void ScalarEnumerationTraits<MMOYAML::MMO_LOP_TYPE>::enumeration(
   IO.enumFallback<Hex8>(Value);
 }
 
+void ScalarEnumerationTraits<MMOYAML::MMO_FIXRX_TYPE>::enumeration(
+    IO &IO, MMOYAML::MMO_FIXRX_TYPE &Value) {
+#define ECase(X) IO.enumCase(Value, #X, MMO::FIXRX_##X)
+  ECase(OTHERWISE);
+  ECase(JMP);
+#undef ECase
+IO.enumFallback<Hex8>(Value);
+}
 } // namespace yaml
 } // namespace llvm

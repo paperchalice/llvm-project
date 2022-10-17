@@ -55,6 +55,11 @@ enum SegmentBaseAddr : std::uint8_t {
   STACK_SEGMENT = 0x60,
 };
 
+enum FixrxType {
+  FIXRX_OTHERWISE = 16,
+  FIXRX_JMP = 24,
+};
+
 struct Quote {
   ArrayRef<std::uint8_t> Value;
   Quote(const std::uint8_t *&Iter);
@@ -79,7 +84,7 @@ struct Fixr {
 };
 struct Fixrx {
   std::uint8_t Z;
-  std::int64_t Delta;
+  std::int32_t Delta;
   Fixrx(const std::uint8_t *&Iter, Error &E);
 };
 struct File {

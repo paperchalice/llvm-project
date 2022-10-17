@@ -59,15 +59,16 @@ Fixo::Fixo(const std::uint8_t *&Iter, Error &E) : HighByte(Iter[2]) {
 Fixr::Fixr(const std::uint8_t *&Iter) : Delta(read16be(Iter + 2)) { Iter += 4; }
 
 Fixrx::Fixrx(const std::uint8_t *&Iter, Error &E) : Z(Iter[3]) {
-  if (!(Z == 16 || Z == 24))
+  if (!(Z == FIXRX_JMP || Z == FIXRX_OTHERWISE))
     E = createStringError(std::errc::invalid_argument,
                           "Z field in lop_fixrx must be 16 or 24!");
   Iter += 4;
-  Delta = read64be(Iter);
-  Iter += 8;
+  uint32_t Tet = read32be(Iter) & 0x00FF'FFFF;
+  Delta = Iter[0] ? (Tet - (1 << Z)) : Tet;
+  Iter += 4;
 }
 
-File::File(const std::uint8_t *&Iter) : Number(Iter[3]) {
+File::File(const std::uint8_t *&Iter) : Number(Iter[2]) {
   uint8_t TetraCount = Iter[3];
   Iter += 4;
   if (TetraCount != 0) {
