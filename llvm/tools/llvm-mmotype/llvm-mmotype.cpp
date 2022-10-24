@@ -25,20 +25,6 @@ inline uint8_t getY(const uint8_t *A) { return A[2]; }
 inline uint8_t getZ(const uint8_t *A) { return A[3]; }
 inline uint16_t getYZ(const uint8_t *A) { return read16be(A + 2); }
 
-[[noreturn]] void reportError(StringRef File, const Twine &Message,
-                              int ExitCode) {
-  outs().flush();
-  WithColor::error(errs(), "llvm-mmotype")
-      << "'" << File << "':" << Message << "\n";
-  exit(ExitCode);
-}
-
-void reportWarning(StringRef File, const Twine &Message) {
-  outs().flush();
-  WithColor::warning(errs(), "llvm-mmotype")
-      << "'" << File << "': " << Message << "\n";
-}
-
 class MMOType {
   const MMIXObjectFile &Obj;
   size_t CurLoc = 0;
@@ -120,9 +106,6 @@ class MMOType {
             CurLoc += read64be(Iter);
             outTetra();
             outTetra();
-          } else {
-            reportWarning(Obj.getFileName(),
-                          "Z field of lop_loc should be 1 or 2.");
           }
           break;
         case MMO::LOP_SKIP:
@@ -170,9 +153,6 @@ class MMOType {
           if (Z == 16 || Z == 24) {
             if (IsNeg)
               Offset -= (1 << Z);
-          } else {
-            reportWarning(Obj.getFileName(),
-                          "YZ field of loc_fixrx should be 16 or 24!");
           }
           Tmp = CurLoc - Offset * 4;
           if (!Lst) {
@@ -218,7 +198,7 @@ class MMOType {
             }
             uint32_t Tet = outTetra();
             if (!Lst) {
-              outs() << formatv("{0,+20}\n", format_hex_no_prefix(Tet, 8));
+              outs() << formatv("{0,+27}\n", format_hex_no_prefix(Tet, 8));
             }
           }
         } break;
@@ -271,8 +251,10 @@ int main(int argc, char *argv[]) {
   InitLLVM X(argc, argv);
   cl::ParseCommandLineOptions(argc, argv);
   auto CreateResult = createBinary(InputFilename);
+  ExitOnError ExitOnErr;
+  ExitOnErr.setBanner(std::string(argv[0]) + ": ");
   if (auto E = CreateResult.takeError()) {
-    reportError(InputFilename, "Can't open file.", -2);
+    ExitOnErr(std::move(E));
   }
   OwningBinary<Binary> OBinary = std::move(*CreateResult);
   Binary &Binary = *OBinary.getBinary();
