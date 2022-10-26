@@ -56,7 +56,7 @@ DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
                                     uint64_t Address, const void *Decoder) {
   auto RegInfo = static_cast<const MCDisassembler *>(Decoder)->getContext().getRegisterInfo();
   RegInfo->getRegClass(MMIX::GPRRegClassID);
-  MCRegister Reg = MMIX::RA + RegNo;
+  MCRegister Reg = MMIX::r0 + RegNo;
   Inst.addOperand(MCOperand::createReg(Reg));
   return DecodeStatus::Success;
 }
