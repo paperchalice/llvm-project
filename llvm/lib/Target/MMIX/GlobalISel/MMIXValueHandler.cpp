@@ -40,7 +40,7 @@ Register MMIXCallLowering::MMIXIncomingValueHandler::getStackAddress(uint64_t Si
   LLT p0 = LLT::pointer(0, PtrSize);
   LLT s = LLT::scalar(PtrSize);
 
-  static const auto SPtr = MIRBuilder.buildCopy(p0, Register{MMIX::SP});
+  static const auto SPtr = MIRBuilder.buildCopy(p0, Register{MMIX::r0});
   const auto OffsetReg = MIRBuilder.buildConstant(s, Offset);
   return MIRBuilder.buildPtrAdd(p0, SPtr, OffsetReg).getReg(0);
 }

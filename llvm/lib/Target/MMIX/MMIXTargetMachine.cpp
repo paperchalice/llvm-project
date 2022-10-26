@@ -55,7 +55,7 @@ MMIXTargetMachine::MMIXTargetMachine(const Target &T, const Triple &TT,
                                        Optional<CodeModel::Model> CM,
                                        CodeGenOpt::Level OL, bool JIT)
   :LLVMTargetMachine(T, MMIXDLStr, TT, CPU, FS, Options,
-                        RM.getValueOr(Reloc::Model::Static),
+                        RM.value_or(Reloc::Model::Static),
                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
   TLOF([&TT]() -> ::std::unique_ptr<TargetLoweringObjectFile>{
     switch (TT.getObjectFormat()) {

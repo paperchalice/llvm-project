@@ -18,7 +18,7 @@ def CC_MMIX : CallingConv<[
   // put calling convention here
   CCIfType<[iPTR], CCBitConvertToType<i64>>,
   CCIfType<[i1, i8, i16, i32], CCPromoteToType<i64>>,
-  CCIfType<[i64], CCAssignToReg<[RA]>>,
+  CCIfType<[i64], CCAssignToReg<[r0]>>,
 
   // stack
   CCIfType<[i8], CCAssignToStack<1, 1>>,
@@ -32,6 +32,6 @@ def RetCC_MMIX : CallingConv<[
 //===----------------------------------------------------------------------===//
 // Callee-saved Registers.
 //===----------------------------------------------------------------------===//
-def CSR_MMIX : CalleeSavedRegs<(add RA)>;
+def CSR_MMIX : CalleeSavedRegs<(add r0)>;
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXCALLINGCONV_TD

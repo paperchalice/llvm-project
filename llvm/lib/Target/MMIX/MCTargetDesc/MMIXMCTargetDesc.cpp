@@ -108,7 +108,7 @@ return createELFStreamer(Context, std::move(MAB), std::move(OW),
 MCRegisterInfo *createMMIXMCRegisterInfo(const Triple &Triple) {
   MCRegisterInfo *X = new MCRegisterInfo();
   // TODO: add Return Address register as 2nd parameter
-  InitMMIXMCRegisterInfo(X,  MMIX::RA);
+  InitMMIXMCRegisterInfo(X,  MMIX::r0);
   // TODO: add Code view reg to mc reg conversion
   return X;
 }

@@ -26,7 +26,7 @@
 using namespace llvm;
 
 MMIXRegisterInfo::MMIXRegisterInfo()
-    : MMIXGenRegisterInfo(MMIX::RA) {
+    : MMIXGenRegisterInfo(MMIX::r0) {
 }
 
 const uint32_t *

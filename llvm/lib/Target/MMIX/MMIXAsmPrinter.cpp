@@ -12,8 +12,8 @@ MMIXAsmPrinter::MMIXAsmPrinter(TargetMachine &TM,
 
 
 void MMIXAsmPrinter::emitInstruction(const MachineInstr *MI) {
-  auto I = MCInstBuilder(MMIX::Inst).addReg(MMIX::RA).addReg(MMIX::RA).addReg(MMIX::RA);
-  OutStreamer->emitInstruction(I, getSubtargetInfo());
+  // auto I = MCInstBuilder(MMIX::Inst).addReg(MMIX::r0).addReg(MMIX::r0).addReg(MMIX::r0);
+  // OutStreamer->emitInstruction(I, getSubtargetInfo());
 }
 
 } // namespace llvm
