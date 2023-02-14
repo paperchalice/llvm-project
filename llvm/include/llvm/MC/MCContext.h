@@ -53,6 +53,7 @@ class MCSectionDXContainer;
 class MCSectionELF;
 class MCSectionGOFF;
 class MCSectionMachO;
+class MCSectionMMO;
 class MCSectionSPIRV;
 class MCSectionWasm;
 class MCSectionXCOFF;
@@ -134,6 +135,7 @@ private:
   SpecificBumpPtrAllocator<MCSectionDXContainer> DXCAllocator;
   SpecificBumpPtrAllocator<MCSectionELF> ELFAllocator;
   SpecificBumpPtrAllocator<MCSectionMachO> MachOAllocator;
+  SpecificBumpPtrAllocator<MCSectionMMO> MMOAllocator;
   SpecificBumpPtrAllocator<MCSectionGOFF> GOFFAllocator;
   SpecificBumpPtrAllocator<MCSectionSPIRV> SPIRVAllocator;
   SpecificBumpPtrAllocator<MCSectionWasm> WasmAllocator;
@@ -350,6 +352,7 @@ private:
   std::map<WasmSectionKey, MCSectionWasm *> WasmUniquingMap;
   std::map<XCOFFSectionKey, MCSectionXCOFF *> XCOFFUniquingMap;
   StringMap<MCSectionDXContainer *> DXCUniquingMap;
+  StringMap<MCSectionMMO *> MMOUniquingMap;
   StringMap<bool> RelSecNames;
 
   SpecificBumpPtrAllocator<MCSubtargetInfo> MCSubtargetAllocator;
@@ -593,6 +596,7 @@ public:
                               unsigned UniqueID,
                               const MCSymbolELF *LinkedToSym);
 
+  MCSectionMMO *getMMOSection(StringRef Section, SectionKind K);
   /// Get a section with the provided group identifier. This section is
   /// named by concatenating \p Prefix with '.' then \p Suffix. The \p Type
   /// describes the type of the section and \p Flags are used to further

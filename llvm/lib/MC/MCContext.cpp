@@ -29,6 +29,7 @@
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSectionGOFF.h"
 #include "llvm/MC/MCSectionMachO.h"
+#include "llvm/MC/MCSectionMMO.h"
 #include "llvm/MC/MCSectionSPIRV.h"
 #include "llvm/MC/MCSectionWasm.h"
 #include "llvm/MC/MCSectionXCOFF.h"
@@ -874,6 +875,22 @@ MCSectionDXContainer *MCContext::getDXContainerSection(StringRef Section,
       new (DXCAllocator.Allocate()) MCSectionDXContainer(Name, K, nullptr);
 
   // The first fragment will store the header
+  auto *F = new MCDataFragment();
+  MapIt->second->getFragmentList().insert(MapIt->second->begin(), F);
+  F->setParent(MapIt->second);
+
+  return MapIt->second;
+}
+
+MCSectionMMO *MCContext::getMMOSection(StringRef Section, SectionKind K) {
+  auto ItInsertedPair = MMOUniquingMap.try_emplace(Section);
+  if (!ItInsertedPair.second)
+    return ItInsertedPair.first->second;
+  
+  auto MapIt = ItInsertedPair.first;
+  StringRef Name = MapIt->first();
+  MapIt->second = new(MMOAllocator.Allocate()) MCSectionMMO(Name, K, nullptr);
+
   auto *F = new MCDataFragment();
   MapIt->second->getFragmentList().insert(MapIt->second->begin(), F);
   F->setParent(MapIt->second);

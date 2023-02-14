@@ -84,7 +84,8 @@ OperandMatchResultTy MMIXAsmParser::tryParseRegister(MCRegister &RegNo, SMLoc &S
 
 bool MMIXAsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name, SMLoc NameLoc,
                       OperandVector &Operands) {
-  return false;
+  Operands.push_back(MMIXOperand(Name, NameLoc, NameLoc));
+  return true;
 }
 
 bool MMIXAsmParser::ParseDirective(AsmToken DirectiveID) { return false; }

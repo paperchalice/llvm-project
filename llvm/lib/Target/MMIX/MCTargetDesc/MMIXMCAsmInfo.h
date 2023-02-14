@@ -27,6 +27,10 @@ struct MMIXMCAsmInfoELF : public MCAsmInfoELF {
   explicit MMIXMCAsmInfoELF(const Triple &T);
 };
 
+struct MMIXMCAsmInfoMMO : public MCAsmInfo {
+  explicit MMIXMCAsmInfoMMO(const Triple &T);
+};
+
 MCAsmInfo *createMMIXMCAsmInfo(const MCRegisterInfo &MRI,
                                       const Triple &TT,
                                       const MCTargetOptions &Options);

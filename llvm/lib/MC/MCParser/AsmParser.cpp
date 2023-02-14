@@ -760,6 +760,7 @@ extern MCAsmParserExtension *createDarwinAsmParser();
 extern MCAsmParserExtension *createELFAsmParser();
 extern MCAsmParserExtension *createCOFFAsmParser();
 extern MCAsmParserExtension *createGOFFAsmParser();
+extern MCAsmParserExtension *createMMOAsmParser();
 extern MCAsmParserExtension *createXCOFFAsmParser();
 extern MCAsmParserExtension *createWasmAsmParser();
 
@@ -789,6 +790,9 @@ AsmParser::AsmParser(SourceMgr &SM, MCContext &Ctx, MCStreamer &Out,
   case MCContext::IsMachO:
     PlatformParser.reset(createDarwinAsmParser());
     IsDarwin = true;
+    break;
+  case MCContext::IsMMO:
+    PlatformParser.reset(createMMOAsmParser());
     break;
   case MCContext::IsELF:
     PlatformParser.reset(createELFAsmParser());

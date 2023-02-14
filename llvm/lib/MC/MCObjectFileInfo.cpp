@@ -19,6 +19,7 @@
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSectionGOFF.h"
 #include "llvm/MC/MCSectionMachO.h"
+#include "llvm/MC/MCSectionMMO.h"
 #include "llvm/MC/MCSectionSPIRV.h"
 #include "llvm/MC/MCSectionWasm.h"
 #include "llvm/MC/MCSectionXCOFF.h"
@@ -329,6 +330,12 @@ void MCObjectFileInfo::initMachOMCObjectFileInfo(const Triple &T) {
   }
 
   TLSExtraDataSection = TLSTLVSection;
+}
+
+void MCObjectFileInfo::initMMOMCObjectFileInfo(const Triple &T) {
+  TextSection = Ctx->getMMOSection(".text", SectionKind::getText());
+  BSSSection = Ctx->getMMOSection(".bss", SectionKind::getBSS());
+  DataSection = Ctx->getMMOSection(".data", SectionKind::getData());
 }
 
 void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
@@ -1064,6 +1071,9 @@ void MCObjectFileInfo::initMCObjectFileInfo(MCContext &MCCtx, bool PIC,
   switch (Ctx->getObjectFileType()) {
   case MCContext::IsMachO:
     initMachOMCObjectFileInfo(TheTriple);
+    break;
+  case MCContext::IsMMO:
+    initMMOMCObjectFileInfo(TheTriple);
     break;
   case MCContext::IsCOFF:
     initCOFFMCObjectFileInfo(TheTriple);

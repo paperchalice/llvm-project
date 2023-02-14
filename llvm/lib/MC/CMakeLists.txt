@@ -47,6 +47,7 @@ add_llvm_component_library(LLVMMC
   MCSectionDXContainer.cpp
   MCSectionELF.cpp
   MCSectionMachO.cpp
+  MCSectionMMO.cpp
   MCSectionWasm.cpp
   MCSectionXCOFF.cpp
   MCStreamer.cpp

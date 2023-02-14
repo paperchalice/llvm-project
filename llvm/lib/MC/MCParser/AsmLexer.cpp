@@ -93,8 +93,7 @@ AsmToken AsmLexer::LexFloatLiteral() {
       ++CurPtr;
   }
 
-  return AsmToken(AsmToken::Real,
-                  StringRef(TokStart, CurPtr - TokStart));
+  return AsmToken(AsmToken::Real, StringRef(TokStart, CurPtr - TokStart));
 }
 
 /// LexHexFloatLiteral matches essentially (.[0-9a-fA-F]*)?[pP][+-]?[0-9a-fA-F]+
@@ -167,7 +166,7 @@ AsmToken AsmLexer::LexIdentifier() {
     ++CurPtr;
 
   // Handle . as a special case.
-  if (CurPtr == TokStart+1 && TokStart[0] == '.')
+  if (CurPtr == TokStart + 1 && TokStart[0] == '.')
     return AsmToken(AsmToken::Dot, StringRef(TokStart, 1));
 
   return AsmToken(AsmToken::Identifier, StringRef(TokStart, CurPtr - TokStart));
@@ -195,7 +194,7 @@ AsmToken AsmLexer::LexSlash() {
   }
 
   // C Style comment.
-  ++CurPtr;  // skip the star.
+  ++CurPtr; // skip the star.
   const char *CommentTextStart = CurPtr;
   while (CurPtr != CurBuf.end()) {
     switch (*CurPtr++) {
@@ -209,7 +208,7 @@ AsmToken AsmLexer::LexSlash() {
             SMLoc::getFromPointer(CommentTextStart),
             StringRef(CommentTextStart, CurPtr - 1 - CommentTextStart));
       }
-      ++CurPtr;   // End the */.
+      ++CurPtr; // End the */.
       return AsmToken(AsmToken::Comment,
                       StringRef(TokStart, CurPtr - TokStart));
     }
@@ -529,7 +528,7 @@ AsmToken AsmLexer::LexDigit() {
 
     // Otherwise requires at least one hex digit.
     if (CurPtr == NumStart)
-      return ReturnError(CurPtr-2, "invalid hexadecimal number");
+      return ReturnError(CurPtr - 2, "invalid hexadecimal number");
 
     APInt Result(128, 0);
     if (StringRef(TokStart, CurPtr - TokStart).getAsInteger(0, Result))
@@ -602,19 +601,33 @@ AsmToken AsmLexer::LexSingleQuote() {
 
   // The idea here being that 'c' is basically just an integral
   // constant.
-  StringRef Res = StringRef(TokStart,CurPtr - TokStart);
+  StringRef Res = StringRef(TokStart, CurPtr - TokStart);
   long long Value;
 
   if (Res.startswith("\'\\")) {
     char theChar = Res[2];
     switch (theChar) {
-      default: Value = theChar; break;
-      case '\'': Value = '\''; break;
-      case 't': Value = '\t'; break;
-      case 'n': Value = '\n'; break;
-      case 'b': Value = '\b'; break;
-      case 'f': Value = '\f'; break;
-      case 'r': Value = '\r'; break;
+    default:
+      Value = theChar;
+      break;
+    case '\'':
+      Value = '\'';
+      break;
+    case 't':
+      Value = '\t';
+      break;
+    case 'n':
+      Value = '\n';
+      break;
+    case 'b':
+      Value = '\b';
+      break;
+    case 'f':
+      Value = '\f';
+      break;
+    case 'r':
+      Value = '\r';
+      break;
     }
   } else
     Value = TokStart[1];
@@ -670,7 +683,7 @@ StringRef AsmLexer::LexUntilEndOfStatement() {
          *CurPtr != '\n' && *CurPtr != '\r' && CurPtr != CurBuf.end()) {
     ++CurPtr;
   }
-  return StringRef(TokStart, CurPtr-TokStart);
+  return StringRef(TokStart, CurPtr - TokStart);
 }
 
 StringRef AsmLexer::LexUntilEndOfLine() {
@@ -679,7 +692,7 @@ StringRef AsmLexer::LexUntilEndOfLine() {
   while (*CurPtr != '\n' && *CurPtr != '\r' && CurPtr != CurBuf.end()) {
     ++CurPtr;
   }
-  return StringRef(TokStart, CurPtr-TokStart);
+  return StringRef(TokStart, CurPtr - TokStart);
 }
 
 size_t AsmLexer::peekTokens(MutableArrayRef<AsmToken> Buf,
@@ -814,17 +827,28 @@ AsmToken AsmLexer::LexToken() {
     IsAtStartOfLine = true;
     IsAtStartOfStatement = true;
     return AsmToken(AsmToken::EndOfStatement, StringRef(TokStart, 1));
-  case ':': return AsmToken(AsmToken::Colon, StringRef(TokStart, 1));
-  case '+': return AsmToken(AsmToken::Plus, StringRef(TokStart, 1));
-  case '~': return AsmToken(AsmToken::Tilde, StringRef(TokStart, 1));
-  case '(': return AsmToken(AsmToken::LParen, StringRef(TokStart, 1));
-  case ')': return AsmToken(AsmToken::RParen, StringRef(TokStart, 1));
-  case '[': return AsmToken(AsmToken::LBrac, StringRef(TokStart, 1));
-  case ']': return AsmToken(AsmToken::RBrac, StringRef(TokStart, 1));
-  case '{': return AsmToken(AsmToken::LCurly, StringRef(TokStart, 1));
-  case '}': return AsmToken(AsmToken::RCurly, StringRef(TokStart, 1));
-  case '*': return AsmToken(AsmToken::Star, StringRef(TokStart, 1));
-  case ',': return AsmToken(AsmToken::Comma, StringRef(TokStart, 1));
+  case ':':
+    return AsmToken(AsmToken::Colon, StringRef(TokStart, 1));
+  case '+':
+    return AsmToken(AsmToken::Plus, StringRef(TokStart, 1));
+  case '~':
+    return AsmToken(AsmToken::Tilde, StringRef(TokStart, 1));
+  case '(':
+    return AsmToken(AsmToken::LParen, StringRef(TokStart, 1));
+  case ')':
+    return AsmToken(AsmToken::RParen, StringRef(TokStart, 1));
+  case '[':
+    return AsmToken(AsmToken::LBrac, StringRef(TokStart, 1));
+  case ']':
+    return AsmToken(AsmToken::RBrac, StringRef(TokStart, 1));
+  case '{':
+    return AsmToken(AsmToken::LCurly, StringRef(TokStart, 1));
+  case '}':
+    return AsmToken(AsmToken::RCurly, StringRef(TokStart, 1));
+  case '*':
+    return AsmToken(AsmToken::Star, StringRef(TokStart, 1));
+  case ',':
+    return AsmToken(AsmToken::Comma, StringRef(TokStart, 1));
   case '$': {
     if (LexMotorolaIntegers && isHexDigit(*CurPtr))
       return LexDigit();
@@ -863,7 +887,8 @@ AsmToken AsmLexer::LexToken() {
       return AsmToken(AsmToken::PipePipe, StringRef(TokStart, 2));
     }
     return AsmToken(AsmToken::Pipe, StringRef(TokStart, 1));
-  case '^': return AsmToken(AsmToken::Caret, StringRef(TokStart, 1));
+  case '^':
+    return AsmToken(AsmToken::Caret, StringRef(TokStart, 1));
   case '&':
     if (*CurPtr == '&') {
       ++CurPtr;
@@ -954,9 +979,9 @@ AsmToken AsmLexer::LexToken() {
       return AsmToken(AsmToken::Greater, StringRef(TokStart, 1));
     }
 
-  // TODO: Quoted identifiers (objc methods etc)
-  // local labels: [0-9][:]
-  // Forward/backward labels: [0-9][fb]
-  // Integers, fp constants, character constants.
+    // TODO: Quoted identifiers (objc methods etc)
+    // local labels: [0-9][:]
+    // Forward/backward labels: [0-9][fb]
+    // Integers, fp constants, character constants.
   }
 }

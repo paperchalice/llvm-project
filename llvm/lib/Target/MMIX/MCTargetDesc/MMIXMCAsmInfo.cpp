@@ -22,9 +22,19 @@ MMIXMCAsmInfoELF::MMIXMCAsmInfoELF(const Triple &T) {
 
 }
 
+MMIXMCAsmInfoMMO::MMIXMCAsmInfoMMO(const Triple &T) {
+  CommentString = "%";
+  AllowDollarAtStartOfIdentifier = true;
+  IsMMIX = true;
+}
+
 MCAsmInfo *createMMIXMCAsmInfo(const MCRegisterInfo &MRI, const Triple &TT,
                       const MCTargetOptions &Options) {
-  return new MMIXMCAsmInfoELF(TT);
+  if (TT.getObjectFormat() == Triple::MMO) {
+    return new MMIXMCAsmInfoMMO(TT);
+  } else {
+    return new MMIXMCAsmInfoELF(TT);
+  }
 }
 
 } // namespace llvm

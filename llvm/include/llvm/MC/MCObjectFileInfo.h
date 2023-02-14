@@ -457,6 +457,7 @@ private:
   VersionTuple DarwinTargetVariantSDKVersion;
 
   void initMachOMCObjectFileInfo(const Triple &T);
+  void initMMOMCObjectFileInfo(const Triple &T);
   void initELFMCObjectFileInfo(const Triple &T, bool Large);
   void initGOFFMCObjectFileInfo(const Triple &T);
   void initCOFFMCObjectFileInfo(const Triple &T);
