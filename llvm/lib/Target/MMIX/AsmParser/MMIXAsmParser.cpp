@@ -58,12 +58,12 @@ bool MMIXAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   return false;
 }
 
-bool MMIXAsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc, SMLoc &EndLoc) {
+bool MMIXAsmParser::parseRegister(MCRegister &RegNo, SMLoc &StartLoc, SMLoc &EndLoc) {
   OperandMatchResultTy MatchResult = tryParseRegister(RegNo, StartLoc, EndLoc);
   return MatchResult != OperandMatchResultTy::MatchOperand_Success;
 }
 
-OperandMatchResultTy MMIXAsmParser::tryParseRegister(unsigned &RegNo, SMLoc &StartLoc,
+OperandMatchResultTy MMIXAsmParser::tryParseRegister(MCRegister &RegNo, SMLoc &StartLoc,
                                         SMLoc &EndLoc) {
   StartLoc = getTok().getLoc();
   EndLoc = getTok().getEndLoc();

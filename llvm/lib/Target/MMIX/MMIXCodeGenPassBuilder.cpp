@@ -6,11 +6,13 @@ namespace llvm {
 MMIXCodeGenPassBuilder::MMIXCodeGenPassBuilder(
     MMIXTargetMachine &TM, CGPassBuilderOption Opt,
     PassInstrumentationCallbacks *PIC)
-    : CodeGenPassBuilder<MMIXCodeGenPassBuilder> (TM, Opt, PIC) {
+    : CodeGenPassBuilder<MMIXCodeGenPassBuilder>(TM, Opt, PIC) {
   // Target-specific `CGPassBuilderOption` could be overridden here.
 }
 
 // GlobalIsel API
+void MMIXCodeGenPassBuilder::addIRPasses(AddIRPass &AddPass) const {}
+
 Error MMIXCodeGenPassBuilder::addIRTranslator(AddMachinePass &AddPass) const {
   AddPass(IRTranslatorPass());
   return Error::success();
@@ -33,6 +35,7 @@ Error MMIXCodeGenPassBuilder::addGlobalInstructionSelect(
   return Error::success();
 }
 
-void MMIXCodeGenPassBuilder::addAsmPrinter(AddMachinePass &AddPass, CreateMCStreamer CallBack) const {}
+void MMIXCodeGenPassBuilder::addAsmPrinter(AddMachinePass &AddPass,
+                                           CreateMCStreamer CallBack) const {}
 
 } // namespace llvm

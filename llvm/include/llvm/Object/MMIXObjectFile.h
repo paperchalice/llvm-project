@@ -25,8 +25,6 @@
 #include <type_traits>
 #include <variant>
 
-// TODO: use std::optional
-
 namespace llvm {
 
 namespace object {
@@ -209,8 +207,8 @@ public:
 
   StringRef getFileFormatName() const override;
   Triple::ArchType getArch() const override;
-  SubtargetFeatures getFeatures() const override;
-  Optional<StringRef> tryGetCPUName() const override;
+  Expected<SubtargetFeatures> getFeatures() const override;
+  std::optional<StringRef> tryGetCPUName() const override;
 
   /***
    * A program should begin at the special symbolic location Main (more
@@ -233,6 +231,7 @@ public:
 
   // Interface from SymbolicFile
 public:
+  bool is64Bit() const override;
   void moveSymbolNext(DataRefImpl &Symb) const override;
   Expected<uint32_t> getSymbolFlags(DataRefImpl Symb) const override;
   basic_symbol_iterator symbol_begin() const override;

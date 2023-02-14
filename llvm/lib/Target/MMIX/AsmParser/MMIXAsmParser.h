@@ -19,31 +19,27 @@ class MMIXAsmParser : public MCTargetAsmParser {
 #include "MMIXGenAsmMatcher.inc"
 public:
   MMIXAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
-                 const MCInstrInfo &MII, const MCTargetOptions &Options);
+                const MCInstrInfo &MII, const MCTargetOptions &Options);
 
 public:
-  bool ParseRegister(unsigned &RegNo, SMLoc &StartLoc, SMLoc &EndLoc) override;
+  bool parseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) override;
 
   bool MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
                                OperandVector &Operands, MCStreamer &Out,
                                uint64_t &ErrorInfo,
                                bool MatchingInlineAsm) override;
 
-  
-  OperandMatchResultTy tryParseRegister(unsigned &RegNo,
-                                        SMLoc &StartLoc,
+  OperandMatchResultTy tryParseRegister(MCRegister &RegNo, SMLoc &StartLoc,
                                         SMLoc &EndLoc) override;
 
-  bool ParseInstruction(ParseInstructionInfo &Info,
-                        StringRef Name,
-                        SMLoc NameLoc,
-                        OperandVector &Operands) override;
+  bool ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
+                        SMLoc NameLoc, OperandVector &Operands) override;
 
   bool ParseDirective(AsmToken DirectiveID) override;
-private:
 
+private:
 };
 
-}
+} // namespace llvm
 
 #endif // LLVM_LIB_TARGET_MMIX_ASMPARSER_MMIXASMPARSER_H

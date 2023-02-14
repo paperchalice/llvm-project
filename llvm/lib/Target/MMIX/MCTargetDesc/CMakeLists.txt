@@ -1,8 +1,6 @@
-add_library(LLVMMMIXMCTargetDesc ALIAS LLVMMMIX)
-
-target_sources (
-  LLVMMMIX PRIVATE
+add_llvm_component_library (LLVMMMIXDesc
   MMIXAsmBackend.cpp
+  MMIXELFStreamer.cpp
   MMIXMCInstrInfo.cpp
   MMIXMCTargetDesc.cpp
   MMIXMCAsmInfo.cpp
@@ -11,4 +9,14 @@ target_sources (
   MMIXMCCodeEmitter.cpp
   MMIXTargetStreamer.cpp
   MMIXObjectWriter.cpp
+
+  LINK_COMPONENTS
+  MC
+  MCDisassembler
+  Support
+  TargetParser
+  MMIXInfo
+
+  ADD_TO_COMPONENT
+  MMIX
 )

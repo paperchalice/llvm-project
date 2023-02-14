@@ -254,5 +254,4 @@ defm PBNZ: InstVariantB<0x5A, "PBNZ", []>;
 defm PBNP: InstVariantB<0x5C, "PBNP", []>;
 defm PBEV: InstVariantB<0x5E, "PBEV", []>;
 
-def GETA: InstVariantB<0xF4, "GETA", []>;
 #endif // LLVM_LIB_TARGET_MMIX_MMIXINSTRINFO_TD

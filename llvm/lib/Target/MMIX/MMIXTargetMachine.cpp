@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "TargetInfo/MMIXTargetInfo.h"
+#include "MMIXTargetMachine.h"
+#include "MMIX.h"
 #include "MMIXCodeGenPassBuilder.h"
 #include "MMIXPassConfig.h"
 #include "MMIXSubtarget.h"
-#include "MMIXTargetMachine.h"
 #include "MMIXTargetObjectFile.h"
-#include "MMIX.h"
+#include "TargetInfo/MMIXTargetInfo.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -30,15 +30,15 @@
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/FormattedStream.h"
-#include "llvm/MC/TargetRegistry.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Target/TargetOptions.h"
 
 using namespace llvm;
 
 namespace {
-constexpr char MMIXDLStr[] = ""; //TODO: define your data layout string
+constexpr char MMIXDLStr[] = ""; // TODO: define your data layout string
 
 }
 
@@ -49,30 +49,30 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXTarget() {
 }
 
 MMIXTargetMachine::MMIXTargetMachine(const Target &T, const Triple &TT,
-                                       StringRef CPU, StringRef FS,
-                                       const TargetOptions &Options,
-                                       Optional<Reloc::Model> RM,
-                                       Optional<CodeModel::Model> CM,
-                                       CodeGenOpt::Level OL, bool JIT)
-  :LLVMTargetMachine(T, MMIXDLStr, TT, CPU, FS, Options,
+                                     StringRef CPU, StringRef FS,
+                                     const TargetOptions &Options,
+                                     std::optional<Reloc::Model> RM,
+                                     std::optional<CodeModel::Model> CM,
+                                     CodeGenOpt::Level OL, bool JIT)
+    : LLVMTargetMachine(T, MMIXDLStr, TT, CPU, FS, Options,
                         RM.value_or(Reloc::Model::Static),
                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
-  TLOF([&TT]() -> ::std::unique_ptr<TargetLoweringObjectFile>{
-    switch (TT.getObjectFormat()) {
-    
-    
-    case Triple::ObjectFormatType::ELF:
-      return ::std::make_unique<MMIXELFTargetObjectFile>();
-    
-    
-    default: break;
-    }
-    llvm_unreachable_internal("invalid bin format");
-  }()) {
+      TLOF([&TT]() -> ::std::unique_ptr<TargetLoweringObjectFile> {
+        switch (TT.getObjectFormat()) {
+
+        case Triple::ObjectFormatType::ELF:
+          return ::std::make_unique<MMIXELFTargetObjectFile>();
+
+        default:
+          break;
+        }
+        llvm_unreachable_internal("invalid bin format");
+      }()) {
   initAsmInfo();
 }
 
-const TargetSubtargetInfo *MMIXTargetMachine::getSubtargetImpl(const Function &F) const {
+const TargetSubtargetInfo *
+MMIXTargetMachine::getSubtargetImpl(const Function &F) const {
   Attribute CPUAttr = F.getFnAttribute("target-cpu");
   Attribute TuneAttr = F.getFnAttribute("tune-cpu");
   Attribute FSAttr = F.getFnAttribute("target-features");
@@ -96,17 +96,15 @@ const TargetSubtargetInfo *MMIXTargetMachine::getSubtargetImpl(const Function &F
   }
 
   // FIXME: maybe unique_ptr?
-  auto I = new MMIXSubtarget(TargetTriple, CPU, TuneCPU, FS,
-                                             ABIName, *this);
+  auto I = new MMIXSubtarget(TargetTriple, CPU, TuneCPU, FS, ABIName, *this);
   return I;
 }
 
-Error MMIXTargetMachine::buildCodeGenPipeline(ModulePassManager &MPM,
-                           MachineFunctionPassManager &MFPM,
-                           MachineFunctionAnalysisManager &MFAM,
-                           raw_pwrite_stream &S1, raw_pwrite_stream *S2,
-                           CodeGenFileType CGFT, CGPassBuilderOption CGPBOpt,
-                           PassInstrumentationCallbacks *PIC) {
+Error MMIXTargetMachine::buildCodeGenPipeline(
+    ModulePassManager &MPM, MachineFunctionPassManager &MFPM,
+    MachineFunctionAnalysisManager &MFAM, raw_pwrite_stream &S1,
+    raw_pwrite_stream *S2, CodeGenFileType CGFT, CGPassBuilderOption CGPBOpt,
+    PassInstrumentationCallbacks *PIC) {
   MMIXCodeGenPassBuilder MMIXCGPB{*this, CGPBOpt, PIC};
   MMIXCGPB.registerAnalyses(MFAM);
   return MMIXCGPB.buildPipeline(MPM, MFPM, S1, S2, CGFT);
@@ -120,7 +118,8 @@ TargetLoweringObjectFile *MMIXTargetMachine::getObjFileLowering() const {
   return TLOF.get();
 }
 
-TargetTransformInfo MMIXTargetMachine::getTargetTransformInfo(const Function &F) const {
+TargetTransformInfo
+MMIXTargetMachine::getTargetTransformInfo(const Function &F) const {
   // TODO: add your code here.
   return TargetTransformInfo{DataLayout{MMIXDLStr}};
 }

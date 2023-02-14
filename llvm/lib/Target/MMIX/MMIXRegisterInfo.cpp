@@ -50,9 +50,9 @@ bool MMIXRegisterInfo::isAsmClobberable(const MachineFunction &MF,
   return false;
 }
 
-void MMIXRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
+bool MMIXRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
                                            int SPAdj, unsigned FIOperandNum,
-                                           RegScavenger *RS) const {}
+                                           RegScavenger *RS) const { return true; }
 
 Register
 MMIXRegisterInfo::getFrameRegister(const MachineFunction &MF) const {

@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 #include "MMIXAsmBackend.h"
 #include "MMIXObjectWriter.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/MC/MCAsmLayout.h"
 #include "llvm/MC/MCAssembler.h"

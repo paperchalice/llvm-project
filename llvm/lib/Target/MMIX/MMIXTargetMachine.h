@@ -16,6 +16,7 @@
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Target/TargetMachine.h"
 #include <memory>
+#include <optional>
 
 namespace llvm {
 
@@ -24,7 +25,7 @@ class MMIXTargetMachine final : public LLVMTargetMachine {
 public:
   MMIXTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
                      StringRef FS, const TargetOptions &Options,
-                     Optional<Reloc::Model> RM, Optional<CodeModel::Model> CM,
+                     std::optional<Reloc::Model> RM, std::optional<CodeModel::Model> CM,
                      CodeGenOpt::Level OL, bool JIT);
   const TargetSubtargetInfo *getSubtargetImpl(const Function &F) const override;
 

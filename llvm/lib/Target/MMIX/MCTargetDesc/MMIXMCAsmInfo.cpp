@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXMCAsmInfo.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCStreamer.h"

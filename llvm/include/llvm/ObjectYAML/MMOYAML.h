@@ -26,8 +26,6 @@
 #include <optional>
 #include <variant>
 #include <vector>
-
-// TODO: use std::optional
 namespace llvm {
 namespace MMOYAML {
 
@@ -38,8 +36,8 @@ LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_FIXRX_TYPE)
 
 struct Pre {
   std::uint8_t Version;
-  Optional<std::time_t> CreatedTime;
-  Optional<yaml::BinaryRef> ExtraData;
+  std::optional<std::time_t> CreatedTime;
+  std::optional<yaml::BinaryRef> ExtraData;
 
   Pre() = default;
   Pre(raw_ostream &OS);
@@ -108,7 +106,7 @@ struct Fixrx {
 };
 
 struct File {
-  Optional<StringRef> Name;
+  std::optional<StringRef> Name;
   std::uint8_t Number;
   File() = default;
   File(yaml::IO &IO);

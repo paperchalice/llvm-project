@@ -17,7 +17,7 @@ tablegen(LLVM MMIXGenSystemOperands.inc -gen-searchable-tables)
 
 add_public_tablegen_target(MMIXCommonTableGen)
 
-add_llvm_target(MMIX
+add_llvm_target(MMIXCodeGen
   MMIXAsmPrinter.cpp
   MMIXCallingConv.cpp
   MMIXCodeGenPassBuilder.cpp
@@ -30,27 +30,31 @@ add_llvm_target(MMIX
   MMIXTargetMachine.cpp
   MMIXTargetObjectFile.cpp
 
+  GlobalISel/MMIXCallLowering.cpp
+  GlobalISel/MMIXInstructionSelector.cpp
+  GlobalISel/MMIXLegalizerInfo.cpp
+  GlobalISel/MMIXRegisterBankInfo.cpp
+  GlobalISel/MMIXValueHandler.cpp
+
   LINK_COMPONENTS
   Analysis
   AsmPrinter
-  Core
   CodeGen
+  Core
   GlobalISel
+  IRPrinter
   MC
-  MCDisassembler
-  MCParser
-  ScalarOpts
   SelectionDAG
   Support
   Target
   TransformUtils
+  MMIXDesc
+  MMIXInfo
 
   ADD_TO_COMPONENT
   MMIX
-  )
-add_library(LLVMMMIXCodeGen ALIAS LLVMMMIX)
+)
 
-add_subdirectory(GlobalISel)
 add_subdirectory(AsmParser)
 add_subdirectory(Disassembler)
 add_subdirectory(TargetInfo)

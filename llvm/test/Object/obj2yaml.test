@@ -866,12 +866,15 @@ FileHeader:
 # MMO-NEXT:       Z:               OTHERWISE
 # MMO-NEXT:       Delta:           -11
 # MMO:        - LOP:
+# MMO-NEXT        OpCode:          FIXR
+# MMO-NEXT        Delta:           0xFF7
+# MMO:        - LOP:
 # MMO-NEXT:       OpCode:          FIXO
 # MMO-NEXT:       HighByte:        0x20
 # MMO-NEXT:       Offset:          0x0
 # MMO:        - LOP:
 # MMO-NEXT:       OpCode:          FILE
-# MMO-NEXT:       Number:          2
+# MMO-NEXT:       Number:          1
 # MMO-NEXT:       Name:            "foo.mms\0"
 # MMO:        - LOP:
 # MMO-NEXT:       OpCode:          LINE

@@ -14,6 +14,7 @@
 #include "llvm/Support/Error.h"
 #include <cstdint>
 #include <ctime>
+#include <optional>
 #include <variant>
 
 namespace llvm {
@@ -89,7 +90,7 @@ struct Fixrx {
 };
 struct File {
   std::uint8_t Number;
-  Optional<StringRef> Name;
+  std::optional<StringRef> Name;
   File(const std::uint8_t *&Iter);
 };
 struct Line {
@@ -103,8 +104,8 @@ struct Spec {
 
 struct Pre {
   std::uint8_t Version = 1;
-  Optional<std::time_t> CreatedTime;
-  Optional<ArrayRef<std::uint8_t>> ExtraData;
+  std::optional<std::time_t> CreatedTime;
+  std::optional<ArrayRef<std::uint8_t>> ExtraData;
 };
 
 struct Post {

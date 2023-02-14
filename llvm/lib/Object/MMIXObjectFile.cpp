@@ -291,12 +291,12 @@ Triple::ArchType MMIXObjectFile::getArch() const {
   return Triple::ArchType::mmix;
 }
 
-SubtargetFeatures MMIXObjectFile::getFeatures() const {
+Expected<SubtargetFeatures> MMIXObjectFile::getFeatures() const {
   SubtargetFeatures Features;
   return Features;
 }
 
-Optional<StringRef> MMIXObjectFile::tryGetCPUName() const {
+std::optional<StringRef> MMIXObjectFile::tryGetCPUName() const {
   return StringRef("MMIX");
 }
 
@@ -316,6 +316,9 @@ Expected<uint64_t> MMIXObjectFile::getStartAddress() const {
 bool MMIXObjectFile::isRelocatableObject() const { return false; }
 
 // Interface from SymbolicFile
+
+bool MMIXObjectFile::is64Bit() const { return true; }
+
 void MMIXObjectFile::moveSymbolNext(DataRefImpl &Symb) const {
   auto Next = reinterpret_cast<decltype(SymbTab.begin())>(Symb.p);
   Symb.p = reinterpret_cast<uintptr_t>(Next + 1);

@@ -103,6 +103,7 @@ set(LLVM_TEST_DEPENDS
           llvm-mc
           llvm-mca
           llvm-ml
+          llvm-mmotype
           llvm-modextract
           llvm-mt
           llvm-nm

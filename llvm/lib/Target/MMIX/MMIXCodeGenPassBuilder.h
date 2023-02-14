@@ -14,6 +14,7 @@ struct MMIXCodeGenPassBuilder
                          PassInstrumentationCallbacks *PIC = nullptr);
 
 public: // GlobalIsel
+  void addIRPasses(AddIRPass &AddPass) const;
   Error addIRTranslator(AddMachinePass &AddPass) const;
   // void addPreLegalizeMachineIR(AddMachinePass &AddPass) const
   Error addLegalizeMachineIR(AddMachinePass &AddPass) const;
