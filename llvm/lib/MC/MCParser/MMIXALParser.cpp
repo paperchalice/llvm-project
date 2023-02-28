@@ -44,6 +44,7 @@
 #include "llvm/MC/MCTargetOptions.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/MD5.h"
@@ -54,7 +55,6 @@
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/Unicode.h"
-#include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
@@ -85,35 +85,40 @@ private:
 
   const char *CurPtr = nullptr;
   StringRef CurBuf;
+
   bool IsAtStartOfLine = true;
   bool IsAtStartOfStatement = true;
   bool IsPeeking = false;
   bool EndStatementAtEOF = true;
+  bool IsStrictMode = true;
 
   bool isAtStartOfComment(const char *Ptr) { return isalnum(*Ptr); }
-
-  int getUCS(const char *Ptr) {
-    int UCS = 0;
-    return UCS;
-  }
 
   bool isAtStatementSeparator(const char *Ptr) {
     return strncmp(Ptr, ";", 1) == 0;
   }
 
-  UTF32 getNextChar() {
-    if (CurPtr == CurBuf.end())
-      return EOF;
-    
-    auto Num = getNumBytesForUTF8(*CurPtr);
-
-    return (unsigned char)*CurPtr++;
+  int getNextChar() {
+    return (CurPtr == CurBuf.end()) ? EOF
+                                    : static_cast<unsigned char>(*CurPtr++);
   }
 
   int peekNextChar() {
-    if (CurPtr == CurBuf.end())
-      return EOF;
-    return (unsigned char)*CurPtr;
+    return (CurPtr == CurBuf.end()) ? EOF : static_cast<unsigned char>(*CurPtr);
+  }
+
+  bool isIdentifierChar(int C) {
+    if (C > 126)
+      return true;
+    if (isalnum(C))
+      return true;
+    switch (C) {
+    case ':':
+    case '_':
+      return true;
+    default:
+      return false;
+    }
   }
 
   AsmToken ReturnError(const char *Loc, const std::string &Msg) {
@@ -122,14 +127,26 @@ private:
     return AsmToken(AsmToken::Error, StringRef(Loc, CurPtr - Loc));
   }
 
-  AsmToken LexIdentifier();
-  AsmToken LexSlash();
+  AsmToken LexIdentifier() {
+    while (isIdentifierChar(peekNextChar())) {
+      CurPtr++;
+    }
+    StringRef TokStr(TokStart, CurPtr - TokStart);
+    return AsmToken(AsmToken::Comment, LexUntilEndOfLine());
+  }
+
+  AsmToken LexWhiteSpace() {
+    while (peekNextChar() == ' ' || peekNextChar() == '\t') {
+      CurPtr++;
+    }
+    return AsmToken(AsmToken::Space, StringRef(TokStart, CurPtr - TokStart));
+  }
+
   AsmToken LexLineComment() {
     // Mark This as an end of statement with a body of the
     // comment. While it would be nicer to leave this two tokens,
     // backwards compatability with TargetParsers makes keeping this in this
     // form better.
-    const UTF8* Start = reinterpret_cast<const UTF8*>(TokStart);
     const auto CommentTextStart = CurPtr;
     int CurChar = getNextChar();
     while (CurChar != '\n' && CurChar != '\r' && CurChar != EOF)
@@ -149,16 +166,74 @@ private:
                     StringRef(TokStart, CurPtr - 1 - TokStart));
   }
 
-  AsmToken LexDigit();
-  AsmToken LexSingleQuote();
-  AsmToken LexQuote();
-  AsmToken LexFloatLiteral();
-  AsmToken LexHexFloatLiteral(bool NoIntDigits);
+  AsmToken LexHexDigit() {
+
+    while (isHexDigit(peekNextChar())) {
+      CurPtr++;
+    }
+    StringRef TokStr(TokStart, CurPtr - TokStart);
+    APInt Value;
+    if (TokStr.drop_front().getAsInteger(16, Value)) {
+      return ReturnError(TokStart, "invalid hexadecial number");
+    }
+    if (Value.isIntN(64))
+      return AsmToken(AsmToken::Integer, TokStr, Value);
+    return AsmToken(AsmToken::BigNum, TokStr, Value);
+  }
+
+  AsmToken LexDecDigit() {
+    while (std::isdigit(peekNextChar())) {
+      CurPtr++;
+    }
+    StringRef TokStr(TokStart, CurPtr - TokStart);
+    APInt Value;
+    if (TokStr.getAsInteger(10, Value)) {
+      return ReturnError(TokStart, "invalid decimal number");
+    }
+
+    if (Value.isIntN(64))
+      return AsmToken(AsmToken::Integer, TokStr, Value);
+    return AsmToken(AsmToken::BigNum, TokStr, Value);
+  }
+
+  AsmToken LexSingleQuote() {
+    auto CharVal = getNextChar(); // get the character...
+    auto CurChar = CharVal;
+
+    if (!IsStrictMode) {
+      // TODO: we can handle more complex content...
+    }
+
+    CurChar = getNextChar(); // expect '\''
+
+    if (CurChar != '\'')
+      return ReturnError(TokStart, "illegal character constant!");
+
+    if (CharVal == '\n')
+      return ReturnError(TokStart, "incomplete character constant!");
+
+    // The idea here being that 'c' is basically just an integral
+    // constant.
+    StringRef Res = StringRef(TokStart, CurPtr - TokStart);
+    return AsmToken(AsmToken::Integer, Res, CharVal);
+  }
+
+  AsmToken LexQuote() {
+    int CurChar = getNextChar();
+    while (CurChar != '"') {
+      if (!IsStrictMode) {
+        // TODO: handle escape sequence, TBD...
+      }
+      CurChar = getNextChar();
+      if (CurChar == EOF || CurChar == '\n')
+        return ReturnError(TokStart, "incomplete string constant!");
+    }
+    return AsmToken(AsmToken::String, StringRef(TokStart, CurPtr - TokStart));
+  }
 
   StringRef LexUntilEndOfLine() {
-    TokStart = CurPtr;
-
-    while (*CurPtr != '\n' && *CurPtr != '\r' && CurPtr != CurBuf.end()) {
+    while (peekNextChar() != '\n' && peekNextChar() != '\r' &&
+           peekNextChar() != EOF) {
       ++CurPtr;
     }
     return StringRef(TokStart, CurPtr - TokStart);
@@ -169,35 +244,27 @@ protected:
   AsmToken LexToken() override {
     TokStart = CurPtr;
     // This always consumes at least one character.
-    int CurChar = getNextChar();
+    char CurChar = getNextChar();
 
-    // handle label and '#'
-    if (!IsPeeking && IsAtStartOfLine && IsAtStartOfStatement) {
-      if (CurChar == '#') {
-        // If this starts with a '#', this may be a cpp
-        // hash directive and otherwise a line comment.
-        AsmToken TokenBuf[2];
-        MutableArrayRef<AsmToken> Buf(TokenBuf, 2);
-        size_t num = peekTokens(Buf, true);
-        // There cannot be a space preceding this
-        if (IsAtStartOfLine && num == 2 && TokenBuf[0].is(AsmToken::Integer) &&
-            TokenBuf[1].is(AsmToken::String)) {
-          CurPtr = TokStart; // reset curPtr;
-          StringRef Directive = LexUntilEndOfLine();
-          UnLex(TokenBuf[1]);
-          UnLex(TokenBuf[0]);
-          return AsmToken(AsmToken::HashDirective, Directive);
-        }
+    // lex line direcitive
+    if (!IsPeeking && CurChar == '#' && IsAtStartOfStatement) {
+      // If this starts with a '#', this may be a cpp
+      // hash directive and otherwise a line comment.
+      AsmToken TokenBuf[2];
+      MutableArrayRef<AsmToken> Buf(TokenBuf, 2);
+      size_t num = peekTokens(Buf, true);
+      // There cannot be a space preceding this
+      if (IsAtStartOfLine && num == 2 && TokenBuf[0].is(AsmToken::Integer) &&
+          TokenBuf[1].is(AsmToken::String)) {
+        CurPtr = TokStart; // reset curPtr;
+        StringRef s = LexUntilEndOfLine();
+        UnLex(TokenBuf[1]);
+        UnLex(TokenBuf[0]);
+        return AsmToken(AsmToken::HashDirective, s);
+      } else {
+        // else it is line comment
+        return LexLineComment();
       }
-    }
-
-    if (isAtStartOfComment(TokStart))
-      return LexLineComment();
-
-    if (isAtStatementSeparator(TokStart)) {
-      IsAtStartOfLine = true;
-      IsAtStartOfStatement = true;
-      return AsmToken(AsmToken::EndOfStatement, StringRef(TokStart, 1));
     }
 
     // If we're missing a newline at EOF, make sure we still get an
@@ -213,8 +280,91 @@ protected:
 
     switch (CurChar) {
     default:
+      if (isIdentifierChar(CurChar))
+        return LexIdentifier();
+      else
+        return ReturnError(TokStart, "unknown token");
+    case EOF:
+      if (EndStatementAtEOF) {
+        IsAtStartOfLine = true;
+        IsAtStartOfStatement = true;
+      }
+      return AsmToken(AsmToken::Eof, StringRef(TokStart, 0));
+    case 0:
+    case ' ':
+    case '\t': {
+      IsAtStartOfStatement = OldIsAtStartOfStatement;
+      auto TokSpace = LexWhiteSpace();
+      return SkipSpace ? LexToken() : TokSpace;
+    }
+    case '\r': {
+      IsAtStartOfLine = true;
+      IsAtStartOfStatement = true;
+      // If this is a CR followed by LF, treat that as one token.
+      if (CurPtr != CurBuf.end() && *CurPtr == '\n')
+        ++CurPtr;
+      return AsmToken(AsmToken::EndOfStatement,
+                      StringRef(TokStart, CurPtr - TokStart));
+    }
     case '\n':
       IsAtStartOfLine = true;
+      IsAtStartOfStatement = true;
+      return AsmToken(AsmToken::EndOfStatement, StringRef(TokStart, 1));
+    case '\'':
+      return LexSingleQuote();
+    case '"':
+      return LexQuote();
+    case '#':
+      return LexHexDigit();
+    case '+':
+      return AsmToken(AsmToken::Plus, StringRef(TokStart, 1));
+    case '-':
+      return AsmToken(AsmToken::Minus, StringRef(TokStart, 1));
+    case '~':
+      return AsmToken(AsmToken::Tilde, StringRef(TokStart, 1));
+    case '(':
+      return AsmToken(AsmToken::LParen, StringRef(TokStart, 1));
+    case ')':
+      return AsmToken(AsmToken::RParen, StringRef(TokStart, 1));
+    case '*':
+      return AsmToken(AsmToken::Star, StringRef(TokStart, 1));
+    case ',':
+      return AsmToken(AsmToken::Comma, StringRef(TokStart, 1));
+    case '|':
+      return AsmToken(AsmToken::Pipe, StringRef(TokStart, 1));
+    case '&':
+      return AsmToken(AsmToken::Amp, StringRef(TokStart, 1));
+    case '$':
+      return AsmToken(AsmToken::Dollar, StringRef(TokStart, 1));
+    case '%':
+      return AsmToken(AsmToken::Percent, StringRef(TokStart, 1));
+    case '/':
+      if (peekNextChar() == '/') {
+        getNextChar();
+        return AsmToken(AsmToken::Slash, StringRef(TokStart, 2));
+      } else {
+        return AsmToken(AsmToken::Slash, StringRef(TokStart, 1));
+      }
+    case '<': {
+      if (peekNextChar() == '<') {
+        CurPtr++;
+        return AsmToken(AsmToken::LessLess, StringRef(TokStart, 2));
+      } else {
+        return AsmToken(AsmToken::Error, StringRef());
+      }
+    }
+    case '0':
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+      return LexDecDigit();
+    case ';':
       IsAtStartOfStatement = true;
       return AsmToken(AsmToken::EndOfStatement, StringRef(TokStart, 1));
     }
@@ -251,6 +401,7 @@ public:
     }
     return StringRef(TokStart, CurPtr - TokStart);
   }
+
   size_t peekTokens(MutableArrayRef<AsmToken> Buf,
                     bool ShouldSkipSpace = true) override {
     SaveAndRestore SavedTokenStart(TokStart);
@@ -283,7 +434,7 @@ public:
 
 class MMIXALParser : public MCAsmParser {
 private:
-  AsmLexer Lexer;
+  MMIXALLexer Lexer;
   MCContext &Ctx;
   MCStreamer &Out;
   const MCAsmInfo &MAI;
@@ -330,7 +481,9 @@ public:
   void eatToEndOfStatement() override {}
   bool parseExpression(const MCExpr *&Res, SMLoc &EndLoc) override;
   bool parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc,
-                        AsmTypeInfo *TypeInfo) override;
+                        AsmTypeInfo *TypeInfo) override {
+    return getTargetParser().parsePrimaryExpr(Res, EndLoc);
+  }
   bool parseParenExpression(const MCExpr *&Res, SMLoc &EndLoc) override;
   bool parseAbsoluteExpression(int64_t &Res) override { return false; }
   bool checkForValidSection() override { return false; }
@@ -362,28 +515,12 @@ public:
   }
 
 private:
-  AsmToken lexIdentifier();
+  bool parseBinOpRHS(unsigned Precedence, const MCExpr *&Res, SMLoc &EndLoc);
+  unsigned getBinOpPrecedence(AsmToken::TokenKind K,
+                              MCBinaryExpr::Opcode &Kind);
   void lexLispComment();
-  AsmToken lexUntilLineEnd();
-  bool parseTerm(const MCExpr *&Res, SMLoc &EndLoc);
   bool parseLine();
 };
-
-AsmToken MMIXALParser::lexIdentifier() {
-  auto CurTok = getLexer().getTok();
-  if (CurTok.is(AsmToken::Identifier) || CurTok.is(AsmToken::Colon)) {
-    auto TokBegin = CurTok.getString().begin();
-    auto Sz = CurTok.getString().size();
-    while (getLexer().peekTok(false).is(AsmToken::Colon) ||
-           getLexer().peekTok(false).is(AsmToken::Identifier)) {
-      Sz += getLexer().Lex().getString().size();
-    }
-    Lex(); // to next token
-    return AsmToken(AsmToken::Identifier, StringRef(TokBegin, Sz));
-  } else {
-    return AsmToken(AsmToken::Error, "");
-  }
-}
 
 const AsmToken &MMIXALParser::Lex() { return getLexer().Lex(); }
 
@@ -391,128 +528,97 @@ bool MMIXALParser::parseLine() {
   // line: ^[label]\s+<instruction>[;\s*<instruction>]\s+[arbitray contents]$
   // if we get error, discard all rest content until line end
   auto CurTok = getTok();
-  getLexer().setSkipSpace(true);
-  AsmToken Label;
-  if (getTok().is(AsmToken::Space)) {
-    // no label
-    Label = getTok();
-    Lex();
-  } else {
-    // we have label
-    if (getTok().is(AsmToken::Colon) || getTok().is(AsmToken::Identifier)) {
-      CurTok = lexIdentifier();
-    } else {
-      // invalid label
-      lexUntilLineEnd();
-    }
-  }
 
-  // now parse instruction
-  // instruction: <opcode> <operands> [;]
-  CurTok = getTok();
-  ParseInstructionInfo IInfo;
-  SmallVector<std::unique_ptr<MCParsedAsmOperand>, 4> ParsedOperands;
-  while (getTok().isNot(AsmToken::EndOfStatement) &&
-         getTok().isNot(AsmToken::Eof)) {
-    auto Mnemonic = getTok().getString().lower(); // follow mmix doc
-    bool HasErr = getTargetParser().ParseInstruction(IInfo, Mnemonic, CurTok,
-                                                     ParsedOperands);
-    if (HasErr) {
-      lexUntilLineEnd();
-      return false;
-    }
-  }
-  getLexer().setSkipSpace(false);
-  return false;
+  const MCExpr *Res;
+  SMLoc Loc;
+  parseExpression(Res, Loc);
 }
 
-// <term> -> <primary expression> | <term><strong operator><primary expression>
-bool MMIXALParser::parseTerm(const MCExpr *&Res, SMLoc &EndLoc) {
-  auto CurTok = getTok();
+unsigned MMIXALParser::getBinOpPrecedence(AsmToken::TokenKind K,
+                                          MCBinaryExpr::Opcode &Kind) {
+  constexpr unsigned weak_prec = 2, strong_prec = 3;
 
-  // <primary expression>
-  if (parsePrimaryExpr(Res, EndLoc, nullptr)) {
-    // <term><strong operator><primary expression>
-    if (parseTerm(Res, EndLoc)) {
+  switch (K) {
+  default:
+    return 0;
+  // weak
+  case AsmToken::Plus:
+    Kind = MCBinaryExpr::Add;
+    return weak_prec;
+  case AsmToken::Minus:
+    Kind = MCBinaryExpr::Sub;
+    return weak_prec;
+  case AsmToken::Pipe:
+    Kind = MCBinaryExpr::Or;
+    return weak_prec;
+  case AsmToken::Caret:
+    Kind = MCBinaryExpr::Xor;
+    return weak_prec;
+
+  // strong
+  case AsmToken::Star:
+    Kind = MCBinaryExpr::Mul;
+    return strong_prec;
+  case AsmToken::Slash:
+    Kind = MCBinaryExpr::Div;
+    return strong_prec;
+  // case AsmToken::DoubleSlash
+  case AsmToken::Percent:
+    Kind = MCBinaryExpr::Mod;
+    return strong_prec;
+  case AsmToken::LessLess:
+    Kind = MCBinaryExpr::Shl;
+    return strong_prec;
+  case AsmToken::GreaterGreater:
+    Kind = MCBinaryExpr::AShr;
+    return strong_prec;
+  }
+}
+
+bool MMIXALParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
+                                 SMLoc &EndLoc) {
+  SMLoc StartLoc = Lexer.getLoc();
+  while (true) {
+    MCBinaryExpr::Opcode Kind = MCBinaryExpr::Add;
+    unsigned TokPrec = getBinOpPrecedence(Lexer.getKind(), Kind);
+
+    // If the next token is lower precedence than we are allowed to eat, return
+    // successfully with what we ate already.
+    if (TokPrec < Precedence)
+      return false;
+
+    Lex();
+
+    // Eat the next primary expression.
+    const MCExpr *RHS;
+    if (parsePrimaryExpr(RHS, EndLoc, nullptr))
       return true;
-    } else {
-      auto LHS = Res;
-      bool IsSlashSlash = false;
-      CurTok = getTok();
-      if (CurTok.is(AsmToken::Slash)) {
-        if (getLexer().peekTok(false).is(AsmToken::Slash)) {
-          Lex();
-          Lex();
-          IsSlashSlash = true;
-        }
-      } else {
-        Lex();
-      }
-      const MCExpr *RHS = nullptr;
-      if (parsePrimaryExpr(RHS, EndLoc, nullptr)) {
-        return true;
-      }
 
-      switch (CurTok.getKind()) {
-      case AsmToken::Star:
-        Res = MCBinaryExpr::createMul(LHS, RHS, getContext());
-        return false;
-      case AsmToken::Slash:
-        if (IsSlashSlash) {
-          Res = MCBinaryExpr::createDiv(LHS, RHS, getContext());
-        } else {
-          Res = MCBinaryExpr::createDiv(LHS, RHS, getContext());
-        }
-        return false;
-      case AsmToken::Percent:
-        Res = MCBinaryExpr::createMod(LHS, RHS, getContext());
-        return false;
-      case AsmToken::LessLess:
-        Res = MCBinaryExpr::createShl(LHS, RHS, getContext());
-        return false;
-      case AsmToken::GreaterGreater:
-        Res = MCBinaryExpr::createAShr(LHS, RHS, getContext());
-        return false;
-      case AsmToken::Amp:
-        Res = MCBinaryExpr::createAnd(LHS, RHS, getContext());
-        return false;
-      default:
-        break;
-      }
-    }
-    return true;
-  } else {
-    return false;
+    // If BinOp binds less tightly with RHS than the operator after RHS, let
+    // the pending operator take RHS as its LHS.
+    MCBinaryExpr::Opcode Dummy;
+    unsigned NextTokPrec = getBinOpPrecedence(Lexer.getKind(), Dummy);
+    if (TokPrec < NextTokPrec && parseBinOpRHS(TokPrec + 1, RHS, EndLoc))
+      return true;
+
+    // Merge LHS and RHS according to operator.
+    Res = MCBinaryExpr::create(Kind, Res, RHS, getContext(), StartLoc);
   }
 }
 
 // <expression> -> <term> | <expression> <weak operator> <term>
 bool MMIXALParser::parseExpression(const MCExpr *&Res, SMLoc &EndLoc) {
-  if (parseTerm(Res, EndLoc)) {
-    if (parseExpression(Res, EndLoc)) {
-      return true;
-    } else {
-      auto Op = getTok();
-      auto LHS = Res;
-      const MCExpr *RHS = nullptr;
-      Lex(); // eat op
-      switch (Op.getKind()) {
-      case AsmToken::Plus:
-        Res = MCBinaryExpr::createAdd(LHS, RHS, getContext());
-        return false;
-      case AsmToken::Minus:
-        Res = MCBinaryExpr::createSub(LHS, RHS, getContext());
-        return false;
-      case AsmToken::Pipe:
-        Res = MCBinaryExpr::createOr(LHS, RHS, getContext());
-        return false;
-      default:
-        return true;
-      }
-    }
-  } else {
-    return false;
-  }
+  Res = nullptr;
+
+  if (parsePrimaryExpr(Res, EndLoc, nullptr) || parseBinOpRHS(1, Res, EndLoc))
+    return true;
+  // Try to constant fold it up front, if possible. Do not exploit
+  // assembler here.
+  // int64_t Value;
+  // if (Res->evaluateAsAbsolute(Value))
+  //   Res = MCConstantExpr::create(Value, getContext());
+
+  return false;
 }
 
 bool MMIXALParser::Run(bool NoInitialTextSection, bool NoFinalize) {
@@ -529,98 +635,11 @@ bool MMIXALParser::Run(bool NoInitialTextSection, bool NoFinalize) {
 
   // While we have input, parse each statement.
   auto CurTok = getTok();
-  while (Lexer.isNot(AsmToken::Eof)) {
-    parseLine();
-  }
-  return true;
-}
+  const MCExpr *Res;
+  SMLoc L;
+  parseExpression(Res, L);
+  Res->dump();
 
-AsmToken MMIXALParser::lexUntilLineEnd() {
-  auto CurTok = getTok();
-  while (CurTok.getString() != "\n" && CurTok.isNot(AsmToken::Eof)) {
-    CurTok = Lex();
-  }
-  return Lex();
-}
-
-// primary expression:
-// <primary expression> -> <constant> | <symbol> | <local operand> | @ |
-//                         <(expression)> | <unary operator><primary expression>
-// <unary operator> -> + | - | ~ | $ | &
-bool MMIXALParser::parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc,
-                                    AsmTypeInfo *TypeInfo) {
-  SMLoc FirstTokenLoc = getLexer().getLoc();
-
-  auto CurTok = getTok();
-  switch (CurTok.getKind()) {
-  case AsmToken::Integer: {
-    if (CurTok.getString()[0] != '#') {
-      auto Suffix = getLexer().peekTok(false);
-      // check local symbol
-      if (Suffix.getString() == "F") {
-        // not support
-        return true;
-      } else if (Suffix.getString() == "B") {
-        // not support
-        // local symbol
-        Lex();
-        Lex();
-        return false;
-      }
-    }
-  }
-    Res = MCConstantExpr::create(getTok().getIntVal(), getContext());
-    Lex();
-    return false;
-  case AsmToken::Identifier:
-  case AsmToken::At: {
-    MCSymbol *Sym = Ctx.createTempSymbol();
-    Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, getContext());
-  }
-    Lex(); // eat '@'
-    return false;
-  case AsmToken::LParen:
-    Lex(); // Eat the '('.
-    return parseParenExpression(Res, EndLoc);
-  case AsmToken::Plus: // do nothing
-    Lex();
-    return parsePrimaryExpr(Res, EndLoc, TypeInfo);
-  case AsmToken::Minus: // subtract from zero
-    Lex();
-    {
-      if (parsePrimaryExpr(Res, EndLoc, TypeInfo)) {
-        return true;
-      } else {
-        Res = MCUnaryExpr::createMinus(Res, getContext(), FirstTokenLoc);
-        return false;
-      }
-    }
-  case AsmToken::Tilde: // complement the bits
-    Lex();              // eat ~
-    {
-      if (parsePrimaryExpr(Res, EndLoc, TypeInfo)) {
-        return true;
-      } else {
-        Res = MCUnaryExpr::createNot(Res, getContext(), FirstTokenLoc);
-        return false;
-      }
-    }
-    break;
-  case AsmToken::Dollar: // change from pure value to register number
-    // here leverage the target MCExpr to handle expressions which involve
-    // registers
-    return getTargetParser().parsePrimaryExpr(Res, EndLoc);
-  case AsmToken::Amp: // take the serial number
-    Lex();            // eat &
-    {
-      std::int64_t SerialNumber = 1;
-      Res = MCConstantExpr::create(SerialNumber, getContext());
-      return false;
-    }
-    break;
-  default:
-    break;
-  }
   return true;
 }
 
