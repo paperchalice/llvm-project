@@ -92,8 +92,6 @@ private:
   bool EndStatementAtEOF = true;
   bool IsStrictMode = true;
 
-  bool isAtStartOfComment(const char *Ptr) { return isalnum(*Ptr); }
-
   bool isAtStatementSeparator(const char *Ptr) {
     return strncmp(Ptr, ";", 1) == 0;
   }
@@ -132,7 +130,7 @@ private:
       CurPtr++;
     }
     StringRef TokStr(TokStart, CurPtr - TokStart);
-    return AsmToken(AsmToken::Comment, LexUntilEndOfLine());
+    return AsmToken(AsmToken::Identifier, TokStr);
   }
 
   AsmToken LexWhiteSpace() {
@@ -229,14 +227,6 @@ private:
         return ReturnError(TokStart, "incomplete string constant!");
     }
     return AsmToken(AsmToken::String, StringRef(TokStart, CurPtr - TokStart));
-  }
-
-  StringRef LexUntilEndOfLine() {
-    while (peekNextChar() != '\n' && peekNextChar() != '\r' &&
-           peekNextChar() != EOF) {
-      ++CurPtr;
-    }
-    return StringRef(TokStart, CurPtr - TokStart);
   }
 
 protected:
@@ -377,6 +367,7 @@ public:
   MMIXALLexer(const AsmLexer &) = delete;
   MMIXALLexer &operator=(const AsmLexer &) = delete;
   ~MMIXALLexer() override = default;
+  bool isStrictMode() { return IsStrictMode; }
 
   void setBuffer(StringRef Buf, const char *ptr = nullptr,
                  bool EndStatementAtEOF = true) {
@@ -394,9 +385,16 @@ public:
   StringRef LexUntilEndOfStatement() override {
     TokStart = CurPtr;
 
-    while (!isAtStartOfComment(CurPtr) &&     // Start of line comment.
-           !isAtStatementSeparator(CurPtr) && // End of statement marker.
+    while (!isAtStatementSeparator(CurPtr) && // End of statement marker.
            *CurPtr != '\n' && *CurPtr != '\r' && CurPtr != CurBuf.end()) {
+      ++CurPtr;
+    }
+    return StringRef(TokStart, CurPtr - TokStart);
+  }
+
+  StringRef LexUntilEndOfLine() {
+    while (peekNextChar() != '\n' && peekNextChar() != '\r' &&
+           peekNextChar() != EOF) {
       ++CurPtr;
     }
     return StringRef(TokStart, CurPtr - TokStart);
@@ -519,19 +517,79 @@ private:
   unsigned getBinOpPrecedence(AsmToken::TokenKind K,
                               MCBinaryExpr::Opcode &Kind);
   void lexLispComment();
-  bool parseLine();
+  bool parseStatement();
 };
 
 const AsmToken &MMIXALParser::Lex() { return getLexer().Lex(); }
 
-bool MMIXALParser::parseLine() {
+bool MMIXALParser::parseStatement() {
   // line: ^[label]\s+<instruction>[;\s*<instruction>]\s+[arbitray contents]$
   // if we get error, discard all rest content until line end
-  auto CurTok = getTok();
+  bool Failed = false;
 
-  const MCExpr *Res;
-  SMLoc Loc;
-  parseExpression(Res, Loc);
+  auto CurTok = getTok();
+  // parse label
+  if (Lexer.isStrictMode()) {
+    if (CurTok.isNot(AsmToken::Space)) {
+      // the first token is always label
+      if (CurTok.is(AsmToken::Identifier)) {
+        // create symbol
+        getContext().getOrCreateSymbol(CurTok.getString());
+        Lexer.setSkipSpace(true);
+        Lex(); // eat identifier
+      } else if (CurTok.is(AsmToken::Integer)) {
+        // it is a local label, peek next token
+        auto Suffix = Lexer.peekTok(false);
+        if (Suffix.getString() == "H") {
+          Lexer.setSkipSpace(true);
+          Lex(); // eat number
+          Lex(); // eat 'H'
+          getContext().createDirectionalLocalSymbol(CurTok.getIntVal());
+        } else {
+          return Error(CurTok.getLoc(), "improper local label");
+        }
+      } else {
+        // it is a line comment
+        Lexer.LexUntilEndOfLine();
+        Lex();
+        return parseToken(AsmToken::EndOfStatement);
+      }
+    }
+  } else {
+    // TODO:
+  }
+
+  // parse instruction field
+  auto InstTok = getTok();
+  // handle 2ADD etc
+  if (InstTok.is(AsmToken::Integer) || InstTok.is(AsmToken::BigNum)) {
+    if (std::isdigit(InstTok.getString()[0])) {
+      auto &AddPart = Lexer.peekTok(false);
+      const char *TokStart = InstTok.getString().begin();
+      Lex(); // eat digits
+      if (AddPart.is(AsmToken::Identifier)) {
+        Lex(); // eat this identifier
+        StringRef TokStr(TokStart, InstTok.getString().size() +
+                                       AddPart.getString().size());
+        Lexer.UnLex(AsmToken(AsmToken::Identifier, TokStr));
+        InstTok = getTok();
+      }
+    }
+  }
+
+  if (InstTok.isNot(AsmToken::Identifier)) {
+    return Error(InstTok.getLoc(), "unknown opcode");
+  }
+
+  Lexer.setSkipSpace(!Lexer.isStrictMode()); // we use space to identify whether in strict mmixal mode
+  Lex(); // eat opcode
+  // parse instruciton
+  ParseInstructionInfo IInfo;
+  SmallVector<std::unique_ptr<MCParsedAsmOperand>, 4> Operands;
+  Failed = getTargetParser().ParseInstruction(IInfo, InstTok.getString().lower(), InstTok,
+                                     Operands);
+
+  return Failed;
 }
 
 unsigned MMIXALParser::getBinOpPrecedence(AsmToken::TokenKind K,
@@ -625,20 +683,10 @@ bool MMIXALParser::Run(bool NoInitialTextSection, bool NoFinalize) {
   // Prime the lexer.
   auto T = Lex();
   getTargetParser().onBeginOfFile();
-  T.dump(outs());
-  outs() << "\n";
-  while (getLexer().isNot(AsmToken::Eof)) {
-    Lex().dump(outs());
-    outs() << "\n";
-  }
-  return true;
 
-  // While we have input, parse each statement.
-  auto CurTok = getTok();
-  const MCExpr *Res;
-  SMLoc L;
-  parseExpression(Res, L);
-  Res->dump();
+  while (getTok().isNot(AsmToken::Eof)) {
+    parseStatement();
+  }
 
   return true;
 }
