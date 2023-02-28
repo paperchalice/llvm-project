@@ -24,7 +24,9 @@ MCFragment *MMIXMCExpr::findAssociatedFragment() const {
 }
 
 void MMIXMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
+  OS << "$(";
   Expr->print(OS, MAI);
+  OS << ")";
 }
 
 bool MMIXMCExpr::classof(const MCExpr *E) {
