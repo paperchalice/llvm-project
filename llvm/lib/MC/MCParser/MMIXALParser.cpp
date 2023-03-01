@@ -445,6 +445,8 @@ private:
   /// SourceMgr object.
   unsigned CurBuffer;
 
+  StringRef CurPrefix = ":";
+
 public:
   MMIXALParser(SourceMgr &SM, MCContext &Ctx, MCStreamer &Out,
                const MCAsmInfo &MAI, unsigned CB)
@@ -453,6 +455,7 @@ public:
     Lexer.setBuffer(SrcMgr.getMemoryBuffer(CurBuffer)->getBuffer());
     // follow mmixal behavior
     Lexer.setSkipSpace(false);
+    getContext().getOrCreateSymbol(":Main"); // ensure it is the first entry
   }
 
 public:
@@ -472,7 +475,7 @@ public:
   MCContext &getContext() override { return Ctx; }
   MCStreamer &getStreamer() override { return Out; }
   const AsmToken &Lex() override;
-  bool parseIdentifier(StringRef &Res) override { return false; }
+  bool parseIdentifier(StringRef &Res) override;
   StringRef parseStringToEndOfStatement() override { return ""; }
   bool parseEscapedString(std::string &Data) override { return false; }
   bool parseAngleBracketString(std::string &Data) override { return false; }
@@ -518,9 +521,21 @@ private:
                               MCBinaryExpr::Opcode &Kind);
   void lexLispComment();
   bool parseStatement();
+  Twine mangleSymbol(StringRef Name);
 };
 
 const AsmToken &MMIXALParser::Lex() { return getLexer().Lex(); }
+
+bool MMIXALParser::parseIdentifier(StringRef &Res) {
+  auto CurTok = getTok();
+  if (CurTok.is(AsmToken::Identifier)) {
+    auto Sym = getContext().getOrCreateSymbol(mangleSymbol(CurTok.getString()));
+    Res = Sym->getName();
+    return false;
+  } else {
+    return true;
+  }
+}
 
 bool MMIXALParser::parseStatement() {
   // line: ^[label]\s+<instruction>[;\s*<instruction>]\s+[arbitray contents]$
@@ -534,7 +549,7 @@ bool MMIXALParser::parseStatement() {
       // the first token is always label
       if (CurTok.is(AsmToken::Identifier)) {
         // create symbol
-        getContext().getOrCreateSymbol(CurTok.getString());
+        getContext().getOrCreateSymbol(mangleSymbol(CurTok.getString()));
         Lexer.setSkipSpace(true);
         Lex(); // eat identifier
       } else if (CurTok.is(AsmToken::Integer)) {
@@ -554,6 +569,9 @@ bool MMIXALParser::parseStatement() {
         Lex();
         return parseToken(AsmToken::EndOfStatement);
       }
+    } else {
+      // eat space
+      Lex();
     }
   } else {
     // TODO:
@@ -581,14 +599,73 @@ bool MMIXALParser::parseStatement() {
     return Error(InstTok.getLoc(), "unknown opcode");
   }
 
-  Lexer.setSkipSpace(!Lexer.isStrictMode()); // we use space to identify whether in strict mmixal mode
-  Lex(); // eat opcode
+  if (InstTok.getString() == "IS") {
+    Lexer.LexUntilEndOfStatement();
+    Lex();
+    return parseToken(AsmToken::EndOfStatement);
+  }
+  if (InstTok.getString() == "LOC") {
+    Lexer.LexUntilEndOfStatement();
+    Lex();
+    return parseToken(AsmToken::EndOfStatement);
+  }
+  if (InstTok.getString() == "PREFIX") {
+    Lexer.LexUntilEndOfStatement();
+    Lex();
+    return parseToken(AsmToken::EndOfStatement);
+  }
+  if (InstTok.getString() == "GREG") {
+    Lexer.LexUntilEndOfStatement();
+    Lex();
+    return parseToken(AsmToken::EndOfStatement);
+  }
+  if (InstTok.getString() == "LOCAL") {
+    Lexer.LexUntilEndOfStatement();
+    Lex();
+    return parseToken(AsmToken::EndOfStatement);
+  }
+  if (InstTok.getString() == "BSPEC") {
+    Lexer.LexUntilEndOfStatement();
+    Lex();
+    return parseToken(AsmToken::EndOfStatement);
+  }
+  if (InstTok.getString() == "ESPEC") {
+    Lexer.LexUntilEndOfStatement();
+    Lex();
+    return parseToken(AsmToken::EndOfStatement);
+  }
+  if (InstTok.getString() == "BYTE") {
+    Lexer.LexUntilEndOfStatement();
+    Lex();
+    return parseToken(AsmToken::EndOfStatement);
+  }
+  if (InstTok.getString() == "WYDE") {
+    Lexer.LexUntilEndOfStatement();
+    Lex();
+    return parseToken(AsmToken::EndOfStatement);
+  }
+  if (InstTok.getString() == "TETRA") {
+    Lexer.LexUntilEndOfStatement();
+    Lex();
+    return parseToken(AsmToken::EndOfStatement);
+  }
+  if (InstTok.getString() == "OCTA") {
+    Lexer.LexUntilEndOfStatement();
+    Lex();
+    return parseToken(AsmToken::EndOfStatement);
+  }
+
+  Lexer.setSkipSpace(!Lexer.isStrictMode()); // we use space to identify whether
+                                             // in strict mmixal mode
+  Lex();                                     // eat opcode
   // parse instruciton
   ParseInstructionInfo IInfo;
   SmallVector<std::unique_ptr<MCParsedAsmOperand>, 4> Operands;
-  Failed = getTargetParser().ParseInstruction(IInfo, InstTok.getString().lower(), InstTok,
-                                     Operands);
-
+  Failed = getTargetParser().ParseInstruction(
+      IInfo, InstTok.getString().lower(), InstTok, Operands);
+  for(const auto &O:Operands) {
+    O->dump();
+  }
   return Failed;
 }
 
@@ -635,10 +712,11 @@ unsigned MMIXALParser::getBinOpPrecedence(AsmToken::TokenKind K,
 
 bool MMIXALParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
                                  SMLoc &EndLoc) {
-  SMLoc StartLoc = Lexer.getLoc();
   while (true) {
     MCBinaryExpr::Opcode Kind = MCBinaryExpr::Add;
     unsigned TokPrec = getBinOpPrecedence(Lexer.getKind(), Kind);
+    SMLoc BinOpLoc = getTok().getLoc(); // HACK: use loc to test whether the
+                                        // operator is fractional division
 
     // If the next token is lower precedence than we are allowed to eat, return
     // successfully with what we ate already.
@@ -660,7 +738,7 @@ bool MMIXALParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
       return true;
 
     // Merge LHS and RHS according to operator.
-    Res = MCBinaryExpr::create(Kind, Res, RHS, getContext(), StartLoc);
+    Res = MCBinaryExpr::create(Kind, Res, RHS, getContext(), BinOpLoc);
   }
 }
 
@@ -696,6 +774,14 @@ bool MMIXALParser::parseParenExpression(const MCExpr *&Res, SMLoc &EndLoc) {
     return false;
   }
   return parseRParen();
+}
+
+Twine MMIXALParser::mangleSymbol(StringRef Name) {
+  if (Name.starts_with(CurPrefix)) {
+    return Name;
+  } else {
+    return CurPrefix + Name;
+  }
 }
 
 class MMOAsmParser : public MCAsmParserExtension {
