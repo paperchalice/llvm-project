@@ -19,12 +19,14 @@
 namespace llvm {
 
 MMIXMCAsmInfoELF::MMIXMCAsmInfoELF(const Triple &T) {
-
+  CommentString = "%";
+  IsMMIX = true;
 }
 
 MMIXMCAsmInfoMMO::MMIXMCAsmInfoMMO(const Triple &T) {
-  CommentString = "%";
-  AllowDollarAtStartOfIdentifier = true;
+  CommentString = "#"; // MMIX comment is special...
+  LabelSuffix = "";
+  AllowAdditionalComments = false; // it contains "//" as operator
   IsMMIX = true;
 }
 
