@@ -12,7 +12,7 @@
 namespace llvm {
 
 MMIXOperand::ContentTy::ContentTy(StringRef Token) : Tok(Token) {}
-MMIXOperand::ContentTy::ContentTy(unsigned RegNo) : Reg(RegNo) {}
+MMIXOperand::ContentTy::ContentTy(const unsigned &RegNo) : Reg(RegNo) {}
 MMIXOperand::ContentTy::ContentTy(const MCExpr *Expr) : Imm(Expr) {}
 
 StringRef MMIXOperand::getToken() const { return Content.Tok; }
@@ -55,8 +55,22 @@ void MMIXOperand::print(raw_ostream &OS) const {
 
 MMIXOperand::MMIXOperand(StringRef Token, SMLoc NameLoc, SMLoc EndLoc)
     : Kind(KindTy::Token), StartLoc(NameLoc), EndLoc(EndLoc), Content(Token) {}
-MMIXOperand::MMIXOperand(unsigned RegNo, SMLoc StartLoc, SMLoc EndLoc)
-    : Kind(KindTy::Register), StartLoc(StartLoc), EndLoc(EndLoc), Content(RegNo) {}
+MMIXOperand::MMIXOperand(const unsigned &RegNo, SMLoc StartLoc, SMLoc EndLoc)
+    : Kind(KindTy::Register), StartLoc(StartLoc), EndLoc(EndLoc),
+      Content(RegNo) {}
 MMIXOperand::MMIXOperand(const MCExpr *Expr, SMLoc StartLoc, SMLoc EndLoc)
-    : Kind(KindTy::Immediate), StartLoc(StartLoc), EndLoc(EndLoc), Content(Expr) {}
+    : Kind(KindTy::Immediate), StartLoc(StartLoc), EndLoc(EndLoc),
+      Content(Expr) {}
+
+std::unique_ptr<MMIXOperand> MMIXOperand::createMnemonic(StringRef Mnemonic,
+                                                         SMLoc StartLoc) {
+  SMLoc EndLoc = SMLoc::getFromPointer(StartLoc.getPointer() + Mnemonic.size());
+  return std::make_unique<MMIXOperand>(Mnemonic, StartLoc, EndLoc);
+}
+
+std::unique_ptr<MMIXOperand> MMIXOperand::createRegister(const unsigned &RegNo,
+                                                         SMLoc StartLoc,
+                                                         SMLoc EndLoc) {
+  return std::make_unique<MMIXOperand>(RegNo, StartLoc, EndLoc);
+}
 } // namespace llvm

@@ -37,7 +37,14 @@ public:
 
   bool ParseDirective(AsmToken DirectiveID) override;
 
+  bool parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc) override;
+
 private:
+  bool evaluateOperandExpr(const MCExpr *Expr, int64_t &Res, bool &IsReg);
+  
+public:
+#define GET_OPERAND_DIAGNOSTIC_TYPES
+#include "MMIXGenAsmMatcher.inc"
 };
 
 } // namespace llvm

@@ -10,30 +10,30 @@
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
-#include "llvm/MC/MCRegister.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
+#include "llvm/MC/MCRegister.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/SMLoc.h"
-
+#include <variant>
 namespace llvm {
 
-class MMIXOperand final: public MCParsedAsmOperand {
+class MMIXOperand final : public MCParsedAsmOperand {
 private:
   enum class KindTy { Token, Register, Immediate, Memory } Kind;
   SMLoc StartLoc, EndLoc;
   union ContentTy {
     StringRef Tok;
     MCRegister Reg;
-    const MCExpr* Imm;
-    const MCExpr* Mem;
+    const MCExpr *Imm;
+    const MCExpr *Mem;
 
     ContentTy(StringRef Token);
-    ContentTy(unsigned RegNo);
+    ContentTy(const unsigned &RegNo);
     ContentTy(const MCExpr *Expr);
   } Content;
+
 public:
   StringRef getToken() const;
   void addRegOperands(MCInst &Inst, unsigned N) const;
@@ -52,8 +52,14 @@ public:
 
 public:
   MMIXOperand(StringRef Tok, SMLoc NameLoc, SMLoc EndLoc);
-  MMIXOperand(unsigned, SMLoc StartLoc, SMLoc EndLoc);
+  MMIXOperand(const unsigned& RegNo, SMLoc StartLoc, SMLoc EndLoc);
   MMIXOperand(const MCExpr *Expr, SMLoc StartLoc, SMLoc EndLoc);
+
+public:
+  static std::unique_ptr<MMIXOperand> createMnemonic(StringRef Mnemonic,
+                                                     SMLoc StartLoc);
+  static std::unique_ptr<MMIXOperand>
+  createRegister(const unsigned &RegNo, SMLoc StartLoc, SMLoc EndLoc);
 };
 
 } // namespace llvm
