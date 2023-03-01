@@ -40,6 +40,7 @@
 #include "llvm/MC/MCSymbolELF.h"
 #include "llvm/MC/MCSymbolGOFF.h"
 #include "llvm/MC/MCSymbolMachO.h"
+#include "llvm/MC/MCSymbolMMO.h"
 #include "llvm/MC/MCSymbolWasm.h"
 #include "llvm/MC/MCSymbolXCOFF.h"
 #include "llvm/MC/MCTargetOptions.h"
@@ -254,7 +255,7 @@ MCSymbol *MCContext::createSymbolImpl(const StringMapEntry<bool> *Name,
   case MCContext::IsMachO:
     return new (Name, *this) MCSymbolMachO(Name, IsTemporary);
   case MCContext::IsMMO:
-    break;
+    return new(Name, *this) MCSymbolMMO(Name, IsTemporary);
   case MCContext::IsWasm:
     return new (Name, *this) MCSymbolWasm(Name, IsTemporary);
   case MCContext::IsXCOFF:
