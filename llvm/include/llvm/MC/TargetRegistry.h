@@ -1045,6 +1045,10 @@ struct TargetRegistry {
     T.MachOStreamerCtorFn = Fn;
   }
 
+  static void RegisterMMOStreamer(Target &T, Target::MMOStreamerCtorTy Fn) {
+    T.MMOStreamerCtorFn = Fn;
+  }
+
   static void RegisterELFStreamer(Target &T, Target::ELFStreamerCtorTy Fn) {
     T.ELFStreamerCtorFn = Fn;
   }
