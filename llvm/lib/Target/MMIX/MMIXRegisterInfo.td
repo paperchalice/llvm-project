@@ -18,7 +18,7 @@ class MMIXReg<bits<16> enc, string n, list<string> alt = []> : Register<n, alt> 
   let HWEncoding = enc;
 }
 
-class MMIXGPR<bits<16> enc> : MMIXReg<enc, "$" # enc>{
+class MMIXGPR<bits<16> enc> : MMIXReg<enc, "" # enc>{
   let DwarfNumbers = [enc];
 }
 
