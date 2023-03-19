@@ -27,7 +27,7 @@ inline uint16_t getYZ(const uint8_t *A) { return read16be(A + 2); }
 
 class MMOType {
   const MMIXObjectFile &Obj;
-  size_t CurLoc = 0;
+  uint64_t CurLoc = 0;
   size_t TetraCnt = 0;
   int ListedFile = -1;
   int CurFile = -1;
@@ -88,12 +88,13 @@ class MMOType {
   void listContent() {
     auto End = Obj.getData().bytes_end();
     bool Stop = false;
+    bool IsQuote = false;
     while (Iter != End && !Stop) {
-      if (Iter[0] == MMO::MM) {
+      if (Iter[0] == MMO::MM && !IsQuote) {
         switch (getX(Iter)) {
         case MMO::LOP_QUOTE:
           outTetra();
-          outTetra();
+          IsQuote = true;
           break;
         case MMO::LOP_LOC:
           CurLoc = static_cast<uint64_t>(Iter[2]) << 56;
@@ -202,6 +203,17 @@ class MMOType {
             }
           }
         } break;
+        case MMO::LOP_POST: {
+          uint8_t Z = getZ(Iter);
+          outTetra();
+          for (auto i = 0; i != 256 - Z; ++i) {
+            uint64_t RegVal = read64be(Iter);
+            outTetra();
+            outTetra();
+            outs() << formatv("g{0}: {1}\n", Z + i,
+                              format_hex_no_prefix(RegVal, 16));
+          }
+        } break;
         case MMO::LOP_STAB:
           Stop = true;
           outTetra();
@@ -230,7 +242,10 @@ class MMOType {
           }
         }
         CurLoc += 4;
+        CurLoc &= -4; // align current loc with 4
         ++CurLine;
+        if (IsQuote)
+          IsQuote = false;
       }
     }
   }
