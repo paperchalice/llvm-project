@@ -545,9 +545,6 @@ protected:
   // If true, emit function descriptor symbol on AIX.
   bool NeedsFunctionDescriptors = false;
 
-  // If true, enter MMIX mode.
-  bool IsMMIX = false;
-
 public:
   explicit MCAsmInfo();
   virtual ~MCAsmInfo();
@@ -892,7 +889,6 @@ public:
   bool hasMipsExpressions() const { return HasMipsExpressions; }
   bool needsFunctionDescriptors() const { return NeedsFunctionDescriptors; }
   bool shouldUseMotorolaIntegers() const { return UseMotorolaIntegers; }
-  bool isMMIX() const { return IsMMIX; }
 };
 
 } // end namespace llvm
