@@ -354,10 +354,6 @@ MCAsmParser *createMCAsmParser(SourceMgr &, MCContext &, MCStreamer &,
 MCAsmParser *createMCMasmParser(SourceMgr &, MCContext &, MCStreamer &,
                                 const MCAsmInfo &, struct tm, unsigned CB = 0);
 
-/// Create an MCMMIXALParser instance for parsing MMIXAL assembly
-MCAsmParser *createMCMMIXALParser(SourceMgr &, MCContext &, MCStreamer &,
-                                   const MCAsmInfo &, unsigned CB = 0);
-
 } // end namespace llvm
 
 #endif // LLVM_MC_MCPARSER_MCASMPARSER_H
