@@ -37,11 +37,10 @@ public:
 
   bool ParseDirective(AsmToken DirectiveID) override;
 
-  bool parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc) override;
+  const MCExpr *createTargetUnaryExpr(const MCExpr *E,
+                                      AsmToken::TokenKind OperatorToken,
+                                      MCContext &Ctx) override;
 
-private:
-  bool evaluateOperandExpr(const MCExpr *Expr, int64_t &Res, bool &IsReg);
-  
 public:
 #define GET_OPERAND_DIAGNOSTIC_TYPES
 #include "MMIXGenAsmMatcher.inc"
