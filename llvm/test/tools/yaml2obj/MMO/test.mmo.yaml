@@ -1,0 +1,113 @@
+# RUN: yaml2obj %s | llvm-mmotype | FileCheck %s
+
+--- !MMO
+Preamble:
+  Version:         1
+  CreatedTime:     0
+Segments:
+  - LOP:
+      OpCode:          LOC
+      HighByte:        DATA
+      Offset:          0x0
+  - Bin:             '000000000000000061620000'
+  - LOP:
+      OpCode:          LOC
+      HighByte:        INSTRUCTION
+      Offset:          0x12345678C
+  - LOP:
+      OpCode:          FILE
+      Number:          0
+      Name:            test.mms
+  - LOP:
+      OpCode:          LINE
+      Number:          7
+  - Bin:             F0000000
+  - LOP:
+      OpCode:          SKIP
+      Delta:           0x4000
+  - LOP:
+      OpCode:          LINE
+      Number:          9
+  - Bin:             8103FE0142030000
+  - LOP:
+      OpCode:          LINE
+      Number:          10
+  - Bin:             '00000000'
+  - LOP:
+      OpCode:          LOC
+      HighByte:        INSTRUCTION
+      Offset:          0x12345A768
+  - LOP:
+      OpCode:          FIXRX
+      Z:               OTHERWISE
+      Delta:           -11
+  - LOP:
+      OpCode:          FIXR
+      Delta:           0xFF7
+  - LOP:
+      OpCode:          FIXO
+      HighByte:        0x20
+      Offset:          0x0
+  - LOP:
+      OpCode:          FILE
+      Number:          1
+      Name:            "foo.mms\0"
+  - LOP:
+      OpCode:          LINE
+      Number:          4
+  - Bin:             F000000A
+  - LOP:
+      OpCode:          SPEC
+      Type:            5
+  - Bin:             0000020000FE0000
+  - LOP:
+      OpCode:          LOC
+      HighByte:        DATA
+      Offset:          0xA
+  - Bin:             '00006364'
+  - LOP:
+      OpCode:          QUOTE
+      Value:           '98000000'
+Postamble:
+  G:               254
+  Values:          [ 0x2000000000000008, 0x12345678C ]
+SymbolTable:
+  IsUTF16:         false
+  Symbol:
+    - Name:            ':Main'
+      Serial:          1
+      Equiv:           0x12345678C
+      Type:            NORMAL
+    - Name:            ':a'
+      Serial:          2
+      Equiv:           0xFE
+      Type:            REGISTER
+    - Name:            ':ABCD'
+      Serial:          3
+      Equiv:           0x2000000000000008
+      Type:            NORMAL
+...
+
+# CHECK: File was created Thu Jan  1 08:00:00 1970
+# CHECK: 2000000000000000: 00000000
+# CHECK: 2000000000000004: 00000000
+# CHECK: 2000000000000008: 61620000
+# CHECK: 000000012345678c: f0000000 ("test.mms", line 7)
+# CHECK: 000000012345a790: 8103fe01 (line 9)
+# CHECK: 000000012345a794: 42030000 (line 10)
+# CHECK: 000000012345a798: 00000000 (line 10)
+# CHECK: 000000012345a794: 0100fff5
+# CHECK: 000000012345678c: 00000ff7
+# CHECK: 2000000000000000: 000000012345a768
+
+# CHECK: Special data 5 at loc 000000012345a76c (line 5)
+# CHECK:                 00000200
+# CHECK:                 00fe0000
+# CHECK: 200000000000000a: 00006364
+# CHECK: 200000000000000c: 98000000
+# CHECK: g254: 2000000000000008
+# CHECK: g255: 000000012345678c
+# CHECK: Symbol table (beginning at tetra 48):
+# CHECK:     ABCD = #2000000000000008 (3)
+# CHECK:     Main = #12345678c (1)
+# CHECK:     a = #fe (2)
