@@ -18,12 +18,13 @@
 #include <variant>
 
 namespace llvm {
+class MCSymbol;
 namespace MMO {
 
 // Loader instructions are distinguished from tetrabytes of data by their first
 // (most significant) byte, which has the special escape-code value 0x98, called
 // MM in the program below.
-constexpr std::uint8_t MM = 0x98; ///< the lop start
+constexpr std::uint8_t MM = 0x98;          ///< the lop start
 constexpr std::uint8_t CurrentVersion = 1; ///< mmo format version
 
 // When a tetrabyte does begin with the escape code, its next byte is the
@@ -55,6 +56,16 @@ enum SegmentBaseAddr : std::uint8_t {
   DATA_SEGMENT = 0x20,
   POOL_SEGMENT = 0x40,
   STACK_SEGMENT = 0x60,
+};
+
+struct FixupInfo {
+  const std::uint64_t Addr;
+  enum class FixupKind {
+    FIXUP_WYDE,
+    FIXUP_OCTA,
+    FIXUP_JUMP,
+  } Kind;
+  const MCSymbol *Symbol;
 };
 
 enum FixrxType {
@@ -121,9 +132,9 @@ struct SymNode {
   std::uint32_t Serial;
   std::uint64_t Equiv;
   bool IsRegister = false;
-  void computeMasterByte(int &M);
-  void writeBinEquiv(raw_ostream &OS, int &M);
-  void writeBinSerial(raw_ostream &OS, int &M);
+  void encodeEquivLen(int &M);
+  std::size_t writeBinEquivLen(raw_ostream &OS, int &M);
+  std::size_t writeBinSerial(raw_ostream &OS, int &M);
 };
 
 struct Symbol {
@@ -132,6 +143,32 @@ struct Symbol {
   std::uint64_t Equiv;
   SymbolType Type = MMO::NORMAL;
   const std::uint8_t *PrintPos; //< for mmotype to determine when output tetra
+};
+
+struct MMOTrieNode {
+public:
+  std::uint16_t Ch;
+  std::shared_ptr<MMOTrieNode> Left, Mid, Right;
+  std::optional<MMO::SymNode> SymNode;
+  MMOTrieNode(const uint8_t &C);
+};
+
+class MMOTrie {
+  std::shared_ptr<MMOTrieNode> Root;
+  mutable std::size_t OutCnt = 0;
+
+public:
+  MMOTrie();
+
+  void insert(const MMO::Symbol &S);
+
+  std::shared_ptr<MMOTrieNode> search(StringRef S);
+
+public:
+  std::size_t writeBin(raw_ostream &OS) const;
+
+private:
+  void writeBin(raw_ostream &OS, std::shared_ptr<MMOTrieNode> N) const;
 };
 
 } // namespace MMO

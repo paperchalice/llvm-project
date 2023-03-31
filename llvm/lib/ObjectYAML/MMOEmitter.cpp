@@ -170,7 +170,7 @@ private:
   void writePreamble(raw_ostream &OS);
   void writeContent(raw_ostream &OS);
   void writePostamble(raw_ostream &OS);
-  template <typename T> void writeSymbolTable(raw_ostream &OS);
+  size_t writeSymbolTable(raw_ostream &OS);
 
 private:
   MMOYAML::Object &Obj;
@@ -193,14 +193,14 @@ void MMOWriter::writeContent(raw_ostream &OS) {
 
 void MMOWriter::writePostamble(raw_ostream &OS) { Obj.Postamble.writeBin(OS); }
 
-template <typename T> void MMOWriter::writeSymbolTable(raw_ostream &OS) {
+size_t MMOWriter::writeSymbolTable(raw_ostream &OS) {
   writeLop(OS, MMO::LOP_STAB);
   OS.write_zeros(2);
-  MMOTrie<T> Root;
+  MMO::MMOTrie Root;
   for (const auto &S : Obj.SymTab.Symbols) {
     MMO::Symbol Symb;
     Symb.Serial = S.Serial;
-    Symb.Name = S.Name.drop_front(is_same<T, uint8_t>::value ? 1 : 2);
+    Symb.Name = S.Name.drop_front();
     Symb.Equiv = S.Equiv;
     switch (S.Type) {
     case MMO::SymbolType::NORMAL:
@@ -215,30 +215,19 @@ template <typename T> void MMOWriter::writeSymbolTable(raw_ostream &OS) {
     }
     Root.insert(Symb);
   }
-  Root.prune();
-  Root.writeBin(OS);
+  return Root.writeBin(OS);
 }
 
 Error MMOWriter::write(raw_ostream &OS) {
   writePreamble(OS);
   writeContent(OS);
   writePostamble(OS);
-  auto Start = OS.tell();
-  assert(Start % 4 == 0);
-  if (Obj.SymTab.IsUTF16) {
-    writeSymbolTable<uint16_t>(OS);
-  } else {
-    writeSymbolTable<uint8_t>(OS);
-  }
-  auto Padding = OS.tell() % 4;
-  if (Padding)
-    OS.write_zeros(4 - Padding);
-  auto End = OS.tell();
-  assert(End % 4 == 0);
-  uint16_t TetraCount = (End - Start) / 4 - 1;
+  assert(OS.tell() % 4 == 0);
+  auto Cnt = writeSymbolTable(OS);
+  assert(Cnt % 4 == 0);
   writeLop(OS, MMO::LOP_END);
   char Buf[2];
-  write16be(Buf, TetraCount);
+  write16be(Buf, Cnt / 4);
   OS.write(Buf, sizeof(Buf));
   return Error::success();
 }
