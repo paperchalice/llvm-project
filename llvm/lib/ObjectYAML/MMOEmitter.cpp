@@ -14,13 +14,12 @@
 #include "llvm/Object/MMIXObjectFile.h"
 #include "llvm/ObjectYAML/MMOYAML.h"
 #include "llvm/ObjectYAML/yaml2obj.h"
+#include "llvm/Support/EndianStream.h"
 
 using namespace llvm;
 using namespace std;
 using namespace object;
-using support::endian::write16be;
 using support::endian::write32be;
-using support::endian::write64be;
 
 namespace {
 inline void writeLop(raw_ostream &OS, const MMO::Lopcode &Op) {
@@ -43,47 +42,39 @@ void Quote::writeBin(raw_ostream &OS) const {
 
 void Loc::writeBin(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_LOC);
+  support::endian::Writer Writer(OS, support::endianness::big);
   OS << HighByte;
   OS << (is64Bit(Offset) ? '\x2' : '\x1');
   if (is64Bit(Offset)) {
-    char Buf[8];
-    write64be(Buf, Offset.value);
-    OS.write(Buf, sizeof(Buf));
+    Writer.write(Offset.value);
   } else {
-    char Buf[4];
-    write32be(Buf, Offset.value);
-    OS.write(Buf, sizeof(Buf));
+    Writer.write<uint32_t>(Offset.value);
   }
 }
 
 void Skip::writeBin(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_SKIP);
-  char Buf[2];
-  write16be(Buf, Delta);
-  OS.write(Buf, sizeof(Buf));
+  support::endian::Writer Writer(OS, support::endianness::big);
+  Writer.write<uint16_t>(Delta.value);
 }
 
 void Fixo::writeBin(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_FIXO);
   OS << HighByte;
+  support::endian::Writer Writer(OS, support::endianness::big);
   if (is64Bit(Offset)) {
     OS << '\x2';
-    char Buf[8];
-    write64be(Buf, Offset.value);
-    OS.write(Buf, sizeof(Buf));
+    Writer.write<uint64_t>(Offset.value);
   } else {
     OS << '\x1';
-    char Buf[4];
-    write32be(Buf, Offset.value);
-    OS.write(Buf, sizeof(Buf));
+    Writer.write<uint32_t>(Offset.value);
   }
 }
 
 void Fixr::writeBin(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_FIXR);
-  char Buf[2];
-  write16be(Buf, Delta.value);
-  OS.write(Buf, sizeof(Buf));
+  support::endian::Writer Writer(OS, support::endianness::big);
+  Writer.write<uint16_t>(Delta.value);
 }
 
 void Fixrx::writeBin(raw_ostream &OS) const {
@@ -92,13 +83,13 @@ void Fixrx::writeBin(raw_ostream &OS) const {
   OS << Z;
   char Buf[4];
   if (Delta < 0) {
-    OS.write('\x1');
     write32be(Buf, Delta + (1 << Z));
+    Buf[0] = 1;
   } else {
-    OS.write('\x0');
     write32be(Buf, Delta);
+    Buf[0] = 0;
   }
-  OS.write(Buf + 1, sizeof(Buf) - 1);
+  OS.write(Buf, sizeof(Buf));
 }
 
 void File::writeBin(raw_ostream &OS) const {
@@ -114,20 +105,19 @@ void File::writeBin(raw_ostream &OS) const {
 
 void Line::writeBin(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_LINE);
-  char Buf[2];
-  write16be(Buf, Number);
-  OS.write(Buf, sizeof(Buf));
+  support::endian::Writer Writer(OS, support::endianness::big);
+  Writer.write<uint16_t>(Number);
 }
 
 void Spec::writeBin(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_SPEC);
-  char Buf[2];
-  write16be(Buf, Type);
-  OS.write(Buf, sizeof(Buf));
+  support::endian::Writer Writer(OS, support::endianness::big);
+  Writer.write<uint16_t>(Type);
 }
 
 void Pre::writeBin(raw_ostream &OS) const {
   OS << MMO::MM << MMO::LOP_PRE << Version;
+  support::endian::Writer Writer(OS, support::endianness::big);
   uint8_t Cnt = 0;
   if (CreatedTime.has_value()) {
     Cnt += 1;
@@ -138,9 +128,7 @@ void Pre::writeBin(raw_ostream &OS) const {
   OS << Cnt;
 
   if (CreatedTime.has_value()) {
-    char Buf[4];
-    write32be(Buf, *CreatedTime);
-    OS.write(Buf, sizeof(Buf));
+    Writer.write<uint32_t>(*CreatedTime);
   }
   if (ExtraData.has_value()) {
     ExtraData->writeAsBinary(OS);
@@ -149,12 +137,11 @@ void Pre::writeBin(raw_ostream &OS) const {
 
 void Post::writeBin(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_POST);
+  support::endian::Writer Writer(OS, support::endianness::big);
   OS.write(0);
   OS.write(G);
-  char Buf[8];
   for (const auto &V : Values) {
-    write64be(Buf, V.value);
-    OS.write(Buf, sizeof(Buf));
+    Writer.write<uint64_t>(V.value);
   }
 }
 
@@ -219,6 +206,7 @@ size_t MMOWriter::writeSymbolTable(raw_ostream &OS) {
 }
 
 Error MMOWriter::write(raw_ostream &OS) {
+  support::endian::Writer Writer(OS, support::endianness::big);
   writePreamble(OS);
   writeContent(OS);
   writePostamble(OS);
@@ -226,9 +214,7 @@ Error MMOWriter::write(raw_ostream &OS) {
   auto Cnt = writeSymbolTable(OS);
   assert(Cnt % 4 == 0);
   writeLop(OS, MMO::LOP_END);
-  char Buf[2];
-  write16be(Buf, Cnt / 4);
-  OS.write(Buf, sizeof(Buf));
+  Writer.write<uint16_t>(Cnt / 4);
   return Error::success();
 }
 } // namespace
