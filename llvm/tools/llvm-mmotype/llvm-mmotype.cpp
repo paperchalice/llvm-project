@@ -50,9 +50,11 @@ class MMOType {
     uint8_t Z = getZ(Iter);
     outTetra();
     if (Z) {
-      time_t Time = outTetra();
       if (!Lst) {
-        outs() << "File was created " << asctime(localtime(&Time));
+        time_t Time = outTetra();
+        stringstream Ss;
+        Ss << put_time(localtime(&Time), "%c");
+        outs() << "File was created " << Ss.str();
       }
     }
     for (int I = 1; I < Z; ++I) {
