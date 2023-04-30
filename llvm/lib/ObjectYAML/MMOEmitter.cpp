@@ -17,8 +17,6 @@
 #include "llvm/Support/EndianStream.h"
 
 using namespace llvm;
-using namespace std;
-using namespace object;
 using support::endian::write32be;
 
 namespace {

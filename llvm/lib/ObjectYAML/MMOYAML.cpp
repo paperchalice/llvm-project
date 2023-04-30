@@ -23,22 +23,25 @@ namespace MMOYAML {
 Object::Object(const object::MMIXObjectFile &O)
     : Preamble(O.getMMOPreamble()), Postamble(O.getMMOPostamble()) {}
 
-Quote::Quote(const MMO::Quote &Q) : Value(Q.Value) {}
-Loc::Loc(const MMO::Loc &L) : HighByte(L.HighByte), Offset(L.Offset) {}
-Skip::Skip(const MMO::Skip &S) : Delta(S.Delta) {}
-Fixo::Fixo(const MMO::Fixo &F) : HighByte(F.HighByte), Offset(F.Offset) {}
-Fixr::Fixr(const MMO::Fixr &F) : Delta(F.Delta) {}
-Fixrx::Fixrx(const MMO::Fixrx &F) : FixType(F.FixType), Delta(F.Delta) {}
-File::File(const MMO::File &F) : Name(F.Name), Number(F.Number) {}
-Line::Line(const MMO::Line &L) : Number(L.Number) {}
-Spec::Spec(const MMO::Spec &S) : Type(S.Type) {}
-Pre::Pre(const MMO::Pre &P) : Version(P.Version), CreatedTime(P.CreatedTime) {
+Quote::Quote(const object::MMO::Quote &Q) : Value(Q.Value) {}
+Loc::Loc(const object::MMO::Loc &L) : HighByte(L.HighByte), Offset(L.Offset) {}
+Skip::Skip(const object::MMO::Skip &S) : Delta(S.Delta) {}
+Fixo::Fixo(const object::MMO::Fixo &F)
+    : HighByte(F.HighByte), Offset(F.Offset) {}
+Fixr::Fixr(const object::MMO::Fixr &F) : Delta(F.Delta) {}
+Fixrx::Fixrx(const object::MMO::Fixrx &F)
+    : FixType(F.FixType), Delta(F.Delta) {}
+File::File(const object::MMO::File &F) : Name(F.Name), Number(F.Number) {}
+Line::Line(const object::MMO::Line &L) : Number(L.Number) {}
+Spec::Spec(const object::MMO::Spec &S) : Type(S.Type) {}
+Pre::Pre(const object::MMO::Pre &P)
+    : Version(P.Version), CreatedTime(P.CreatedTime) {
   if (P.ExtraData.has_value()) {
     ExtraData = yaml::BinaryRef(*P.ExtraData);
   }
 }
 
-Post::Post(const MMO::Post &P) : G(P.G) {
+Post::Post(const object::MMO::Post &P) : G(P.G) {
   for (const auto &V : P.Values) {
     Values.push_back(V);
   }

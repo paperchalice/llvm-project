@@ -38,7 +38,7 @@ struct Quote {
   static inline MMO_LOP_TYPE OpCode = MMO::LOP_QUOTE;
   yaml::BinaryRef Value;
   Quote() = default;
-  Quote(const MMO::Quote &Q);
+  Quote(const llvm::object::MMO::Quote &Q);
   void writeAsBinary(raw_ostream &OS) const;
 };
 
@@ -47,7 +47,7 @@ struct Loc {
   MMO_SEGMENT_TYPE HighByte;
   yaml::Hex64 Offset;
   Loc() = default;
-  Loc(const MMO::Loc &L);
+  Loc(const llvm::object::MMO::Loc &L);
   void writeAsBinary(raw_ostream &OS) const;
 };
 
@@ -56,7 +56,7 @@ struct Skip {
   yaml::Hex16 Delta;
   Skip() = default;
   
-  Skip(const MMO::Skip &S);
+  Skip(const llvm::object::MMO::Skip &S);
   void writeAsBinary(raw_ostream &OS) const;
 };
 
@@ -65,14 +65,14 @@ struct Fixo {
   yaml::Hex8 HighByte;
   yaml::Hex64 Offset;
   Fixo() = default;
-  Fixo(const MMO::Fixo &F);
+  Fixo(const llvm::object::MMO::Fixo &F);
   void writeAsBinary(raw_ostream &OS) const;
 };
 
 struct Fixr {
   static inline MMO_LOP_TYPE OpCode = MMO::LOP_FIXR;
   yaml::Hex16 Delta;
-  Fixr(const MMO::Fixr &F);
+  Fixr(const llvm::object::MMO::Fixr &F);
   Fixr() = default;
   void writeAsBinary(raw_ostream &OS) const;
 };
@@ -82,7 +82,7 @@ struct Fixrx {
   MMO_FIXRX_TYPE FixType;
   std::int32_t Delta;
   Fixrx() = default;
-  Fixrx(const MMO::Fixrx &F);
+  Fixrx(const llvm::object::MMO::Fixrx &F);
   void writeAsBinary(raw_ostream &OS) const;
 };
 
@@ -91,8 +91,7 @@ struct File {
   std::optional<StringRef> Name;
   std::uint8_t Number;
   File() = default;
-  File(const MMO::File &F);
-  void output(yaml::IO &IO);
+  File(const llvm::object::MMO::File &F);
   void writeAsBinary(raw_ostream &OS) const;
 };
 
@@ -100,8 +99,7 @@ struct Line {
   static inline MMO_LOP_TYPE OpCode = MMO::LOP_LINE;
   std::uint16_t Number;
   Line() = default;
-  Line(const MMO::Line &L);
-  void output(yaml::IO &IO);
+  Line(const llvm::object::MMO::Line &L);
   void writeAsBinary(raw_ostream &OS) const;
 };
 
@@ -109,7 +107,7 @@ struct Spec {
   static inline MMO_LOP_TYPE OpCode = MMO::LOP_SPEC;
   std::uint16_t Type;
   Spec() = default;
-  Spec(const MMO::Spec &S);
+  Spec(const llvm::object::MMO::Spec &S);
   void writeAsBinary(raw_ostream &OS) const;
 };
 
@@ -120,7 +118,7 @@ struct Pre {
   std::optional<yaml::BinaryRef> ExtraData;
 
   Pre() = default;
-  Pre(const MMO::Pre &P);
+  Pre(const llvm::object::MMO::Pre &P);
   void writeAsBinary(raw_ostream &OS) const;
 };
 
@@ -130,7 +128,7 @@ struct Post {
   std::vector<yaml::Hex64> Values;
 
   Post() = default;
-  Post(const MMO::Post &P);
+  Post(const llvm::object::MMO::Post &P);
   void writeAsBinary(raw_ostream &OS) const;
 };
 
