@@ -33,14 +33,14 @@ inline bool is64Bit(const yaml::Hex64 &H) {
 
 namespace llvm::MMOYAML {
 
-void Quote::writeBin(raw_ostream &OS) const {
+void Quote::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_QUOTE);
   OS.write(0);
   OS.write(1);
   Value.writeAsBinary(OS);
 }
 
-void Loc::writeBin(raw_ostream &OS) const {
+void Loc::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_LOC);
   support::endian::Writer Writer(OS, support::endianness::big);
   OS << HighByte;
@@ -52,13 +52,13 @@ void Loc::writeBin(raw_ostream &OS) const {
   }
 }
 
-void Skip::writeBin(raw_ostream &OS) const {
+void Skip::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_SKIP);
   support::endian::Writer Writer(OS, support::endianness::big);
   Writer.write<uint16_t>(Delta.value);
 }
 
-void Fixo::writeBin(raw_ostream &OS) const {
+void Fixo::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_FIXO);
   OS << HighByte;
   support::endian::Writer Writer(OS, support::endianness::big);
@@ -71,19 +71,19 @@ void Fixo::writeBin(raw_ostream &OS) const {
   }
 }
 
-void Fixr::writeBin(raw_ostream &OS) const {
+void Fixr::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_FIXR);
   support::endian::Writer Writer(OS, support::endianness::big);
   Writer.write<uint16_t>(Delta.value);
 }
 
-void Fixrx::writeBin(raw_ostream &OS) const {
+void Fixrx::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_FIXRX);
   OS.write('\x0');
-  OS << Z;
+  OS << FixType;
   char Buf[4];
   if (Delta < 0) {
-    write32be(Buf, Delta + (1 << Z));
+    write32be(Buf, Delta + (1 << FixType));
     Buf[0] = 1;
   } else {
     write32be(Buf, Delta);
@@ -92,7 +92,7 @@ void Fixrx::writeBin(raw_ostream &OS) const {
   OS.write(Buf, sizeof(Buf));
 }
 
-void File::writeBin(raw_ostream &OS) const {
+void File::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_FILE);
   OS << Number;
   if (Name) {
@@ -103,19 +103,19 @@ void File::writeBin(raw_ostream &OS) const {
   }
 }
 
-void Line::writeBin(raw_ostream &OS) const {
+void Line::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_LINE);
   support::endian::Writer Writer(OS, support::endianness::big);
   Writer.write<uint16_t>(Number);
 }
 
-void Spec::writeBin(raw_ostream &OS) const {
+void Spec::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_SPEC);
   support::endian::Writer Writer(OS, support::endianness::big);
   Writer.write<uint16_t>(Type);
 }
 
-void Pre::writeBin(raw_ostream &OS) const {
+void Pre::writeAsBinary(raw_ostream &OS) const {
   OS << MMO::MM << MMO::LOP_PRE << Version;
   support::endian::Writer Writer(OS, support::endianness::big);
   uint8_t Cnt = 0;
@@ -135,7 +135,7 @@ void Pre::writeBin(raw_ostream &OS) const {
   }
 }
 
-void Post::writeBin(raw_ostream &OS) const {
+void Post::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_POST);
   support::endian::Writer Writer(OS, support::endianness::big);
   OS.write(0);
@@ -165,20 +165,20 @@ private:
 
 MMOWriter::MMOWriter(MMOYAML::Object &O) : Obj(O) {}
 
-void MMOWriter::writePreamble(raw_ostream &OS) { Obj.Preamble.writeBin(OS); }
+void MMOWriter::writePreamble(raw_ostream &OS) {
+  Obj.Preamble.writeAsBinary(OS);
+}
 
 void MMOWriter::writeContent(raw_ostream &OS) {
   const auto &Content = Obj.Segments;
   for (const auto &S : Content) {
-    if (auto BinRef = get_if<yaml::BinaryRef>(&S)) {
-      BinRef->writeAsBinary(OS);
-    } else if (auto pLop = get_if<MMOYAML::ContentLop>(&S)) {
-      visit([&](const auto &L) { L.writeBin(OS); }, *pLop);
-    }
+    std::visit([&](const auto &C) { C.writeAsBinary(OS); }, S);
   }
 }
 
-void MMOWriter::writePostamble(raw_ostream &OS) { Obj.Postamble.writeBin(OS); }
+void MMOWriter::writePostamble(raw_ostream &OS) {
+  Obj.Postamble.writeAsBinary(OS);
+}
 
 size_t MMOWriter::writeSymbolTable(raw_ostream &OS) {
   writeLop(OS, MMO::LOP_STAB);

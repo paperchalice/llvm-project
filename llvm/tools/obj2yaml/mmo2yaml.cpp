@@ -52,13 +52,9 @@ Error MMODumper::dump() {
 void MMODumper::dumpContent() {
   const auto Content = Obj.getMMOContent();
   for (const auto &S : Content) {
-    if (auto BinRef = get_if<ArrayRef<uint8_t>>(&S)) {
-      YAMLObj.Segments.emplace_back(*BinRef);
-    }
-
-    if (const auto pLOp = get_if<MMO::ContentLop>(&S)) {
-      visit([&](const auto &L) { YAMLObj.Segments.emplace_back(L); }, *pLOp);
-    }
+    std::visit([&](auto &&C){
+      YAMLObj.Segments.emplace_back(C);
+    }, S);
   }
 }
 

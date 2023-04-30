@@ -20,10 +20,10 @@ cl::opt<bool> Verbose("v", cl::desc("List tetrabytes of input"));
 cl::opt<std::string> InputFilename(cl::Positional, cl::desc("<input file>"),
                                    cl::init("-"));
 
-inline uint8_t getX(const uint8_t *A) { return A[1]; }
-inline uint8_t getY(const uint8_t *A) { return A[2]; }
-inline uint8_t getZ(const uint8_t *A) { return A[3]; }
-inline uint16_t getYZ(const uint8_t *A) { return read16be(A + 2); }
+uint8_t getX(const uint8_t *A) { return A[1]; }
+uint8_t getY(const uint8_t *A) { return A[2]; }
+uint8_t getZ(const uint8_t *A) { return A[3]; }
+uint16_t getYZ(const uint8_t *A) { return read16be(A + 2); }
 
 class MMOType {
   const MMIXObjectFile &Obj;
@@ -32,6 +32,7 @@ class MMOType {
   int ListedFile = -1;
   int CurFile = -1;
   int CurLine = 0;
+  bool IsQuote = false;
   vector<StringRef> FileNames;
   uint64_t Tmp;
   const uint8_t *Iter;
@@ -46,6 +47,39 @@ class MMOType {
     return Ret;
   }
 
+  template <typename T>
+  void outAddressContent(uint64_t Loc, T Data, bool WithNewLine = true) {
+    if (!Lst) {
+      outs() << formatv("{0}: {1}", format_hex_no_prefix(Loc, 16),
+                        format_hex_no_prefix(Data, 2 * sizeof(T)));
+      if (WithNewLine)
+        outs() << "\n";
+    }
+  }
+
+  void outExtra() {
+    if (!Lst) {
+      if (CurLine == 0) {
+        outs() << "\n";
+      } else if (CurLoc & (0xEUL << 60)) {
+        outs() << "\n";
+      } else {
+        if (CurFile == ListedFile) {
+          outs() << formatv(" (line {0})\n", CurLine);
+        } else {
+          outs() << formatv(" (\"{0}\", line {1})\n", FileNames[CurFile],
+                            CurLine);
+          ListedFile = CurFile;
+        }
+      }
+    }
+    CurLoc += 4;
+    CurLoc &= -4; // align current loc with 4
+    ++CurLine;
+    if (IsQuote)
+      IsQuote = false;
+  }
+
   void listPreamble() {
     uint8_t Z = getZ(Iter);
     outTetra();
@@ -54,7 +88,7 @@ class MMOType {
         time_t Time = outTetra();
         stringstream Ss;
         Ss << put_time(localtime(&Time), "%c");
-        outs() << "File was created " << Ss.str();
+        outs() << "File was created " << Ss.str() << '\n';
       }
     }
     for (int I = 1; I < Z; ++I) {
@@ -74,23 +108,24 @@ class MMOType {
         outTetra();
       }
       if (S.Type == MMO::REGISTER) {
-        outs() << formatv("    {0} = ${1} ({2})\n", StringRef(S.Name).drop_front(), S.Equiv, S.Serial);
+        outs() << formatv("    {0} = ${1} ({2})\n",
+                          StringRef(S.Name).drop_front(), S.Equiv, S.Serial);
       } else {
-        outs() << formatv("    {0} = #{1} ({2})\n", StringRef(S.Name).drop_front(),
+        outs() << formatv("    {0} = #{1} ({2})\n",
+                          StringRef(S.Name).drop_front(),
                           format_hex_no_prefix(S.Equiv, 1), S.Serial);
       }
     }
     assert(Iter[0] == MMO::MM && Iter[1] == MMO::LOP_END);
     if (Verbose) {
       outs() << "  " << format_hex_no_prefix(read32be(Iter), 8) << "\n";
-      outs() << "Symbol table ends at tetra " << TetraCnt + 1 << "\n";
+      outs() << "Symbol table ends at tetra " << TetraCnt + 1 << ".\n";
     }
   }
 
   void listContent() {
     auto End = Obj.getData().bytes_end();
     bool Stop = false;
-    bool IsQuote = false;
     while (Iter != End && !Stop) {
       if (Iter[0] == MMO::MM && !IsQuote) {
         switch (getX(Iter)) {
@@ -132,36 +167,26 @@ class MMOType {
             break;
           }
         }
-          if (!Lst) {
-            outs() << formatv("{0}: {1}\n", format_hex_no_prefix(Tmp, 16),
-                              format_hex_no_prefix(CurLoc, 16));
-          }
-
+          outAddressContent(Tmp, CurLoc);
           break;
         case MMO::LOP_FIXR: {
           uint32_t Delta = getYZ(Iter);
           outTetra();
           Tmp = CurLoc - 4 * Delta;
-          if (!Lst) {
-            outs() << format_hex_no_prefix(Tmp, 16) << ": "
-                   << format_hex_no_prefix(Delta, 8) << "\n";
-          }
+          outAddressContent(Tmp, Delta);
         } break;
         case MMO::LOP_FIXRX: {
           uint8_t Z = getZ(Iter);
           outTetra();
           bool IsNeg = Iter[0];
-          int64_t Delta = outTetra();
-          int64_t Offset = Delta & 0x00FF'FFFF;
+          uint32_t Data = outTetra();
+          int32_t Offset = Data & 0x00FF'FFFF;
           if (Z == 16 || Z == 24) {
             if (IsNeg)
               Offset -= (1 << Z);
           }
           Tmp = CurLoc - Offset * 4;
-          if (!Lst) {
-            outs() << format_hex_no_prefix(Tmp, 16) << ": "
-                   << format_hex_no_prefix(Delta, 8) << "\n";
-          }
+          outAddressContent(Tmp, Data);
         } break;
         case MMO::LOP_FILE: {
           uint8_t Cnt = getZ(Iter);
@@ -212,8 +237,10 @@ class MMOType {
             uint64_t RegVal = read64be(Iter);
             outTetra();
             outTetra();
-            outs() << formatv("g{0}: {1}\n", Z + i,
-                              format_hex_no_prefix(RegVal, 16));
+            if (!Lst) {
+              outs() << formatv("g{0}: {1}\n", Z + i,
+                                format_hex_no_prefix(RegVal, 16));
+            }
           }
         } break;
         case MMO::LOP_STAB:
@@ -225,29 +252,8 @@ class MMOType {
           break;
         }
       } else {
-        auto Data = outTetra();
-        if (!Lst) {
-          outs() << format_hex_no_prefix(CurLoc, 16) << ": "
-                 << format_hex_no_prefix(Data, 8);
-          if (CurLine == 0) {
-            outs() << "\n";
-          } else if (CurLoc & (0xEUL << 60)) {
-            outs() << "\n";
-          } else {
-            if (CurFile == ListedFile) {
-              outs() << formatv(" (line {0})\n", CurLine);
-            } else {
-              outs() << formatv(" (\"{0}\", line {1})\n", FileNames[CurFile],
-                                CurLine);
-              ListedFile = CurFile;
-            }
-          }
-        }
-        CurLoc += 4;
-        CurLoc &= -4; // align current loc with 4
-        ++CurLine;
-        if (IsQuote)
-          IsQuote = false;
+        outAddressContent(CurLoc, outTetra(), false);
+        outExtra();
       }
     }
   }
