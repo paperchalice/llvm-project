@@ -38,18 +38,14 @@ def MMIXInstrInfo : InstrInfo {
   
 }
 
-def MMIXAsmParser : AsmParser {
-
-}
-
-def MMIXAsmWriter : AsmWriter {
-
-}
-
+#ifndef GEN_MMIXAL
 def MMIX : Target {
   let InstructionSet = MMIXInstrInfo;
-  let AssemblyParsers = [MMIXAsmParser];
-  let AssemblyWriters = [MMIXAsmWriter];
 }
+#else
+def MMIXAL : Target {
+  let InstructionSet = MMIXInstrInfo;
+}
+#endif
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIX_TD

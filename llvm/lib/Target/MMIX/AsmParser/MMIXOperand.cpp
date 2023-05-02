@@ -8,33 +8,86 @@
 
 #include "MMIXOperand.h"
 #include "MCTargetDesc/MMIXInstPrinter.h"
+#include "MCTargetDesc/MMIXMCExpr.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 namespace llvm {
 
 MMIXOperand::ContentTy::ContentTy(StringRef Token) : Tok(Token) {}
-MMIXOperand::ContentTy::ContentTy(const unsigned &RegNo) : Reg(RegNo) {}
-MMIXOperand::ContentTy::ContentTy(const MCExpr *Expr) : Imm(Expr) {}
+MMIXOperand::ContentTy::ContentTy(const MCExpr *Expr) : Expr(Expr) {}
+MMIXOperand::ContentTy::ContentTy(int64_t Imm) : Imm(Imm) {}
+MMIXOperand::ContentTy::ContentTy(const MCRegister &Reg) : Reg(Reg) {}
 
 StringRef MMIXOperand::getToken() const { return Content.Tok; }
 void MMIXOperand::addRegOperands(MCInst &Inst, unsigned N) const {
   Inst.addOperand(MCOperand::createReg(getReg()));
 }
 void MMIXOperand::addImmOperands(MCInst &Inst, unsigned N) const {
-  Inst.addOperand(MCOperand::createImm(getImm()));
+  assert(N == 1 && "Invalid number of operands!");
+  Inst.addOperand(MCOperand::createExpr(getExpr()));
+}
+void MMIXOperand::addExprOperands(MCInst &Inst, unsigned N) const {
+  Inst.addOperand(MCOperand::createExpr(getExpr()));
 }
 bool MMIXOperand::isToken() const { return Kind == KindTy::Token; }
-bool MMIXOperand::isImm() const { return Kind == KindTy::Immediate; }
-bool MMIXOperand::isReg() const { return Kind == KindTy::Register; }
-unsigned MMIXOperand::getReg() const {
-  assert(isReg() && "Operand is not Register");
-  return Content.Reg.id();
+bool MMIXOperand::isImm() const {
+  return (Kind == KindTy::Immediate && !isGPRExpr()) ||
+         (Kind == KindTy::Expr && !isGPRExpr());
 }
-int64_t MMIXOperand::getImm() const {
-  int64_t Res = 0;
-  Content.Imm->evaluateAsAbsolute(Res);
-  return Res;
+bool MMIXOperand::isReg() const {
+  return Kind == KindTy::Register || isGPRExpr();
 }
 bool MMIXOperand::isMem() const { return Kind == KindTy::Memory; }
+bool MMIXOperand::isGPRExpr() const { return Kind == KindTy::Register; }
+bool MMIXOperand::isJumpDest() const {
+  if (Kind == KindTy::Expr) {
+    if (auto E = dyn_cast<MMIXMCExpr>(getExpr())) {
+      return E->getKind() == MMIXMCExpr::VariantKind::VK_MMIX_PC_REL_JMP;
+    }
+  }
+  return false;
+}
+bool MMIXOperand::isBranchDest() const {
+  if (Kind == KindTy::Expr) {
+    if (auto E = dyn_cast<MMIXMCExpr>(getExpr())) {
+      return E->getKind() == MMIXMCExpr::VariantKind::VK_MMIX_PC_REL_BR;
+    }
+  }
+  return false;
+}
+unsigned MMIXOperand::getReg() const {
+  assert(Kind == KindTy::Register && "not register");
+  return Content.Reg;
+}
+bool MMIXOperand::isUImm8() const {
+  auto Expr = getExpr();
+  int64_t Res;
+  Expr->evaluateAsAbsolute(Res);
+  return isUInt<8>(Res) && !isGPRExpr();
+}
+bool MMIXOperand::isUImm16() const {
+  auto Expr = getExpr();
+  int64_t Res;
+  Expr->evaluateAsAbsolute(Res);
+  return isUInt<16>(Res) && !isGPRExpr();
+}
+bool MMIXOperand::isUImm24() const {
+  auto Expr = getExpr();
+  int64_t Res;
+  Expr->evaluateAsAbsolute(Res);
+  return isUInt<24>(Res) && !isGPRExpr();
+}
+bool MMIXOperand::isRoundMode() const {
+  auto Expr = getExpr();
+  int64_t Res;
+  Expr->evaluateAsAbsolute(Res);
+  return isUInt<2>(Res) && !isGPRExpr();
+}
+int64_t MMIXOperand::getImm() const { return 0; }
+const MCExpr *MMIXOperand::getExpr() const {
+  assert(Kind == KindTy::Expr && "bad operand kind!");
+  return Content.Expr;
+}
 SMLoc MMIXOperand::getStartLoc() const { return StartLoc; }
 SMLoc MMIXOperand::getEndLoc() const { return EndLoc; }
 void MMIXOperand::print(raw_ostream &OS) const {
@@ -45,22 +98,31 @@ void MMIXOperand::print(raw_ostream &OS) const {
     OS << getToken();
     break;
   case KindTy::Register:
-    OS << MMIXInstPrinter::getRegisterName(getReg());
+    OS << "$"
+       << StringRef(MMIXInstPrinter::getRegisterName(getReg())).drop_front();
     break;
   case KindTy::Immediate:
     OS << getImm();
     break;
+  case KindTy::Expr: {
+    auto Expr = getExpr();
+    Expr->print(OS, nullptr);
+  } break;
   }
 }
 
+void MMIXOperand::dump() const { print(dbgs()); }
+
 MMIXOperand::MMIXOperand(StringRef Token, SMLoc NameLoc, SMLoc EndLoc)
     : Kind(KindTy::Token), StartLoc(NameLoc), EndLoc(EndLoc), Content(Token) {}
-MMIXOperand::MMIXOperand(const unsigned &RegNo, SMLoc StartLoc, SMLoc EndLoc)
-    : Kind(KindTy::Register), StartLoc(StartLoc), EndLoc(EndLoc),
-      Content(RegNo) {}
 MMIXOperand::MMIXOperand(const MCExpr *Expr, SMLoc StartLoc, SMLoc EndLoc)
+    : Kind(KindTy::Expr), StartLoc(StartLoc), EndLoc(EndLoc), Content(Expr) {}
+MMIXOperand::MMIXOperand(const int64_t &Imm, SMLoc StartLoc, SMLoc EndLoc)
     : Kind(KindTy::Immediate), StartLoc(StartLoc), EndLoc(EndLoc),
-      Content(Expr) {}
+      Content(Imm) {}
+MMIXOperand::MMIXOperand(const MCRegister &Reg, SMLoc StartLoc, SMLoc EndLoc)
+    : Kind(KindTy::Register), StartLoc(StartLoc), EndLoc(EndLoc), Content(Reg) {
+}
 
 std::unique_ptr<MMIXOperand> MMIXOperand::createMnemonic(StringRef Mnemonic,
                                                          SMLoc StartLoc) {
@@ -68,9 +130,19 @@ std::unique_ptr<MMIXOperand> MMIXOperand::createMnemonic(StringRef Mnemonic,
   return std::make_unique<MMIXOperand>(Mnemonic, StartLoc, EndLoc);
 }
 
-std::unique_ptr<MMIXOperand> MMIXOperand::createRegister(const unsigned &RegNo,
-                                                         SMLoc StartLoc,
-                                                         SMLoc EndLoc) {
-  return std::make_unique<MMIXOperand>(RegNo, StartLoc, EndLoc);
+std::unique_ptr<MMIXOperand> MMIXOperand::createExpression(const MCExpr *Expr,
+                                                           SMLoc StartLoc,
+                                                           SMLoc EndLoc) {
+  return std::make_unique<MMIXOperand>(Expr, StartLoc, EndLoc);
 }
+
+std::unique_ptr<MMIXOperand>
+MMIXOperand::createImm(const int64_t &Imm, SMLoc StartLoc, SMLoc EndLoc) {
+  return std::make_unique<MMIXOperand>(Imm, StartLoc, EndLoc);
+}
+std::unique_ptr<MMIXOperand>
+MMIXOperand::createGPR(const unsigned &RegNo, SMLoc StartLoc, SMLoc EndLoc) {
+  return std::make_unique<MMIXOperand>(MCRegister(RegNo), StartLoc, EndLoc);
+}
+
 } // namespace llvm

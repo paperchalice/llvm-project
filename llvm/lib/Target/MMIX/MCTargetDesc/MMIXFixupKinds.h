@@ -7,6 +7,11 @@ namespace llvm::MMIX {
 
 enum Fixups {
   fixup_MMIX = FirstTargetFixupKind,
+  fixup_MMIX_backward,
+  fixup_MMIX_fixo,
+  fixup_MMIX_fixr,
+  fixup_MMIX_fixrx,
+  fixup_MMIX_expand,
 
   // Marker
   LastTargetFixupKind,

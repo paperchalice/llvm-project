@@ -24,8 +24,15 @@ using DecodeStatus = MCDisassembler::DecodeStatus;
 
 #define DEBUG_TYPE "mmix-disassembler"
 
+
+
 namespace {
+DecodeStatus DecodeSPRRegisterClass(MCInst &Inst, uint64_t RegNo,
+                                    uint64_t Address, const void *Decoder);
 DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
+                                    uint64_t Address, const void *Decoder);
+template <std::size_t Width>
+DecodeStatus decodeUImmOperand(MCInst &Inst, uint64_t RegNo,
                                     uint64_t Address, const void *Decoder);
 } // end namespace
 
@@ -58,6 +65,17 @@ DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
   RegInfo->getRegClass(MMIX::GPRRegClassID);
   MCRegister Reg = MMIX::r0 + RegNo;
   Inst.addOperand(MCOperand::createReg(Reg));
+  return DecodeStatus::Success;
+}
+
+DecodeStatus DecodeSPRRegisterClass(MCInst &Inst, uint64_t RegNo,
+                                    uint64_t Address, const void *Decoder) {
+  return DecodeStatus::Success;
+}
+
+template <std::size_t Width>
+DecodeStatus decodeUImmOperand(MCInst &Inst, uint64_t RegNo,
+                                    uint64_t Address, const void *Decoder) {
   return DecodeStatus::Success;
 }
 

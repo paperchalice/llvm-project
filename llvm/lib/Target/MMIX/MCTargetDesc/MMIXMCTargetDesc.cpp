@@ -85,7 +85,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXTargetMC() {
     TargetRegistry::RegisterMCInstPrinter(T, createMMIXMCInstPrinter);
 
     // Register the asm backend.
-    // TargetRegistry::RegisterMCAsmBackend(T, createMMIXAsmBackend);
+    TargetRegistry::RegisterMCAsmBackend(T, createMMIXAsmBackend);
   }
 }
 

@@ -14,6 +14,7 @@
 #include "llvm/Support/Error.h"
 #include <cstdint>
 #include <ctime>
+#include <forward_list>
 #include <optional>
 #include <variant>
 
@@ -73,61 +74,6 @@ enum FixrxType {
   FIXRX_JMP = 24,
 };
 
-struct Quote {
-  ArrayRef<std::uint8_t> Value;
-  Quote(const std::uint8_t *&Iter);
-};
-struct Loc {
-  std::uint8_t HighByte;
-  std::uint64_t Offset;
-  Loc(const std::uint8_t *&Iter, Error &E);
-};
-struct Skip {
-  std::uint16_t Delta;
-  Skip(const std::uint8_t *&Iter);
-};
-struct Fixo {
-  std::uint8_t HighByte;
-  std::uint64_t Offset;
-  Fixo(const std::uint8_t *&Iter, Error &E);
-};
-struct Fixr {
-  std::uint16_t Delta;
-  Fixr(const std::uint8_t *&Iter);
-};
-struct Fixrx {
-  std::uint8_t Z;
-  std::int32_t Delta;
-  Fixrx(const std::uint8_t *&Iter, Error &E);
-};
-struct File {
-  std::uint8_t Number;
-  std::optional<StringRef> Name;
-  File(const std::uint8_t *&Iter);
-};
-struct Line {
-  std::uint16_t Number;
-  Line(const std::uint8_t *&Iter);
-};
-struct Spec {
-  std::uint16_t Type;
-  Spec(const std::uint8_t *&Iter);
-};
-
-struct Pre {
-  std::uint8_t Version = 1;
-  std::optional<std::time_t> CreatedTime;
-  std::optional<ArrayRef<std::uint8_t>> ExtraData;
-};
-
-struct Post {
-  std::uint8_t G;
-  std::vector<std::uint64_t> Values;
-};
-
-using ContentLop =
-    std::variant<Quote, Loc, Skip, Fixo, Fixr, Fixrx, File, Line, Spec>;
-
 struct SymNode {
   std::uint32_t Serial;
   std::uint64_t Equiv;
@@ -171,6 +117,12 @@ private:
   void writeBin(raw_ostream &OS, std::shared_ptr<MMOTrieNode> N) const;
 };
 
+struct AsmSharedInfo {
+  std::uint64_t PC = 0;
+  std::forward_list<FixupInfo> FixupList = {};
+  std::vector<uint64_t> GregList = {0};
+  bool Expand = false;
+};
 } // namespace MMO
 } // namespace llvm
 

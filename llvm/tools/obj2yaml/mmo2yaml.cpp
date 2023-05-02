@@ -17,7 +17,6 @@
 #include "llvm/Support/YAMLTraits.h"
 #include <variant>
 
-using namespace std;
 using namespace llvm;
 using namespace object;
 

@@ -18,5 +18,5 @@ Target &llvm::getTheMMIXTarget() {
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXTargetInfo() {
   RegisterTarget<Triple::mmix, /*HasJIT=*/false> Target1(
-      getTheMMIXTarget(), "mmix", "write MMIX description here", "MMIX");
+      getTheMMIXTarget(), "mmix", "A RISC Computer for the Third Millennium", "MMIX");
 }

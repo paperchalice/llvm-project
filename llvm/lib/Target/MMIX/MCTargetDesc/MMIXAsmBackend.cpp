@@ -27,17 +27,19 @@ namespace llvm {
 MMIXAsmBackend::MMIXAsmBackend(const MCSubtargetInfo &STI,
                                const MCRegisterInfo &MRI,
                                const MCTargetOptions &Options)
-  : MCAsmBackend(support::little), STI(STI) {
+    : MCAsmBackend(support::big), STI(STI) {}
 
+unsigned MMIXAsmBackend::getNumFixupKinds() const {
+  return MMIX::NumTargetFixupKinds;
 }
-
-unsigned MMIXAsmBackend::getNumFixupKinds() const { return MMIX::NumTargetFixupKinds; }
 
 void MMIXAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
                                 const MCValue &Target,
                                 MutableArrayRef<char> Data, uint64_t Value,
                                 bool IsResolved,
-                                const MCSubtargetInfo *STI) const {}
+                                const MCSubtargetInfo *STI) const {
+  return;
+}
 
 bool MMIXAsmBackend::fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
                                           const MCRelaxableFragment *DF,
@@ -45,28 +47,29 @@ bool MMIXAsmBackend::fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
   return true;
 }
 
-bool MMIXAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count, const MCSubtargetInfo *STI) const {
+bool MMIXAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count,
+                                  const MCSubtargetInfo *STI) const {
   return true;
 }
 
-std::unique_ptr<MCObjectTargetWriter> MMIXAsmBackend::createObjectTargetWriter() const {
+std::unique_ptr<MCObjectTargetWriter>
+MMIXAsmBackend::createObjectTargetWriter() const {
   auto Format = STI.getTargetTriple().getObjectFormat();
-  switch(Format) {
+  switch (Format) {
 
-
+  case Triple::ObjectFormatType::MMO:
+    return createMMIXMMOWriter();
   case Triple::ObjectFormatType::ELF:
     return createMMIXELFObjectWriter(true, 0);
-
 
   default:
     return nullptr;
   }
 }
 
-MCAsmBackend *createMMIXAsmBackend(const Target &T,
-                                        const MCSubtargetInfo &STI,
-                                        const MCRegisterInfo &MRI,
-                                        const MCTargetOptions &Options) {
+MCAsmBackend *createMMIXAsmBackend(const Target &T, const MCSubtargetInfo &STI,
+                                   const MCRegisterInfo &MRI,
+                                   const MCTargetOptions &Options) {
   return new MMIXAsmBackend(STI, MRI, Options);
 }
 

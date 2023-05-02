@@ -34,7 +34,7 @@ void encodeInstruction(const MCInst &Inst, raw_ostream &OS,
                                  const MCSubtargetInfo &STI) const;
   // getMachineOpValue - Return binary encoding of operand. If the machin
   // operand requires relocation, record the relocation and return zero.
-  unsigned getMachineOpValue(const MCInst &MI, const MCOperand &MO,
+  std::uint64_t getMachineOpValue(const MCInst &MI, const MCOperand &MO,
                              SmallVectorImpl<MCFixup> &Fixups,
                              const MCSubtargetInfo &STI) const;
 private:

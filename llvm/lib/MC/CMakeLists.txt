@@ -55,6 +55,7 @@ add_llvm_component_library(LLVMMC
   MCSubtargetInfo.cpp
   MCSymbol.cpp
   MCSymbolELF.cpp
+  MCSymbolMMO.cpp
   MCSymbolXCOFF.cpp
   MCTargetOptions.cpp
   MCTargetOptionsCommandFlags.cpp
@@ -67,6 +68,7 @@ add_llvm_component_library(LLVMMC
   MCXCOFFObjectTargetWriter.cpp
   MCXCOFFStreamer.cpp
   MachObjectWriter.cpp
+  MMIXObjectWriter.cpp
   SPIRVObjectWriter.cpp
   StringTableBuilder.cpp
   TargetRegistry.cpp

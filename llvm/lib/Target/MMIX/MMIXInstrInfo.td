@@ -38,220 +38,273 @@ def truncstorei64 : PatFrag<(ops node:$val, node:$ptr),
   let IsTruncStore = false;
 }
 
-/*
-* Byte s(M[$Y + $Z]) or s(M[$Y + Z]) is loaded into register X as a signed number between -128 and +127,
-  inclusive.
-*/
-
-class getSuffix<int size> {
-  string Ret = !cond(!eq(size,  8): "B",
-                  !eq(size,  16): "W",
-                  !eq(size,  32): "T",
-                  !eq(size,  64): "O",
-                  true: "");
+defvar SuffixString = "BWTO";
+class SuffixList<int i> {
+  string ret = !substr(SuffixString, i, 1);
 }
-
-class catOp<string s1, int s2> {
-  SDPatternOperator Ret = !cast<SDPatternOperator>(s1 # s2);
-}
-
+//
 // Loading and storing
-multiclass LoadInst<bits<8> opcode, string opstr,
-  SDPatternOperator op1, SDPatternOperator op2> {
-  defm "": InstVariantUI<opcode, opstr,
-  [(set i64:$X, (op1 (add i64:$Y, i64:$Z)))],
-  [(set i64:$X, (op1 (add i64:$Y, (zext i8imm:$Z))))],
-  [(set i64:$X, (op2 (add i64:$Y, i64:$Z)))],
-  [(set i64:$X, (op2 (add i64:$Y, (zext i8imm:$Z))))]
-  >;
+//
+
+let mayLoad = true, mayStore = false in
+multiclass LoadInst<int idx> {
+  defm ""#SuffixList<idx>.ret: Inst_r_rri8base<!add(0x80, !mul(idx, 4)), "LD"#SuffixList<idx>.ret>;
+  defm ""#SuffixList<idx>.ret#"U": Inst_r_rri8base<!add(0x82, !mul(idx, 4)), "LD"#SuffixList<idx>.ret#"U">;
+  // def ""#SuffixList<idx>.ret#"_base": Inst_r_base<!add(0x81, !mul(idx, 4)), "LD"#SuffixList<idx>.ret>;
+  // def ""#SuffixList<idx>.ret#"U_base": Inst_r_base<!add(0x83, !mul(idx, 4)), "LD"#SuffixList<idx>.ret>;
 }
 
-multiclass StoreInst<bits<8> opcode, string opstr,
-  SDPatternOperator op> {
-  defm "": InstVariantUI<opcode, opstr,
-  [(op i64:$X, (add i64:$Y, i64:$Z))],
-  [(op i64:$X, (add i64:$Y, (zext i8imm:$Z)))],
-  [(op i64:$X, (add i64:$Y, i64:$Z))],
-  [(op i64:$X, (add i64:$Y, (zext i8imm:$Z)))]
-  >;
+let mayLoad = false, mayStore = true in
+multiclass StoreInst<int idx> {
+  defm ""#SuffixList<idx>.ret: Inst_r_rri8<!add(0xA0, !mul(idx, 4)), "ST"#SuffixList<idx>.ret>;
+  defm ""#SuffixList<idx>.ret#"U": Inst_r_rri8<!add(0xA2, !mul(idx, 4)), "ST"#SuffixList<idx>.ret#"U">;
 }
 
-foreach i = {3...6} in {
-  defvar Width = !shl(1, i);
-  defvar s = getSuffix<Width>.Ret;
-  defvar LDOpcode = !add(0x80, !mul(!sub(i, 3), 4));
-
-  defm LD # s: LoadInst<LDOpcode, "LD" # s,
-  catOp<"sextloadi", Width>.Ret,
-  catOp<"zextloadi", Width>.Ret
-  >;
-
-  defvar STOpcode = !add(0xA0, !mul(!sub(i, 3), 4));
-  defm ST # s:StoreInst<STOpcode, "ST" # s, catOp<"truncstorei", Width>.Ret>;
+foreach s = {0...3} in {
+  defm LD: LoadInst<s>;
+  defm ST: StoreInst<s>;
 }
+let mayLoad = true, mayStore = false in
+defm LDHT: Inst_rrri8<0x92, "LDHT">;
 
-defm LDHT: InstVariantI<0x92, "LDHT",
-  [(set GPR:$X, (shl (i64 (extloadi32 (add i64:$Y, i64:$Z))), (i64 32)))],
-  [(set GPR:$X, (shl (i64 (extloadi32 (add i64:$Y, (zext i8imm:$Z)))), (i64 32)))]>;
-defm STHT: InstVariantI<0xB2, "STHT",
-  [(truncstorei32 (srl i64:$X, (i64 32)), (add i64:$Y, i64:$Z))],
-  [(truncstorei32 (srl i64:$X, (i64 32)), (add i64:$Y, (zext i8imm:$Z)))]>;
+let mayLoad = false, mayStore = true in
+def STCO: Inst_X_Y_Z<0xB4, (outs), (ins ui8imm:$X, GPR:$Y, GPR:$Z), "STCO">;
+def STCOI: Inst_X_Y_Z<0xB5, (outs), (ins ui8imm:$X, GPR:$Y, ui8imm:$Z), "STCO">;
+defm STHT: Inst_rrri8<0xB2, "STHT">;
 
+//
 // Adding and subtracting
-multiclass ArithInst<bits<8> opcode, string opstr, SDPatternOperator op> {
-  defm "": InstVariantUI<opcode, opstr,
-  [(set i64:$X, (op i64:$Y, i64:$Z))],
-  [(set i64:$X, (op i64:$Y, (sext i8imm:$Z)))],
-  [(set i64:$X, (op i64:$Y, i64:$Z))],
-  [(set i64:$X, (op i64:$Y, (zext i8imm:$Z)))]>;
-}
-defm ADD: ArithInst<0x20, "ADD", add>;
-foreach i = {1...4} in {
-  defvar Width = !shl(1, i);
-  defvar Opcode = !add(0x28, !mul(!sub(i, 1), 2));
-  defm ADDU # Width: InstVariantI<Opcode, "ADDU" # Width,
-  [(set i64:$X, (add (mul i64:$Y, Width), i64:$Z))],
-  [(set i64:$X, (add (mul i64:$Y, Width), (zext i8imm:$Z)))]>;
-}
-defm SUB: ArithInst<0x24, "SUB", sub>;
-def NEG: MMIXInst<0x34, (outs GPR:$X), (ins i8imm:$Y, GPR:$Z), "NEG", "$X, $Y, $Z",
-[(set i64:$X, (sub (sext i8imm:$Y), i64:$Z))]>;
-def NEGI: MMIXInst<0x35, (outs GPR:$X), (ins i8imm:$Y, i8imm:$Z), "NEG", "$X, $Y, $Z",
-[(set i64:$X, (sub (sext i8imm:$Y), (sext i8imm:$Z)))]>;
-def NEGU: MMIXInst<0x36, (outs GPR:$X), (ins i8imm:$Y, GPR:$Z), "NEG", "$X, $Y, $Z",
-[(set i64:$X, (sub (zext i8imm:$Y), i64:$Z))]>;
-def NEGUI: MMIXInst<0x37, (outs GPR:$X), (ins i8imm:$Y, i8imm:$Z), "NEG", "$X, $Y, $Z",
-[(set i64:$X, (sub (zext i8imm:$Y), (zext i8imm:$Z)))]>;
+//
 
+multiclass InstVariant_U<bits<8> opcode, string opstr> {
+  defm "": Inst_r_rri8<opcode, opstr>;
+  defm U: Inst_r_rri8<!add(opcode, 2), opstr#"U">;
+}
+
+let isAdd = true in {
+defm ADD: InstVariant_U<0x20, "ADD">;
+foreach i = [2, 4, 8, 16] in {
+  defm ADD#i#"U": Inst_r_rri8<!add(0x28, !mul(!sub(!logtwo(i), 1), 2)), i#"ADDU">;
+}
+}
+def LDA: MnemonicAlias<"LDA", "ADDU">;
+defm SUB: InstVariant_U<0x24, "SUB">;
+defm NEG: InstVariant_U<0x34, "NEG">;
+
+//
 // Bit fiddling
-multiclass InstX<bits<8> opcode, string opstr, SDPatternOperator op> {
-  defm "": InstVariantI<opcode, opstr,
-    [(set i64:$X, (op i64:$Y, i64:$Z))],
-    [(set i64:$X, (op i64:$Y, (zext i8imm:$Z)))]>;
-}
-multiclass InstX2<bits<8> opcode, string opstr, SDPatternOperator op1, SDPatternOperator op2> {
-  defm "": InstVariantI<opcode, opstr,
-    [(set i64:$X, (op1 (op2 i64:$Y, i64:$Z)))],
-    [(set i64:$X, (op1 (op2 i64:$Y, (zext i8imm:$Z))))]>;
-}
-defm AND: InstX<0xC8, "AND", and>;
-defm OR: InstX<0xC0, "OR", or>;
-defm XOR: InstX<0xC6, "XOR", xor>;
-defm ANDN: InstVariantI<0xCA, "ANDN",
-    [(set i64:$X, (and i64:$Y, (not i64:$Z)))],
-    [(set i64:$X, (and i64:$Y, (zext (xor i8imm:$Z, (i8 -1)))))]>;
-defm ORN: InstVariantI<0xC2, "ORN",
-    [(set i64:$X, (or i64:$Y, (not i64:$Z)))],
-    [(set i64:$X, (or i64:$Y, (zext (xor i8imm:$Z, (i8 -1)))))]>;
-defm NAND: InstX2<0xCC, "NAND", not, and>;
-defm NOR: InstX2<0xC4, "NOR", not, or>;
-defm NXOR: InstX2<0xCE, "NXOR", not, xor>;
-let Uses = [rM] in
-defm MUX: InstVariantI<0xD8, "MUX",
-  [(set i64:$X, (or (and i64:$Y, rM), (and i64:$Z, rM)))],
-  [(set i64:$X, (or (and i64:$Y, rM), (and (zext i8imm:$Z), rM)))]>;
-foreach i = {3} in {
-  defvar Width = !shl(1, i);
-  defvar Suffix = getSuffix<Width>.Ret;
-  defvar Opcode = !add(0xD0, !mul(2, !sub(i, 3)));
-  defm Suffix # "DIF":InstVariantI<Opcode, Suffix # "DIF",
-  [(set v8i8:$X, (usubsat (v8i8 (bitconvert i64:$Y)), (v8i8 (bitconvert i64:$Z))))],
-  [(set v8i8:$X, (usubsat (v8i8 (bitconvert i64:$Y)), (v8i8 (bitconvert (zext i8imm:$Z)))))]>;
+//
+defm AND: Inst_r_rri8<0xC8, "AND">;
+defm OR: Inst_r_rri8<0xC0, "OR">;
+defm XOR: Inst_r_rri8<0xC6, "XOR">;
+defm ANDN: Inst_r_rri8<0xCA, "ANDN">;
+defm ORN: Inst_r_rri8<0xC2, "ORN">;
+defm NAND: Inst_r_rri8<0xCC, "NAND">;
+defm NOR: Inst_r_rri8<0xC4, "NOR">;
+defm NXOR: Inst_r_rri8<0xCE, "NXOR">;
+defm MUX: Inst_r_rri8<0xD8, "MUX">;
+
+//
+// unsigned bytewise and biggerwise operations
+//
+
+foreach i = {0...3} in {
+defm SuffixList<i>.ret#DIFF: Inst_r_rri8<!add(0xD0, !mul(i, 2)), SuffixList<i>.ret#"DIFF">;
 }
 
-defm SADD: InstVariantI<0xDA, "SADD",
-  [(set i64:$X, (ctpop (and i64:$Y, i64:$Z)))],
-  [(set i64:$X, (ctpop (and i64:$Y, (zext i8imm:$Z))))]>;
-defm MOR: InstVariantI<0xDC, "MOR",
-  [],
-  []>;
-defm MXOR: InstVariantI<0xDE, "MXOR",
-  [],
-  []>;
+//
+// Three more pairs of bit-fiddling instructions round out the collection of exotics
+//
 
-// Wyde instructions
-class getPos<int i> {
-  string Ret = !cond(!eq(i,  0): "L",
-                  !eq(i,  1): "ML",
-                  !eq(i,  2): "MH",
-                  !eq(i,  3): "H",
-                  true: "");
+defm SADD: Inst_r_rri8<0xDA, "SADD">;
+defm MOR: Inst_r_rri8<0xDC, "MOR">;
+defm MXOR: Inst_r_rri8<0xDE, "MXOR">;
+
+//
+// Sixteen "immediate wyde" instructions
+//
+class PosList<int i> {
+  string ret = !cond(!eq(i,  0): "H",
+                      !eq(i, 1): "MH",
+                      !eq(i, 2): "ML",
+                      !eq(i, 3): "L",
+                      true: "");
 }
 foreach i = {0...3} in {
-  defvar SetOpcode = !add(0xE0, !sub(3, i));
-  defvar Suffix = getPos<i>.Ret;
-  def SET # Suffix: InstX_YZ<SetOpcode, "SET" # Suffix,
-  [(set i64:$X, (shl (zext i16imm:$YZ), (i64 !mul(i, 16))))]>;
-
-  defvar IncOpcode = !add(0xE4, !sub(3, i));
-  def INC # Suffix: MMIXInst<IncOpcode,
-  (outs), (ins GPR:$X, i16imm:$YZ), "INC" # Suffix, "$X, $YZ",
-  []>;
-  
-  defvar OrOpcode = !add(0xE8, !sub(3, i));
-  def OR # Suffix: MMIXInst<OrOpcode,
-  (outs), (ins GPR:$X, i16imm:$YZ), "OR" # Suffix, "$X, $YZ",
-  []>;
-
-  defvar AndOpcode = !add(0xEC, !sub(3, i));
-  def AND # Suffix: MMIXInst<AndOpcode,
-  (outs), (ins GPR:$X, i16imm:$YZ), "AND" # Suffix, "$X, $YZ",
-  []>;
+def SET#PosList<i>.ret: Inst_r_i16<!add(0xE0, i), "SET"#PosList<i>.ret>;
+def INC#PosList<i>.ret: Inst_r_i16<!add(0xE4, i), "INC"#PosList<i>.ret>;
+def OR#PosList<i>.ret: Inst_r_i16<!add(0xE8, i), "OR"#PosList<i>.ret>;
+def ANDN#PosList<i>.ret: Inst_r_i16<!add(0xEC, i), "ANDN"#PosList<i>.ret>;
 }
 
-// shift
-defm SL: ArithInst<0x38, "SL", shl>;
-defm SR: InstVariantI<0x3C, "SR",
-[(set i64:$X, (sra i64:$Y, i64:$Z))],
-[(set i64:$X, (sra i64:$Y, i8imm:$Z))]>;
-defm SRU: InstVariantI<0x3E, "SRU",
-[(set i64:$X, (sra i64:$Y, i64:$Z))],
-[(set i64:$X, (sra i64:$Y, i8imm:$Z))]>;
+//
+// MMIX knows several ways to shift a register left or right by any number of bits
+//
 
+defm SL: InstVariant_U<0x38, "SL">;
+defm SR: InstVariant_U<0x3C, "SR">;
+
+//
 // Comparisons
-defm CMP: InstVariantUI<0x30, "CMP", [], [], [], []>;
+//
 
-defm CSN: InstVariantI<0x60, "CSN", [], []>;
-defm CSZ: InstVariantI<0x62, "CSZ", [], []>;
-defm CSP: InstVariantI<0x64, "CSP", [], []>;
-defm CSOD: InstVariantI<0x66, "CSOD", [], []>;
-defm CSNN: InstVariantI<0x68, "CSNN", [], []>;
-defm CSNZ: InstVariantI<0x6A, "CSNZ", [], []>;
-defm CSNP: InstVariantI<0x6C, "CSNP", [], []>;
-defm CSEV: InstVariantI<0x6E, "CSEV", [], []>;
+let isCompare = true in
+defm CMP: InstVariant_U<0x30, "CMP">;
 
-defm ZSN: InstVariantI<0x70, "ZSN", [], []>;
-defm ZSZ: InstVariantI<0x72, "ZSZ", [], []>;
-defm ZSP: InstVariantI<0x74, "ZSP", [], []>;
-defm ZSOD: InstVariantI<0x76, "ZSOD", [], []>;
-defm ZSNN: InstVariantI<0x78, "ZSNN", [], []>;
-defm ZSNZ: InstVariantI<0x7A, "ZSNZ", [], []>;
-defm ZSNP: InstVariantI<0x7C, "ZSNP", [], []>;
-defm ZSEV: InstVariantI<0x7E, "ZSEV", [], []>;
+//
+// conditional
+//
 
-// Branches and jumps
-multiclass InstVariantB<bits<8> opcode, string opstr,
-             list<dag> patterns> {
-  def "": InstX_YZ<opcode, opstr, patterns>;
-  def B: InstX_YZ<!add(opcode, 1), opstr # "B", patterns>;
+class CondList<int i>{
+  string ret = !cond(
+    !eq(i, 0): "N",
+    !eq(i, 1): "Z",
+    !eq(i, 2): "P",
+    !eq(i, 3): "OD",
+    !eq(i, 4): "NN",
+    !eq(i, 5): "NZ",
+    !eq(i, 6): "NP",
+    !eq(i, 7): "EV",
+    true: ""
+  );
 }
 
-defm BN:  InstVariantB<0x40, "BN",  []>;
-defm BZ:  InstVariantB<0x42, "BZ",  []>;
-defm BP:  InstVariantB<0x44, "BP",  []>;
-defm BOD: InstVariantB<0x46, "BOD", []>;
-defm BNN: InstVariantB<0x48, "BNN", []>;
-defm BNZ: InstVariantB<0x4A, "BNZ", []>;
-defm BNP: InstVariantB<0x4C, "BNP", []>;
-defm BEV: InstVariantB<0x4E, "BEV", []>;
+foreach i = {0...7} in {
+defm CS#CondList<i>.ret: Inst_r_rri8<!add(0x60, !mul(i, 2)), "CS"#CondList<i>.ret>;
+defm ZS#CondList<i>.ret: Inst_r_rri8<!add(0x70, !mul(i, 2)), "ZS"#CondList<i>.ret>;
+}
 
-defm PBN:  InstVariantB<0x50, "PBN",  []>;
-defm PBZ:  InstVariantB<0x52, "PBZ",  []>;
-defm PBP:  InstVariantB<0x54, "PBP",  []>;
-defm PBOD: InstVariantB<0x56, "PBOD", []>;
-defm PBNN: InstVariantB<0x58, "PBNN", []>;
-defm PBNZ: InstVariantB<0x5A, "PBNZ", []>;
-defm PBNP: InstVariantB<0x5C, "PBNP", []>;
-defm PBEV: InstVariantB<0x5E, "PBEV", []>;
+//
+// Branches and jumps
+//
 
-#endif // LLVM_LIB_TARGET_MMIX_MMIXINSTRINFO_TD
+// The backward branching is handled by fixup
+foreach i = {0...7} in {
+defm B#CondList<i>.ret: InstBranchB<!add(0x40, !mul(i, 2)), "B"#CondList<i>.ret>;
+defm PB#CondList<i>.ret: InstBranchB<!add(0x50, !mul(i, 2)), "PB"#CondList<i>.ret>;
+}
+
+def GETA: Inst_X_YZ<0xF4, (outs GPR:$X), (ins branch_dest:$YZ), "GETA">;
+def GETAB: Inst_X_YZ<0xF5, (outs GPR:$X), (ins ui16imm:$YZ), "GETAB">;
+
+def JMP: Inst_XYZ<0xF0, (outs), (ins jump_dest:$XYZ), "JMP">;
+def JMPB: Inst_XYZ<0xF1, (outs), (ins ui16imm:$XYZ), "JMPB">;
+
+defm GO: Inst_r_rri8<0x9E, "GO">;
+
+
+//
+// Multiplication and division
+//
+
+defm MUL: InstVariant_U<0x18, "MUL">;
+defm DIV: InstVariant_U<0x1C, "DIV">;
+
+//
+// Floating point computations
+//
+
+def FADD: Inst_r_rr<0x04, "FADD">;
+def FSUB: Inst_r_rr<0x06, "FSUB">;
+def FMUL: Inst_r_rr<0x10, "FMUL">;
+def FDIV: Inst_r_rr<0x14, "FDIV">;
+def FREM: Inst_r_rr<0x16, "FREM">;
+
+defm FSQRT: Inst_r_RoundMode_r_Alias<0x15, "FSQRT">;
+defm FINT: Inst_r_RoundMode_r_Alias<0x17, "FINT">;
+
+multiclass InstFloatingCompare<bits<8> opcode, string opstr>{
+  def "":Inst_r_rr<opcode, opstr>;
+  def E: Inst_r_rr_rE<!add(opcode, 0x10), opstr#"E">;
+}
+
+let isCompare = true in {
+defm FCMP: InstFloatingCompare<0x01, "FCMP">;
+defm FEQL: InstFloatingCompare<0x03, "FEQL">;
+defm FUN: InstFloatingCompare<0x02, "FUN">;
+}
+
+//
+// single format float
+//
+
+let mayLoad = true, mayStore = false in
+defm LDSF: Inst_r_rri8<0x90, "LDSF">;
+let mayLoad = false, mayStore = true in
+defm STSF: Inst_r_rri8<0xB0, "STSF">;
+
+//
+// Of course we need to be able to go back and forth between integers and floating point values
+//
+
+defm FIX: Inst_r_RoundMode_r_Alias<0x05, "FIX">;
+defm FIXU: Inst_r_RoundMode_r_Alias<0x07, "FIXU">;
+defm FLOT: InstVariant_U<0x08, "FLOT">;
+defm SFLOT: InstVariant_U<0x0C, "SFLOT">;
+
+//
+// Subroutine linkage
+//
+
+def PUSHJ: Inst_X_YZ<0xF2, (outs), (ins GPR:$X, branch_dest:$YZ), "PUSHJ">;
+defm PUSHGO: Inst_rrri8<0xBE, "PUSHGO">;
+def POP: Inst_X_YZ<0xF8, (outs), (ins ui8imm:$X, ui16imm:$YZ), "POP">;
+
+//
+// System considerations
+//
+
+let mayLoad = true, mayStore =false in {
+defm LDUNC: Inst_r_rri8<0x96, "LDUNC">;
+defm PRELD: Inst_r_rri8<0x9A, "PRELD">;
+}
+let mayLoad = false, mayStore =true in {
+defm STUNC: Inst_r_rri8<0xB6, "STUNC">;
+defm PREST: Inst_r_rri8<0xBA, "PREST">;
+}
+let mayLoad = true, mayStore =true in {
+defm SYNCD: Inst_i8rri8<0xB8, "SYNCD">;
+defm SYNCID: Inst_i8rri8<0xBC, "SYNCID">;
+}
+
+//
+// MMIX is designed to work not only on a single processor but also in situations where several processors
+// share a common memory
+//
+
+let Uses = [rP] in
+defm CSWAP: Inst_r_rri8<0x94, "CSWAP">;
+def SYNC: Inst_i24imm<0xFC, "SYNC">;
+
+//
+// Trips and traps
+//
+
+def TRAP: Inst_iii<0x00, "TRAP">;
+let isAsmParserOnly = true in {
+def TRAP_ii: Inst_X_YZ<0x00, (outs), (ins ui8imm:$X, ui16imm:$YZ), "TRAP">;
+def TRAP_i: Inst_XYZ<0x00, (outs), (ins ui24imm:$XYZ), "TRAP">;
+}
+def RESUME: Inst_XYZ<0xF9, (outs), (ins ui8imm:$XYZ), "RESUME"> {
+  let Inst{24...8} = 0;
+}
+
+//
+// Special registers
+//
+
+def GET: Inst_X__Z<0xFE, (outs GPR:$X), (ins SPR:$Z), "GET">;
+def PUT: Inst_X__Z<0xF6, (outs), (ins SPR:$X, ui8imm:$Z), "PUT">;
+def PUTI: Inst_X__Z<0xF7, (outs), (ins SPR:$X, GPR:$Z), "PUT">;
+def GET_i8: Inst_X__Z<0xFE, (outs GPR:$X), (ins i8imm:$Z), "GET"> {
+  let isAsmParserOnly = true;
+}
+
+def SAVE: Inst_X__Z<0xFA, (outs), (ins GPR:$X, ui8imm:$Z), "SAVE">;
+def UNSAVE: Inst_X__Z<0xFB, (outs), (ins ui8imm:$X, GPR:$Z), "UNSAVE">;
+
+//===----------------------------------------------------------------------===//
+// Instruction Patterns
+//===----------------------------------------------------------------------===//
+def :Pat<(sextloadi8 (add GPR:$Y, GPR:$Z)), (LDB GPR:$Y, GPR:$Z)>;
+#endif

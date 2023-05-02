@@ -29,175 +29,78 @@ namespace llvm {
 
 namespace object {
 
-template <typename T> struct MMOTrieNode {
-public:
-  T Ch;
-  std::shared_ptr<MMOTrieNode> Left, Mid, Right;
-  std::optional<MMO::SymNode> SymNode;
-  MMOTrieNode(const T &C) : Ch(C) {}
+namespace MMO {
+
+using ByteArrayRef = ArrayRef<std::uint8_t>;
+
+struct Segment {
+  StringRef Data;
 };
 
-template <typename T> struct MMOTrie {
-  static_assert(std::is_same<T, std::uint8_t>::value ||
-                    std::is_same<T, std::uint16_t>::value,
-                "T must be uint8_t or uint_16_t");
-  std::shared_ptr<MMOTrieNode<T>> Root;
-
-private:
-  static constexpr const char *SpecialName[] = {
-      "rB", "rD", "rE", "rH",  "rJ", "rM", "rR",  "rBB", "rC",  "rN", "rO",
-      "rS", "rI", "rT", "rTT", "rK", "rQ", "rU",  "rV",  "rG",  "rL", "rA",
-      "rF", "rP", "rW", "rX",  "rY", "rZ", "rWW", "rXX", "rYY", "rZZ"};
-  static constexpr const char *Predefs[] = {
-      "ROUND_CURRENT",   "ROUND_OFF", "ROUND_UP",     "ROUND_DOWN",
-      "ROUND_NEAR",      "Inf",       "Data_Segment", "Pool_Segment",
-      "Stack_Segment",   "D_BIT",     "V_BIT",        "W_BIT",
-      "I_BIT",           "O_BIT",     "U_BIT",        "Z_BIT",
-      "X_BIT",           "D_Handler", "V_Handler",    "W_Handler",
-      "I_Handler",       "O_Handler", "U_Handler",    "Z_Handler",
-      "X_Handler",       "StdIn",     "StdOut",       "StdErr",
-      "TextRead",        "TextWrite", "BinaryRead",   "BinaryWrite",
-      "BinaryReadWrite", "Halt",      "Fopen",        "Fclose",
-      "Fread",           "Fgets",     "Fgetws",       "Fwrite",
-      "Fputs",           "Fputws",    "Fseek",        "Ftell",
-  };
-
-public:
-  MMOTrie() : Root(std::make_shared<MMOTrieNode<T>>(':')) {
-    Root->Mid = std::make_shared<MMOTrieNode<T>>('^');
-    for (const auto &N : SpecialName) {
-      search(N);
-    }
-    for (const auto &P : Predefs) {
-      search(P);
-    }
-  }
-
-  void insert(const MMO::Symbol &S) {
-    auto Tt = search(S.Name);
-    Tt->SymNode = {S.Serial, S.Equiv, S.Type == MMO::SymbolType::REGISTER};
-  }
-
-  auto search(const StringRef &S) {
-    auto Tt = Root;
-    //
-    typename std::conditional<std::is_same<T, std::uint8_t>::value, StringRef,
-                              SmallVector<UTF16, 32>>::type Str;
-    if constexpr (std::is_same<T, std::uint8_t>::value) {
-      Str = S;
-    } else {
-      convertUTF8ToUTF16String(S, Str);
-    }
-    auto Sz = Str.size();
-    for (std::size_t i = 0; i != Sz; ++i) {
-      if (Tt->Mid) {
-        Tt = Tt->Mid;
-        while (Str[i] != Tt->Ch) {
-          if (Str[i] < Tt->Ch) {
-            if (Tt->Left)
-              Tt = Tt->Left;
-            else {
-              Tt->Left = std::make_shared<MMOTrieNode<T>>(Str[i]);
-              Tt = Tt->Left;
-              break;
-            }
-          } else {
-            if (Tt->Right)
-              Tt = Tt->Right;
-            else {
-              Tt->Right = std::make_shared<MMOTrieNode<T>>(Str[i]);
-              Tt = Tt->Right;
-              break;
-            }
-          }
-        }
-      } else {
-        Tt->Mid = std::make_shared<MMOTrieNode<T>>(Str[i]);
-        Tt = Tt->Mid;
-      }
-    }
-    return Tt;
-  }
-
-private:
-  std::shared_ptr<MMOTrieNode<T>> prune(std::shared_ptr<MMOTrieNode<T>> t) {
-    bool Useful = false;
-    if (t->SymNode) {
-      Useful = true;
-    }
-    if (t->Left) {
-      t->Left = prune(t->Left);
-      if (t->Left)
-        Useful = true;
-    }
-    if (t->Mid) {
-      t->Mid = prune(t->Mid);
-      if (t->Mid)
-        Useful = true;
-    }
-    if (t->Right) {
-      t->Right = prune(t->Right);
-      if (t->Right)
-        Useful = true;
-    }
-    if (Useful)
-      return t;
-    else
-      return nullptr;
-  }
-
-public:
-  void prune() { prune(Root); }
-  void writeBin(raw_ostream &OS) { writeBin(OS, Root); }
-
-private:
-  void writeBin(raw_ostream &OS, std::shared_ptr<MMOTrieNode<T>> N) {
-    int M = std::is_same<T, std::uint8_t>::value ? 0 : 0x80;
-
-    if (N->Left)
-      M += 0x40;
-    if (N->Mid)
-      M += 0x20;
-    if (N->Right)
-      M += 0x10;
-
-    if (N->SymNode) {
-      N->SymNode->computeMasterByte(M);
-    }
-    OS << static_cast<std::uint8_t>(M);
-
-    if (N->Left)
-      writeBin(OS, N->Left);
-
-    if (M & 0x2F) {
-      if constexpr (std::is_same<T, std::uint16_t>::value) {
-        char Buf[2];
-        support::endian::write16be(Buf, N->Ch);
-        OS.write(Buf, sizeof(Buf));
-      } else {
-        OS << N->Ch;
-      }
-      M &= 0xF;
-      if (M && N->SymNode) {
-        N->SymNode->writeBinEquiv(OS, M);
-        N->SymNode->writeBinSerial(OS, M);
-      }
-      if (N->Mid)
-        writeBin(OS, N->Mid);
-    }
-
-    if (N->Right)
-      writeBin(OS, N->Right);
-  }
+struct Quote {
+  ByteArrayRef RawData;
+  ByteArrayRef Value;
 };
+struct Loc {
+  ByteArrayRef RawData;
+  std::uint8_t HighByte;
+  std::uint64_t Offset;
+};
+struct Skip {
+  ByteArrayRef RawData;
+  std::uint16_t Delta;
+};
+struct Fixo {
+  ByteArrayRef RawData;
+  std::uint8_t HighByte;
+  std::uint64_t Offset;
+};
+struct Fixr {
+  ByteArrayRef RawData;
+  std::uint16_t Delta;
+};
+struct Fixrx {
+  ByteArrayRef RawData;
+  std::uint8_t FixType;
+  std::int32_t Delta;
+};
+struct File {
+  ByteArrayRef RawData;
+  std::uint8_t Number;
+  std::optional<StringRef> Name;
+};
+struct Line {
+  ByteArrayRef RawData;
+  std::uint16_t Number;
+};
+struct Spec {
+  ByteArrayRef RawData;
+  std::uint16_t Type;
+};
+
+struct Pre {
+  ByteArrayRef RawData;
+  std::uint8_t Version = llvm::MMO::CurrentVersion;
+  std::optional<std::time_t> CreatedTime;
+  std::optional<ArrayRef<std::uint8_t>> ExtraData;
+};
+
+struct Post {
+  ByteArrayRef RawData;
+  std::uint8_t G;
+  std::vector<std::uint64_t> Values;
+};
+
+} // namespace MMO
 
 class MMIXObjectFile : public ObjectFile {
 public:
   // constructor
   static Expected<std::unique_ptr<MMIXObjectFile>>
-  create(MemoryBufferRef Object);
+  create(MemoryBufferRef Object, bool InitContent);
 
-public: // RTTI
+public:
+  // RTTI
   static bool classof(Binary const *v);
 
 public:
@@ -280,30 +183,30 @@ protected:
 private:
   MMO::Pre Preamble;
   ArrayRef<std::uint8_t> ContentRef;
-  std::vector<std::variant<ArrayRef<std::uint8_t>, MMO::ContentLop>> Content;
+  std::vector<std::variant<ArrayRef<std::uint8_t>, MMO::Quote, MMO::Loc,
+                           MMO::Skip, MMO::Fixo, MMO::Fixr, MMO::Fixrx,
+                           MMO::File, MMO::Line, MMO::Spec>>
+      Content;
   MMO::Post Postamble;
-  SmallVector<MMO::Symbol, 32> SymbTab;
-  using MMOTrieUTF8 = MMOTrie<std::uint8_t>;
-  using MMOTrieUTF16 = MMOTrie<std::uint16_t>;
-  std::variant<std::monostate, MMOTrieUTF8, MMOTrieUTF16> TrieRoot;
+  SmallVector<llvm::MMO::Symbol, 32> SymbTab;
   using SymbItT = decltype(SymbTab.begin());
 
 private:
   MMIXObjectFile(MemoryBufferRef Object);
+  Error initMMIXObjectFile();
   Error initPreamble(const unsigned char *&Iter);
   Error initContent(const unsigned char *&Iter);
   Error initSymbolTable(const unsigned char *&Iter);
-  void initSymbolTrie();
   Error initPostamble(const unsigned char *&Iter);
-  void decodeSymbolTable(const unsigned char *&Start,
-                         SmallVector<UTF16, 32> &Name, Error &E);
+  void decodeSymbolTable(const uint8_t *&Start, SmallVector<UTF16, 32> &Name,
+                         Error &E);
   Error decodeSymbolTable(const unsigned char *&Iter);
 
 public:
 public:
   using ContentT = decltype(Content);
-  const MMO::Symbol &getMMOSymbol(const SymbolRef &Symb) const;
-  const MMO::Symbol &getMMOSymbol(const DataRefImpl &Symb) const;
+  const llvm::MMO::Symbol &getMMOSymbol(const SymbolRef &Symb) const;
+  const llvm::MMO::Symbol &getMMOSymbol(const DataRefImpl &Symb) const;
   const MMO::Pre &getMMOPreamble() const;
   const MMO::Post &getMMOPostamble() const;
   const ContentT &getMMOContent() const;

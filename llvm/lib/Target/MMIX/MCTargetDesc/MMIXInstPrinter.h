@@ -1,4 +1,5 @@
-//===- MMIXInstPrinter.h - Convert MMIX MCInst to assembly syntax -*- C++ -*-===//
+//===- MMIXInstPrinter.h - Convert MMIX MCInst to assembly syntax -*- C++
+//-*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,34 +14,36 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MCTARGETDESC_MMIXINSTPRINTER_H
 #define LLVM_LIB_TARGET_MMIX_MCTARGETDESC_MMIXINSTPRINTER_H
 
-#include "llvm/TargetParser/Triple.h"
-#include "llvm/MC/MCInstPrinter.h"
+#include "MMIXInstrInfo.h"
 #include "llvm/MC/MCInst.h"
-
+#include "llvm/MC/MCInstPrinter.h"
+#include "llvm/TargetParser/Triple.h"
 namespace llvm {
 
 class MMIXInstPrinter : public MCInstPrinter {
 public:
-MMIXInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
-                     const MCRegisterInfo &MRI);
+  MMIXInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
+                  const MCRegisterInfo &MRI);
 
-std::pair<const char *, uint64_t> getMnemonic(const MCInst *MI) override;
+  std::pair<const char *, uint64_t> getMnemonic(const MCInst *MI) override;
 
-void printInst(const MCInst *MI, uint64_t Address, StringRef Annot,
-                         const MCSubtargetInfo &STI, raw_ostream &OS) override;
+  void printInst(const MCInst *MI, uint64_t Address, StringRef Annot,
+                 const MCSubtargetInfo &STI, raw_ostream &OS) override;
+
 public:
-static const char *getRegisterName(MCRegister RegNo);
-void printInstruction(const MCInst *MI, uint64_t Address, raw_ostream &O);
-bool printAliasInstr(const MCInst *MI, uint64_t Address, raw_ostream &O);
-void printOperand(const MCInst *MI, unsigned OpNo, 
-                    raw_ostream &O);
+  static const char *getRegisterName(MCRegister RegNo);
+  void printCustomAliasOperand(const MCInst *MI, uint64_t Address,
+                               unsigned OpIdx, unsigned PrintMethodIdx,
+                               raw_ostream &OS);
+  void printInstruction(const MCInst *MI, uint64_t Address, raw_ostream &O);
+  bool printAliasInstr(const MCInst *MI, uint64_t Address, raw_ostream &O);
+  void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
 };
 
-MCInstPrinter *createMMIXMCInstPrinter(const Triple &T,
-                                             unsigned SyntaxVariant,
-                                             const MCAsmInfo &MAI,
-                                             const MCInstrInfo &MII,
-                                             const MCRegisterInfo &MRI);
+MCInstPrinter *createMMIXMCInstPrinter(const Triple &T, unsigned SyntaxVariant,
+                                       const MCAsmInfo &MAI,
+                                       const MCInstrInfo &MII,
+                                       const MCRegisterInfo &MRI);
 
 } // namespace llvm
 

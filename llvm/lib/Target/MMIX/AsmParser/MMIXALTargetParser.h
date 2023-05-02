@@ -1,31 +1,35 @@
-//===-- MMIXAsmParser.h - Parse MMIX assembly to MCInst instructions --===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-#ifndef LLVM_LIB_TARGET_MMIX_ASM_ASMPARSER_MMIXASMPARSER_H
-#define LLVM_LIB_TARGET_MMIX_ASM_ASMPARSER_MMIXASMPARSER_H
+#ifndef LLVM_LIB_TARGET_MMIX_ASM_ASMPARSER_MMIXALTARGETPARSER_H
+#define LLVM_LIB_TARGET_MMIX_ASM_ASMPARSER_MMIXALTARGETPARSER_H
 
+#include "llvm/BinaryFormat/MMO.h"
 #include "llvm/MC/MCParser/MCAsmLexer.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
+#include <forward_list>
 
 namespace llvm {
+// dirty workaround
+namespace MMIXAL {
 
-class MMIXAsmParser : public MCTargetAsmParser {
+class MMIXALAsmParser : public MCTargetAsmParser {
+
+private:
+  bool StrictMode;
+  bool SpecialMode;
+  MMO::AsmSharedInfo &SharedInfo;
+
 #define GET_ASSEMBLER_HEADER
-#include "MMIXGenAsmMatcher.inc"
+#include "MMIXALGenAsmMatcher.inc"
 public:
-enum MMIXMatchResultTy{
-  Match_Dummy = FIRST_TARGET_MATCH_RESULT_TY,
+  enum MMIXMatchResultTy {
+    Match_Dummy = FIRST_TARGET_MATCH_RESULT_TY,
 #define GET_OPERAND_DIAGNOSTIC_TYPES
-#include "MMIXGenAsmMatcher.inc"
-};
+#include "MMIXALGenAsmMatcher.inc"
+  };
 public:
-  MMIXAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
-                const MCInstrInfo &MII, const MCTargetOptions &Options);
+  MMIXALAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
+                const MCInstrInfo &MII, const MCTargetOptions &Options,
+                MMO::AsmSharedInfo &SharedInfo);
 
 public:
   bool parseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) override;
@@ -51,9 +55,12 @@ private:
   bool parseOperand(OperandVector &Operands, StringRef Mnemonic);
   OperandMatchResultTy tryParseJumpDestOperand(OperandVector &Operands);
   OperandMatchResultTy tryParseBranchDestOperand(OperandVector &Operands);
+  OperandMatchResultTy tryParseBaseAddressOperand(OperandVector &Operands);
   void resolveBaseAddress(MCInst &Inst, const OperandVector &Operands);
+  unsigned toMCRegNum(std::uint8_t RegNum);
 };
+} // namespace MMIXAL
 
 } // namespace llvm
 
-#endif // LLVM_LIB_TARGET_MMIX_ASMPARSER_MMIXASMPARSER_H
+#endif // LLVM_LIB_TARGET_MMIX_ASM_ASMPARSER_MMIXALTARGETPARSER_H

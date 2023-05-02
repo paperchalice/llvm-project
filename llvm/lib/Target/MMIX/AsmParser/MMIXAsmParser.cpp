@@ -40,7 +40,7 @@ using namespace llvm;
 #define GET_REGISTER_MATCHER
 // #define GET_SUBTARGET_FEATURE_NAME
 #define GET_MATCHER_IMPLEMENTATION
-#define GET_MNEMONIC_SPELL_CHECKER
+// #define GET_MNEMONIC_SPELL_CHECKER
 #define GET_MNEMONIC_CHECKER
 #include "MMIXGenAsmMatcher.inc"
 
@@ -120,6 +120,23 @@ bool MMIXAsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   }
   return false;
 }
+
+bool MMIXAsmParser::parseOperand(OperandVector &Operands, StringRef Mnemonic) {
+  return false;
+}
+
+OperandMatchResultTy MMIXAsmParser::tryParseJumpDestOperand(
+    OperandVector &Operands) {
+  return MatchOperand_Success;
+}
+
+OperandMatchResultTy MMIXAsmParser::tryParseBranchDestOperand(
+    OperandVector &Operands) {
+  return MatchOperand_Success;
+}
+
+void llvm::MMIXAsmParser::resolveBaseAddress(MCInst &Inst,
+                                             const OperandVector &Operands) {}
 
 const MCExpr *MMIXAsmParser::createTargetUnaryExpr(
     const MCExpr *E, AsmToken::TokenKind OperatorToken, MCContext &Ctx) {

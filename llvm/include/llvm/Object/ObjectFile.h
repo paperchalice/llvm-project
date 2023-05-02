@@ -398,7 +398,7 @@ public:
   createGOFFObjectFile(MemoryBufferRef Object);
 
   static Expected<std::unique_ptr<MMIXObjectFile>>
-  createMMIXObjectFile(MemoryBufferRef Object);
+  createMMIXObjectFile(MemoryBufferRef Object, bool InitContent = true);
 
   static Expected<std::unique_ptr<WasmObjectFile>>
   createWasmObjectFile(MemoryBufferRef Object);

@@ -10,7 +10,6 @@
 #include <sstream>
 #include <string>
 using namespace llvm;
-using namespace std;
 using namespace llvm::object;
 using namespace support::endian;
 
@@ -27,17 +26,17 @@ uint16_t getYZ(const uint8_t *A) { return read16be(A + 2); }
 
 class MMOType {
   const MMIXObjectFile &Obj;
-  uint64_t CurLoc = 0;
-  size_t TetraCnt = 0;
+  std::uint64_t CurLoc = 0;
+  std::size_t TetraCnt = 0;
   int ListedFile = -1;
   int CurFile = -1;
   int CurLine = 0;
   bool IsQuote = false;
-  vector<StringRef> FileNames;
-  uint64_t Tmp;
-  const uint8_t *Iter;
+  std::vector<StringRef> FileNames;
+  std::uint64_t Tmp;
+  const std::uint8_t *Iter;
 
-  uint32_t outTetra() {
+  std::uint32_t outTetra() {
     auto Ret = read32be(Iter);
     if (Verbose) {
       outs() << "  " << format_hex_no_prefix(Ret, 8) << "\n";
@@ -85,9 +84,9 @@ class MMOType {
     outTetra();
     if (Z) {
       if (!Lst) {
-        time_t Time = outTetra();
-        stringstream Ss;
-        Ss << put_time(localtime(&Time), "%c");
+        std::time_t Time = outTetra();
+        std::stringstream Ss;
+        Ss << std::put_time(localtime(&Time), "%c");
         outs() << "File was created " << Ss.str() << '\n';
       }
     }
@@ -100,14 +99,14 @@ class MMOType {
     outs() << formatv("Symbol table (beginning at tetra {0}):\n", TetraCnt);
     auto STabVec = Obj.getSTab();
     std::sort(STabVec.begin(), STabVec.end(),
-              [](const MMO::Symbol &S1, const MMO::Symbol &S2) {
+              [](const llvm::MMO::Symbol &S1, const llvm::MMO::Symbol &S2) {
                 return S1.PrintPos < S2.PrintPos;
               });
     for (const auto &S : STabVec) {
       while (Iter < S.PrintPos) {
         outTetra();
       }
-      if (S.Type == MMO::REGISTER) {
+      if (S.Type == llvm::MMO::REGISTER) {
         outs() << formatv("    {0} = ${1} ({2})\n",
                           StringRef(S.Name).drop_front(), S.Equiv, S.Serial);
       } else {
@@ -116,7 +115,7 @@ class MMOType {
                           format_hex_no_prefix(S.Equiv, 1), S.Serial);
       }
     }
-    assert(Iter[0] == MMO::MM && Iter[1] == MMO::LOP_END);
+    assert(Iter[0] == llvm::MMO::MM && Iter[1] == llvm::MMO::LOP_END);
     if (Verbose) {
       outs() << "  " << format_hex_no_prefix(read32be(Iter), 8) << "\n";
       outs() << "Symbol table ends at tetra " << TetraCnt + 1 << ".\n";
@@ -127,13 +126,13 @@ class MMOType {
     auto End = Obj.getData().bytes_end();
     bool Stop = false;
     while (Iter != End && !Stop) {
-      if (Iter[0] == MMO::MM && !IsQuote) {
+      if (Iter[0] == llvm::MMO::MM && !IsQuote) {
         switch (getX(Iter)) {
-        case MMO::LOP_QUOTE:
+        case llvm::MMO::LOP_QUOTE:
           outTetra();
           IsQuote = true;
           break;
-        case MMO::LOP_LOC:
+        case llvm::MMO::LOP_LOC:
           CurLoc = static_cast<uint64_t>(Iter[2]) << 56;
           if (getZ(Iter) == 1) {
             outTetra();
@@ -146,11 +145,11 @@ class MMOType {
             outTetra();
           }
           break;
-        case MMO::LOP_SKIP:
+        case llvm::MMO::LOP_SKIP:
           CurLoc += getYZ(Iter);
           outTetra();
           break;
-        case MMO::LOP_FIXO: {
+        case llvm::MMO::LOP_FIXO: {
           uint64_t Y = getY(Iter);
           switch (getZ(Iter)) {
           case 1:
@@ -169,13 +168,13 @@ class MMOType {
         }
           outAddressContent(Tmp, CurLoc);
           break;
-        case MMO::LOP_FIXR: {
+        case llvm::MMO::LOP_FIXR: {
           uint32_t Delta = getYZ(Iter);
           outTetra();
           Tmp = CurLoc - 4 * Delta;
           outAddressContent(Tmp, Delta);
         } break;
-        case MMO::LOP_FIXRX: {
+        case llvm::MMO::LOP_FIXRX: {
           uint8_t Z = getZ(Iter);
           outTetra();
           bool IsNeg = Iter[0];
@@ -188,7 +187,7 @@ class MMOType {
           Tmp = CurLoc - Offset * 4;
           outAddressContent(Tmp, Data);
         } break;
-        case MMO::LOP_FILE: {
+        case llvm::MMO::LOP_FILE: {
           uint8_t Cnt = getZ(Iter);
           outTetra();
           CurFile++;
@@ -199,11 +198,11 @@ class MMOType {
             outTetra();
           }
         } break;
-        case MMO::LOP_LINE:
+        case llvm::MMO::LOP_LINE:
           CurLine = getYZ(Iter);
           outTetra();
           break;
-        case MMO::LOP_SPEC: {
+        case llvm::MMO::LOP_SPEC: {
           uint16_t Type = getYZ(Iter);
           outTetra();
           if (!Lst) {
@@ -220,8 +219,10 @@ class MMOType {
             }
           }
           // list spec data
-          while (!(Iter[0] == MMO::MM && getX(Iter) != MMO::LOP_QUOTE)) {
-            if (Iter[0] == MMO::MM && getX(Iter) == MMO::LOP_QUOTE) {
+          while (!(Iter[0] == llvm::MMO::MM &&
+                   getX(Iter) != llvm::MMO::LOP_QUOTE)) {
+            if (Iter[0] == llvm::MMO::MM &&
+                getX(Iter) == llvm::MMO::LOP_QUOTE) {
               outTetra();
             }
             uint32_t Tet = outTetra();
@@ -230,7 +231,7 @@ class MMOType {
             }
           }
         } break;
-        case MMO::LOP_POST: {
+        case llvm::MMO::LOP_POST: {
           uint8_t Z = getZ(Iter);
           outTetra();
           for (auto i = 0; i != 256 - Z; ++i) {
@@ -243,7 +244,7 @@ class MMOType {
             }
           }
         } break;
-        case MMO::LOP_STAB:
+        case llvm::MMO::LOP_STAB:
           Stop = true;
           outTetra();
           break;

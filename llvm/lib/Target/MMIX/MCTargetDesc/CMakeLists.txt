@@ -1,6 +1,7 @@
 add_llvm_component_library (LLVMMMIXDesc
   MMIXAsmBackend.cpp
   MMIXELFStreamer.cpp
+  MMIXMMOStreamer.cpp
   MMIXMCExpr.cpp
   MMIXMCInstrInfo.cpp
   MMIXMCTargetDesc.cpp

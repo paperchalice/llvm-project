@@ -11,7 +11,7 @@
 
 namespace llvm {
 
-
+MMIXMMOWriter::MMIXMMOWriter(): MCMMIXObjectTargetWriter() {}
 
 MMIXELFObjectWriter::MMIXELFObjectWriter(bool Is64Bit, uint8_t OSABI)
     : MCELFObjectTargetWriter(Is64Bit, OSABI, ELF::EM_NONE, true) {}
@@ -21,6 +21,12 @@ unsigned MMIXELFObjectWriter::getRelocType(MCContext &Ctx,
                                            const MCFixup &Fixup,
                                            bool IsPCRel) const {
   return 0;
+}
+
+
+std::unique_ptr<MCObjectTargetWriter>
+createMMIXMMOWriter() {
+  return std::unique_ptr<MCObjectTargetWriter>(new MMIXMMOWriter());
 }
 
 ::std::unique_ptr<MCObjectTargetWriter> createMMIXELFObjectWriter(bool Is64Bit,

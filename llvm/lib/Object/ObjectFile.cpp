@@ -184,7 +184,7 @@ ObjectFile::createObjectFile(MemoryBufferRef Object, file_magic Type,
   case file_magic::macho_file_set:
     return createMachOObjectFile(Object);
   case file_magic::mmo:
-    return createMMIXObjectFile(Object);
+    return createMMIXObjectFile(Object, InitContent);
   case file_magic::coff_object:
   case file_magic::coff_import_library:
   case file_magic::pecoff_executable:

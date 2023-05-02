@@ -13,7 +13,10 @@ MCMMOStreamer::MCMMOStreamer(MCContext &Context,
                              std::unique_ptr<MCObjectWriter> OW,
                              std::unique_ptr<MCCodeEmitter> Emitter)
     : MCObjectStreamer(Context, std::move(MAB), std::move(OW),
-                       std::move(Emitter)) {}
+                       std::move(Emitter)) {
+  // MMIXAL always requires everything is relaxed
+  getAssembler().setRelaxAll(true);
+}
 
 void MCMMOStreamer::emitInstToData(const MCInst &Inst,
                                    const MCSubtargetInfo &STI) {
@@ -22,11 +25,28 @@ void MCMMOStreamer::emitInstToData(const MCInst &Inst,
   SmallString<256> Code;
   raw_svector_ostream VecOS(Code);
   getAssembler().getEmitter().encodeInstruction(Inst, VecOS, Fixups, STI);
+  DF->getFixups().append(Fixups);
   DF->getContents().append(Code.begin(), Code.end());
 }
 
 bool MCMMOStreamer::emitSymbolAttribute(MCSymbol *Symbol,
                                         MCSymbolAttr Attribute) {
+  switch (Attribute) {
+  default:
+    return false;
+  case MCSA_Global:
+    Symbol->setExternal(true);
+    Symbol->setRedefinable(false);
+    getAssembler().registerSymbol(*Symbol);
+    return true;
+  case MCSA_Local:
+    Symbol->setExternal(false);
+    return true;
+  case MCSA_Internal:
+    Symbol->setExternal(false);
+    Symbol->setRedefinable(true);
+    return true;
+  }
   return false;
 }
 

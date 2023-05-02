@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXMCCodeEmitter.h"
+#include "MMIXFixupKinds.h"
 #include "MMIXInstrInfo.h"
+#include "MMIXMCExpr.h"
+#include "llvm/BinaryFormat/MMO.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/EndianStream.h"
 
@@ -20,35 +23,54 @@ namespace llvm {
 #include "MMIXGenMCCodeEmitter.inc"
 
 MMIXMCCodeEmitter::MMIXMCCodeEmitter(const MCInstrInfo &MCII, MCContext &Ctx)
-      : MCII(MCII), Ctx(Ctx) {}
+    : MCII(MCII), Ctx(Ctx) {}
 
 void MMIXMCCodeEmitter::encodeInstruction(const MCInst &Inst, raw_ostream &OS,
-                                 SmallVectorImpl<MCFixup> &Fixups,
-                                 const MCSubtargetInfo &STI) const {
+                                          SmallVectorImpl<MCFixup> &Fixups,
+                                          const MCSubtargetInfo &STI) const {
+  if (Inst.getOpcode() == MMO::MM) {
+    uint32_t Quote = (MMO::MM << 24) + (MMO::LOP_QUOTE << 16) + 1;
+    support::endian::write(OS, Quote, support::big);
+  }
   uint32_t Bits = getBinaryCodeForInstr(Inst, Fixups, STI);
-  support::endian::write(
-      OS, Bits,
-      STI.getTargetTriple().isLittleEndian() ? support::little : support::big);
+  if (!Fixups.empty()) {
+    if (Fixups[0].getKind() == MCFixupKind::FK_Data_1) {
+      Bits |= 1 << 24;
+      Fixups.pop_back();
+    }
+  }
+  support::endian::write(OS, Bits, support::big);
 }
 
-
-unsigned
+std::uint64_t
 MMIXMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
                                      SmallVectorImpl<MCFixup> &Fixups,
                                      const MCSubtargetInfo &STI) const {
-  if (MO.isReg())
-    return Ctx.getRegisterInfo()->getEncodingValue(MO.getReg());
-  if (MO.isImm())
-    return static_cast<unsigned>(MO.getImm());
+  if (MO.isExpr()) {
+    const auto *Expr = MO.getExpr();
+    int64_t Res;
+    bool Success = Expr->evaluateAsAbsolute(Res);
+    if (Res < 0) {
+      Res = -Res;
+      Fixups.emplace_back(MCFixup::create(0, MCConstantExpr::create(0, Ctx),
+                                          MCFixupKind::FK_Data_1));
+    }
+    return Success ? Res : 0; // else it is a future reference
+  }
+  if (MO.isImm()) {
+    return MO.getImm();
+  }
+
+  if (MO.isReg()) {
+    auto Value = Ctx.getRegisterInfo()->getEncodingValue(MO.getReg());
+    return Value;
+  }
   llvm_unreachable("Unhandled expression!");
-  return 0;
 }
 
-
 MCCodeEmitter *createMMIXMCCodeEmitter(const MCInstrInfo &MCII,
-                                                MCContext &Ctx) {
+                                       MCContext &Ctx) {
   return new MMIXMCCodeEmitter(MCII, Ctx);
 }
 
-
-} // namespace llvm;
+} // namespace llvm
