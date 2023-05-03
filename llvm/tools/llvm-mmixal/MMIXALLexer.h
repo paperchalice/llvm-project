@@ -18,6 +18,8 @@ private:
   bool EndStatementAtEOF = true;
   bool RegardAsComment = false;
   const bool &StrictMode;
+  std::size_t CurrentLine = 1;
+  StringRef CurrentFileName;
 
 private:
   // utilities
@@ -47,6 +49,8 @@ public:
 void setBuffer(StringRef Buf, const char *ptr = nullptr,
                  bool EndStatementAtEOF = true);
 void regardAsComment();
+std::size_t getCurrentLine() const;
+StringRef getCurrentFileName() const;
 public:
   MMIXALLexer(const MCAsmInfo &MAI, const bool &StrictMode);
   MMIXALLexer(const AsmLexer &) = delete;

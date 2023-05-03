@@ -36,10 +36,8 @@ private:
   std::size_t SpecialDataLoc = 0;
   std::string CurPrefix = ":";
   std::uint16_t SerialCnt = 1;
-  StringRef CurrentFileName;
+  StringRef CurrentFileName = "";
   SmallVector<StringRef, 257> FileNames;
-  std::uint16_t LastLineDrectiveLineNumber = 0;
-  std::uint16_t LastLineDirectiveRealLineNumber = 0;
 
   enum IdentifierKind {
     Invalid,
@@ -62,7 +60,6 @@ private:
   std::string getQualifiedName(StringRef Name);
   void resolveLabel(MCSymbol *Symbol);
 
-  bool parseLineDirective(StringRef Directive);
   bool parsePseudoOperationIS(StringRef Label);
   bool parsePseudoOperationLOC(StringRef Label);
   bool parsePseudoOperationPREFIX();

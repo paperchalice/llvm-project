@@ -270,19 +270,6 @@ bool MMIXALParser::parsePseudoOperationPREFIX() {
   }
 }
 
-bool MMIXALParser::parseLineDirective(StringRef Directive) {
-  auto LineNumTok = Lex();
-  assert(LineNumTok.is(AsmToken::Integer));
-  auto FileNameTok = Lex();
-  assert(FileNameTok.is(AsmToken::String));
-  CurrentFileName = FileNameTok.getStringContents();
-  LastLineDrectiveLineNumber = LineNumTok.getIntVal();
-  LastLineDirectiveRealLineNumber =
-      SrcMgr.getLineAndColumn(LineNumTok.getLoc()).first;
-  Lex();
-  return false;
-}
-
 bool MMIXALParser::parsePseudoOperationGREG(StringRef Label) {
   if (SpecialMode) {
     Error(getLexer().getLoc(), "cannot use `GREG' in special mode!");
@@ -499,7 +486,7 @@ MMIXALParser::IdentifierKind MMIXALParser::getIdentifierKind(StringRef Name) {
 
 void MMIXALParser::syncMMO() {
   static StringRef LastFileName = "";
-  if (CurrentFileName != LastFileName) {
+  if (Lexer.getCurrentFileName() != LastFileName) {
     Out.emitBinaryData({"\x98\x06", 2});
 
     auto FindResult =
@@ -523,9 +510,8 @@ void MMIXALParser::syncMMO() {
   }
 
   static std::uint16_t LastLineNumber = 0;
-  auto CurrentLineNumber = SrcMgr.getLineAndColumn(getTok().getLoc()).first -
-                           LastLineDirectiveRealLineNumber;
-  CurrentLineNumber += LastLineDrectiveLineNumber - 1;
+
+  auto CurrentLineNumber = Lexer.getCurrentLine();
   if (LastLineNumber != CurrentLineNumber) {
     Out.emitBinaryData({"\x98\x07", 2});
     char Buf[2];
@@ -744,9 +730,6 @@ bool MMIXALParser::parseStatement() {
   bool Failed = false;
 
   auto CurTok = getTok();
-  if (CurTok.is(AsmToken::HashDirective)) {
-    return parseLineDirective(CurTok.getString());
-  }
 
   // parse label
   StringRef Label = "";
