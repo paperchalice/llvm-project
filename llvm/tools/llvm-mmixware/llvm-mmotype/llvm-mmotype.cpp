@@ -97,7 +97,8 @@ class MMOType {
   }
 
   void listStab() {
-    auto E = Obj.decodeSymbolTable(Iter, /*SortSymbolTable=*/false);
+    const unsigned char *SymTabIter = Iter;
+    auto E = Obj.decodeSymbolTable(SymTabIter, /*SortSymbolTable=*/false);
     if (E) {
       outs() << "broken symbol table! \n";
     }
@@ -117,9 +118,9 @@ class MMOType {
       }
     }
     assert(getInst(Iter) == MMO::MM && getX(Iter) == MMO::LOP_END);
+    outTetra();
     if (Verbose) {
-      outs() << "  " << format_hex_no_prefix(read32be(Iter), 8) << "\n";
-      outs() << "Symbol table ends at tetra " << TetraCnt + 1 << ".\n";
+      outs() << "Symbol table ends at tetra " << TetraCnt << ".\n";
     }
   }
 
@@ -145,6 +146,7 @@ class MMOType {
             outTetra();
             outTetra();
           }
+          ++CurLine;
           break;
         case MMO::LOP_SKIP:
           CurLoc += getYZ(Iter);
