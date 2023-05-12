@@ -19,18 +19,19 @@ cl::opt<bool> Verbose("v", cl::desc("List tetrabytes of input"));
 cl::opt<std::string> InputFilename(cl::Positional, cl::desc("<input file>"),
                                    cl::init("-"));
 
-uint8_t getX(const uint8_t *A) { return A[1]; }
-uint8_t getY(const uint8_t *A) { return A[2]; }
-uint8_t getZ(const uint8_t *A) { return A[3]; }
-uint16_t getYZ(const uint8_t *A) { return read16be(A + 2); }
+std::uint8_t getInst(const unsigned char *A) { return A[0]; }
+std::uint8_t getX(const unsigned char *A) { return A[1]; }
+std::uint8_t getY(const unsigned char *A) { return A[2]; }
+std::uint8_t getZ(const unsigned char *A) { return A[3]; }
+std::uint16_t getYZ(const unsigned char *A) { return read16be(A + 2); }
 
 class MMOType {
-  const MMIXObjectFile &Obj;
+  MMIXObjectFile &Obj;
   std::uint64_t CurLoc = 0;
   std::size_t TetraCnt = 0;
-  int ListedFile = -1;
-  int CurFile = -1;
-  int CurLine = 0;
+  std::int32_t ListedFile = -1;
+  std::int32_t CurFile = -1;
+  std::int32_t CurLine = 0;
   bool IsQuote = false;
   std::vector<StringRef> FileNames;
   std::uint64_t Tmp;
@@ -80,7 +81,7 @@ class MMOType {
   }
 
   void listPreamble() {
-    uint8_t Z = getZ(Iter);
+    auto Z = getZ(Iter);
     outTetra();
     if (Z) {
       if (!Lst) {
@@ -96,17 +97,17 @@ class MMOType {
   }
 
   void listStab() {
+    auto E = Obj.decodeSymbolTable(Iter, /*SortSymbolTable=*/false);
+    if (E) {
+      outs() << "broken symbol table! \n";
+    }
     outs() << formatv("Symbol table (beginning at tetra {0}):\n", TetraCnt);
     auto STabVec = Obj.getSTab();
-    std::sort(STabVec.begin(), STabVec.end(),
-              [](const llvm::MMO::Symbol &S1, const llvm::MMO::Symbol &S2) {
-                return S1.PrintPos < S2.PrintPos;
-              });
     for (const auto &S : STabVec) {
       while (Iter < S.PrintPos) {
         outTetra();
       }
-      if (S.Type == llvm::MMO::REGISTER) {
+      if (S.Type == MMO::REGISTER) {
         outs() << formatv("    {0} = ${1} ({2})\n",
                           StringRef(S.Name).drop_front(), S.Equiv, S.Serial);
       } else {
@@ -115,7 +116,7 @@ class MMOType {
                           format_hex_no_prefix(S.Equiv, 1), S.Serial);
       }
     }
-    assert(Iter[0] == llvm::MMO::MM && Iter[1] == llvm::MMO::LOP_END);
+    assert(getInst(Iter) == MMO::MM && getX(Iter) == MMO::LOP_END);
     if (Verbose) {
       outs() << "  " << format_hex_no_prefix(read32be(Iter), 8) << "\n";
       outs() << "Symbol table ends at tetra " << TetraCnt + 1 << ".\n";
@@ -123,16 +124,16 @@ class MMOType {
   }
 
   void listContent() {
-    auto End = Obj.getData().bytes_end();
+    auto End = Obj.getData().bytes_end() - Obj.getData().size() % 4;
     bool Stop = false;
     while (Iter != End && !Stop) {
-      if (Iter[0] == llvm::MMO::MM && !IsQuote) {
+      if (getInst(Iter) == MMO::MM && !IsQuote) {
         switch (getX(Iter)) {
-        case llvm::MMO::LOP_QUOTE:
+        case MMO::LOP_QUOTE:
           outTetra();
           IsQuote = true;
           break;
-        case llvm::MMO::LOP_LOC:
+        case MMO::LOP_LOC:
           CurLoc = static_cast<uint64_t>(Iter[2]) << 56;
           if (getZ(Iter) == 1) {
             outTetra();
@@ -145,11 +146,11 @@ class MMOType {
             outTetra();
           }
           break;
-        case llvm::MMO::LOP_SKIP:
+        case MMO::LOP_SKIP:
           CurLoc += getYZ(Iter);
           outTetra();
           break;
-        case llvm::MMO::LOP_FIXO: {
+        case MMO::LOP_FIXO: {
           uint64_t Y = getY(Iter);
           switch (getZ(Iter)) {
           case 1:
@@ -168,13 +169,13 @@ class MMOType {
         }
           outAddressContent(Tmp, CurLoc);
           break;
-        case llvm::MMO::LOP_FIXR: {
+        case MMO::LOP_FIXR: {
           uint32_t Delta = getYZ(Iter);
           outTetra();
           Tmp = CurLoc - 4 * Delta;
           outAddressContent(Tmp, Delta);
         } break;
-        case llvm::MMO::LOP_FIXRX: {
+        case MMO::LOP_FIXRX: {
           uint8_t Z = getZ(Iter);
           outTetra();
           bool IsNeg = Iter[0];
@@ -187,7 +188,7 @@ class MMOType {
           Tmp = CurLoc - Offset * 4;
           outAddressContent(Tmp, Data);
         } break;
-        case llvm::MMO::LOP_FILE: {
+        case MMO::LOP_FILE: {
           uint8_t Cnt = getZ(Iter);
           outTetra();
           CurFile++;
@@ -198,11 +199,11 @@ class MMOType {
             outTetra();
           }
         } break;
-        case llvm::MMO::LOP_LINE:
+        case MMO::LOP_LINE:
           CurLine = getYZ(Iter);
           outTetra();
           break;
-        case llvm::MMO::LOP_SPEC: {
+        case MMO::LOP_SPEC: {
           uint16_t Type = getYZ(Iter);
           outTetra();
           if (!Lst) {
@@ -219,10 +220,8 @@ class MMOType {
             }
           }
           // list spec data
-          while (!(Iter[0] == llvm::MMO::MM &&
-                   getX(Iter) != llvm::MMO::LOP_QUOTE)) {
-            if (Iter[0] == llvm::MMO::MM &&
-                getX(Iter) == llvm::MMO::LOP_QUOTE) {
+          while (!(getInst(Iter) == MMO::MM && getX(Iter) != MMO::LOP_QUOTE)) {
+            if (getInst(Iter) == MMO::MM && getX(Iter) == MMO::LOP_QUOTE) {
               outTetra();
             }
             uint32_t Tet = outTetra();
@@ -231,7 +230,7 @@ class MMOType {
             }
           }
         } break;
-        case llvm::MMO::LOP_POST: {
+        case MMO::LOP_POST: {
           uint8_t Z = getZ(Iter);
           outTetra();
           for (auto i = 0; i != 256 - Z; ++i) {
@@ -244,7 +243,7 @@ class MMOType {
             }
           }
         } break;
-        case llvm::MMO::LOP_STAB:
+        case MMO::LOP_STAB:
           Stop = true;
           outTetra();
           break;
@@ -260,8 +259,7 @@ class MMOType {
   }
 
 public:
-  MMOType(const MMIXObjectFile &Obj)
-      : Obj(Obj), Iter(Obj.getData().bytes_begin()) {}
+  MMOType(MMIXObjectFile &Obj) : Obj(Obj), Iter(Obj.getData().bytes_begin()) {}
   void list() {
     listPreamble();
     listContent();
@@ -274,7 +272,7 @@ public:
 int main(int argc, char *argv[]) {
   InitLLVM X(argc, argv);
   cl::ParseCommandLineOptions(argc, argv);
-  auto CreateResult = createBinary(InputFilename);
+  auto CreateResult = createBinary(InputFilename, nullptr, false);
   ExitOnError ExitOnErr;
   ExitOnErr.setBanner(std::string(argv[0]) + ": ");
   if (auto E = CreateResult.takeError()) {

@@ -17,21 +17,22 @@
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/FormatVariadic.h"
 
+#include <cstdint>
 #include <iomanip>
 #include <sstream>
 
 using llvm::support::endian::read16be;
 using llvm::support::endian::read32be;
 using llvm::support::endian::read64be;
+using namespace llvm;
+using namespace object;
 
-namespace {
-std::uint8_t getX(const uint8_t *A) { return A[1]; }
-std::uint8_t getY(const uint8_t *A) { return A[2]; }
-std::uint8_t getZ(const uint8_t *A) { return A[3]; }
-std::uint16_t getYZ(const uint8_t *A) { return read16be(A + 2); }
-} // namespace
+static std::uint8_t getInst(const unsigned char *A) { return A[0]; }
+static std::uint8_t getX(const unsigned char *A) { return A[1]; }
+static std::uint8_t getY(const unsigned char *A) { return A[2]; }
+static std::uint8_t getZ(const unsigned char *A) { return A[3]; }
+static std::uint16_t getYZ(const unsigned char *A) { return read16be(A + 2); }
 
-namespace llvm::object {
 bool MMIXObjectFile::classof(Binary const *v) { return v->isMMO(); }
 
 // constructor
@@ -61,25 +62,27 @@ Error MMIXObjectFile::initMMIXObjectFile() {
   if (Status) {
     return std::move(Status);
   }
-  Status = initSymbolTable(ObjDataIter);
-  if (Status) {
-    return std::move(Status);
+  if (getInst(ObjDataIter) == MMO::MM && getX(ObjDataIter) == MMO::LOP_STAB) {
+    Status = initSymbolTable(ObjDataIter);
+    if (Status) {
+      return std::move(Status);
+    }
   }
   return Error::success();
 }
 
 Error MMIXObjectFile::initPreamble(const unsigned char *&Iter) {
-  assert(*Iter == llvm::MMO::MM && "Invalid MM");
-  assert(getX(Iter) == llvm::MMO::LOP_PRE && "Invalid file header");
+  assert(getInst(Iter) == MMO::MM && "Invalid MM");
+  assert(getX(Iter) == MMO::LOP_PRE && "Invalid file header");
   auto PreambleBegin = Iter;
   Preamble.Version = getY(Iter);
-  int TetraCount = getZ(Iter);
+  std::int32_t TetraCount = getZ(Iter);
   Iter += 4;
   if (TetraCount > 0) {
     time_t Time = support::endian::read32be(Iter);
     Preamble.CreatedTime = Time;
     Iter += 4;
-    TetraCount--;
+    --TetraCount;
     if (TetraCount) {
       Preamble.ExtraData = ArrayRef<std::uint8_t>(Iter, TetraCount * 4);
     }
@@ -90,29 +93,20 @@ Error MMIXObjectFile::initPreamble(const unsigned char *&Iter) {
 }
 
 Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
-  const unsigned char *CurrentPos = Iter;
   bool ReachPostamble = false;
   Error Err = Error::success();
-  while (!ReachPostamble && Iter < getData().bytes_end()) {
+  while (!ReachPostamble && Iter < DataEnd) {
     // handle LOP
-    if (Iter[0] == llvm::MMO::MM) {
-      if (auto Len = Iter - CurrentPos; Len != 0) {
-        if (Len % 4 != 0) {
-          return createError("Binary data should  be 4 bytes aligned.");
-        } else {
-          Content.emplace_back(ArrayRef<uint8_t>(CurrentPos, Len));
-        }
-      }
-
+    if (getInst(Iter) == MMO::MM) {
       // handle lop_xxx
       switch (getX(Iter)) {
-      case llvm::MMO::LOP_QUOTE:
-        Content.emplace_back(MMO::Quote{{Iter, 8}, {Iter + 4, 4}});
+      case MMO::LOP_QUOTE:
+        Content.emplace_back(MMOQuote{{Iter, 8}, {Iter + 4, 4}});
         Iter += 8;
         break;
-      case llvm::MMO::LOP_LOC: {
+      case MMO::LOP_LOC: {
         auto TetraCount = getZ(Iter);
-        MMO::Loc Loc;
+        MMOLoc Loc;
         auto LocBegin = Iter;
         Loc.HighByte = getY(Iter);
         uint64_t Offset = 0;
@@ -120,6 +114,7 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         switch (TetraCount) {
         case 1:
           Offset = read32be(Iter);
+          Iter += 4;
           break;
         case 2:
           Offset = read64be(Iter);
@@ -133,12 +128,12 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         Loc.RawData = {LocBegin, Iter};
         Content.emplace_back(Loc);
       } break;
-      case llvm::MMO::LOP_SKIP:
-        Content.emplace_back(MMO::Skip{{Iter, 4}, getYZ(Iter)});
+      case MMO::LOP_SKIP:
+        Content.emplace_back(MMOSkip{{Iter, 4}, getYZ(Iter)});
         Iter += 4;
         break;
-      case llvm::MMO::LOP_FIXO: {
-        MMO::Fixo Fix;
+      case MMO::LOP_FIXO: {
+        MMOFixo Fix;
         auto FixoBegin = Iter;
         Fix.HighByte = getX(Iter);
         auto TetraCount = getZ(Iter);
@@ -161,16 +156,16 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         Fix.RawData = {FixoBegin, Iter};
         Content.emplace_back(Fix);
       } break;
-      case llvm::MMO::LOP_FIXR:
-        Content.emplace_back(MMO::Fixr{{Iter, 4}, getYZ(Iter)});
+      case MMO::LOP_FIXR:
+        Content.emplace_back(MMOFixr{{Iter, 4}, getYZ(Iter)});
         Iter += 4;
         break;
-      case llvm::MMO::LOP_FIXRX: {
+      case MMO::LOP_FIXRX: {
         auto FixrxBegin = Iter;
-        MMO::Fixrx Fix;
+        MMOFixrx Fix;
         Fix.FixType = getZ(Iter);
-        if (!(Fix.FixType == llvm::MMO::FIXRX_JMP ||
-              Fix.FixType == llvm::MMO::FIXRX_OTHERWISE))
+        if (!(Fix.FixType == MMO::FIXRX_JMP ||
+              Fix.FixType == MMO::FIXRX_OTHERWISE))
           return createStringError(std::errc::invalid_argument,
                                    "Z field in lop_fixrx must be 16 or 24!");
         Iter += 4;
@@ -180,9 +175,9 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         Fix.RawData = {FixrxBegin, Iter};
         Content.emplace_back(Fix);
       } break;
-      case llvm::MMO::LOP_FILE: {
+      case MMO::LOP_FILE: {
         auto FileBegin = Iter;
-        MMO::File F;
+        MMOFile F;
         F.Number = getY(Iter);
         auto TetraCount = Iter[3];
         Iter += 4;
@@ -198,23 +193,20 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
       }
 
       break;
-      case llvm::MMO::LOP_LINE:
-        Content.emplace_back(MMO::Line{{Iter, 4}, getYZ(Iter)});
+      case MMO::LOP_LINE:
+        Content.emplace_back(MMOLine{{Iter, 4}, getYZ(Iter)});
         Iter += 4;
         break;
-      case llvm::MMO::LOP_SPEC:
-        Content.emplace_back(MMO::Spec{{Iter, 4}, getYZ(Iter)});
+      case MMO::LOP_SPEC:
+        Content.emplace_back(MMOSpec{{Iter, 4}, getYZ(Iter)});
         Iter += 4;
         break;
-      case llvm::MMO::LOP_POST:
+      case MMO::LOP_POST:
         ReachPostamble = true;
         break;
       default:
-        break;
+        return createError("Unknown LOP");
       }
-
-      // CurrentPos now should point to normal binary content;
-      CurrentPos = Iter;
     } else {
       Iter += 4;
     }
@@ -222,7 +214,7 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
   if (Err)
     return Err;
 
-  if (Iter[1] != llvm::MMO::LOP_POST) {
+  if (Iter[1] != MMO::LOP_POST) {
     return createError("Invalid mmo file, can't find lop_post.");
   } else {
     return Error::success();
@@ -235,7 +227,7 @@ Error MMIXObjectFile::initSymbolTable(const unsigned char *&Iter) {
 }
 
 Error MMIXObjectFile::initPostamble(const unsigned char *&Iter) {
-  assert(Iter[0] == llvm::MMO::MM && Iter[1] == llvm::MMO::LOP_POST);
+  assert(Iter[0] == MMO::MM && Iter[1] == MMO::LOP_POST);
   auto PostBegin = Iter;
   if (getY(Iter) != 0)
     return createError("invalid postamble!");
@@ -253,23 +245,36 @@ Error MMIXObjectFile::initPostamble(const unsigned char *&Iter) {
   return Error::success();
 }
 
-Error MMIXObjectFile::decodeSymbolTable(const unsigned char *&Iter) {
+Error MMIXObjectFile::decodeSymbolTable(const unsigned char *&Iter,
+                                        bool SortSymbolTable) {
   SmallVector<UTF16, 32> SymbolName;
   Error E = Error::success();
   decodeSymbolTable(Iter, SymbolName, E);
-  std::sort(SymbTab.begin(), SymbTab.end(),
-            [](const llvm::MMO::Symbol &S1, const llvm::MMO::Symbol &S2) {
-              return S1.Serial < S2.Serial;
-            });
+  if (SortSymbolTable) {
+    std::sort(SymbTab.begin(), SymbTab.end(),
+              [](const MMO::Symbol &S1, const MMO::Symbol &S2) {
+                return S1.Serial < S2.Serial;
+              });
+  }
+  // align Iter to 4
+  auto Diff = Iter - getData().bytes_begin();
+  Iter = getData().bytes_begin() + alignTo<4>(Diff);
+  if (Iter >= DataEnd) {
+    if (E) {
+      return std::move(E);
+    } else {
+      return createError("malformed symbol table");
+    }
+  }
   return std::move(E);
 }
 
-void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
+void MMIXObjectFile::decodeSymbolTable(const unsigned char *&Start,
                                        SmallVector<UTF16, 32> &Name, Error &E) {
   if (E)
     return;
-  const uint8_t M = *Start++; /* the master control byte */
 
+  const auto M = *Start++; // the master control byte
   if (M & 0x40) {
     decodeSymbolTable(Start, Name,
                       E); // traverse the left subtrie, if it is nonempty
@@ -294,7 +299,7 @@ void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
         }
         return V;
       };
-      llvm::MMO::Symbol S;
+      MMO::Symbol S;
       // convert to UTF-8 encode
       std::string UTF8Name;
       for (const auto &C : Name) {
@@ -303,12 +308,12 @@ void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
       S.Name = UTF8Name;
       uint8_t J = M & 0xF;
       if (J == 0xF) { // register
-        S.Type = llvm::MMO::REGISTER;
+        S.Type = MMO::REGISTER;
         S.Equiv = *Start++;
       } else if (J <= 8) { // symbol
         S.Equiv = readBytes(J);
         if (J == 2 && S.Equiv == 0) {
-          S.Type = llvm::MMO::UNDEFINED;
+          S.Type = MMO::UNDEFINED;
         }
       } else {
         S.Equiv = readBytes(J - 8);
@@ -316,8 +321,7 @@ void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
       }
       // set print position
       auto ObjBegin = getData().bytes_begin();
-      S.PrintPos = Start + (4 - ((Start - ObjBegin) % 4));
-      assert((S.PrintPos - ObjBegin) % 4 == 0);
+      S.PrintPos = Start + alignTo<4>(Start - ObjBegin);
       // serial number
       uint32_t SN = *Start++;
       S.Serial = SN;
@@ -342,7 +346,9 @@ void MMIXObjectFile::decodeSymbolTable(const uint8_t *&Start,
 }
 
 MMIXObjectFile::MMIXObjectFile(MemoryBufferRef Object)
-    : ObjectFile(ID_MMO, Object) {}
+    : ObjectFile(ID_MMO, Object) {
+  DataEnd = getData().bytes_end() - getData().size() % 4;
+}
 
 // The number of bytes used to represent an address in this object
 // file format.
@@ -365,11 +371,12 @@ std::optional<StringRef> MMIXObjectFile::tryGetCPUName() const {
 
 Expected<uint64_t> MMIXObjectFile::getStartAddress() const {
   // return the address of symbol `Main` otherwise 0
-  const auto &It = std::find_if(
-      SymbTab.begin(), SymbTab.end(),
-      [](const llvm::MMO::Symbol &S) { return S.Name.compare(":Main") == 0; });
+  const auto &It =
+      std::find_if(SymbTab.begin(), SymbTab.end(), [](const MMO::Symbol &S) {
+        return S.Name.compare(":Main") == 0;
+      });
   if (It == SymbTab.end()) {
-    return 0;
+    return createError("Symbol Main is undefined!");
   } else {
     return It->Equiv;
   }
@@ -500,20 +507,18 @@ const MMIXObjectFile::ContentT &MMIXObjectFile::getMMOContent() const {
   return Content;
 }
 
-const llvm::MMO::Symbol &
-MMIXObjectFile::getMMOSymbol(const DataRefImpl &Symb) const {
+const MMO::Symbol &MMIXObjectFile::getMMOSymbol(const DataRefImpl &Symb) const {
   auto S = reinterpret_cast<SymbItT>(Symb.p);
   return *S;
 }
 
-const llvm::MMO::Symbol &
-MMIXObjectFile::getMMOSymbol(const SymbolRef &Symb) const {
+const MMO::Symbol &MMIXObjectFile::getMMOSymbol(const SymbolRef &Symb) const {
   return getMMOSymbol(Symb.getRawDataRefImpl());
 }
 
-const MMO::Pre &MMIXObjectFile::getMMOPreamble() const { return Preamble; }
+const MMOPre &MMIXObjectFile::getMMOPreamble() const { return Preamble; }
 
-const MMO::Post &MMIXObjectFile::getMMOPostamble() const { return Postamble; }
+const MMOPost &MMIXObjectFile::getMMOPostamble() const { return Postamble; }
 
 bool MMIXObjectFile::isSymbolNameUTF16() const { return false; }
 
@@ -532,5 +537,3 @@ Expected<std::unique_ptr<MMIXObjectFile>>
 ObjectFile::createMMIXObjectFile(MemoryBufferRef Object, bool InitContent) {
   return createPtr(Object, InitContent);
 }
-
-} // namespace llvm::object

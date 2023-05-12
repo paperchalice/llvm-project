@@ -29,69 +29,63 @@ namespace llvm {
 
 namespace object {
 
-namespace MMO {
-
-using ByteArrayRef = ArrayRef<std::uint8_t>;
-
 struct Segment {
   StringRef Data;
 };
 
-struct Quote {
-  ByteArrayRef RawData;
-  ByteArrayRef Value;
+struct MMOQuote {
+  ArrayRef<std::uint8_t> RawData;
+  ArrayRef<std::uint8_t> Value;
 };
-struct Loc {
-  ByteArrayRef RawData;
+struct MMOLoc {
+  ArrayRef<std::uint8_t> RawData;
   std::uint8_t HighByte;
   std::uint64_t Offset;
 };
-struct Skip {
-  ByteArrayRef RawData;
+struct MMOSkip {
+  ArrayRef<std::uint8_t> RawData;
   std::uint16_t Delta;
 };
-struct Fixo {
-  ByteArrayRef RawData;
+struct MMOFixo {
+  ArrayRef<std::uint8_t> RawData;
   std::uint8_t HighByte;
   std::uint64_t Offset;
 };
-struct Fixr {
-  ByteArrayRef RawData;
+struct MMOFixr {
+  ArrayRef<std::uint8_t> RawData;
   std::uint16_t Delta;
 };
-struct Fixrx {
-  ByteArrayRef RawData;
+struct MMOFixrx {
+  ArrayRef<std::uint8_t> RawData;
   std::uint8_t FixType;
   std::int32_t Delta;
 };
-struct File {
-  ByteArrayRef RawData;
+struct MMOFile {
+  ArrayRef<std::uint8_t> RawData;
   std::uint8_t Number;
   std::optional<StringRef> Name;
 };
-struct Line {
-  ByteArrayRef RawData;
+struct MMOLine {
+  ArrayRef<std::uint8_t> RawData;
   std::uint16_t Number;
 };
-struct Spec {
-  ByteArrayRef RawData;
+struct MMOSpec {
+  ArrayRef<std::uint8_t> RawData;
   std::uint16_t Type;
 };
 
-struct Pre {
-  ByteArrayRef RawData;
+struct MMOPre {
+  ArrayRef<std::uint8_t> RawData;
   std::uint8_t Version = llvm::MMO::CurrentVersion;
   std::optional<std::time_t> CreatedTime;
   std::optional<ArrayRef<std::uint8_t>> ExtraData;
 };
 
-struct Post {
-  ByteArrayRef RawData;
+struct MMOPost {
+  ArrayRef<std::uint8_t> RawData;
   std::uint8_t G;
   std::vector<std::uint64_t> Values;
 };
-
-} // namespace MMO
 
 class MMIXObjectFile : public ObjectFile {
 public:
@@ -181,14 +175,15 @@ protected:
                              SmallVectorImpl<char> &Result) const override;
 
 private:
-  MMO::Pre Preamble;
+  MMOPre Preamble;
   ArrayRef<std::uint8_t> ContentRef;
-  std::vector<std::variant<ArrayRef<std::uint8_t>, MMO::Quote, MMO::Loc,
-                           MMO::Skip, MMO::Fixo, MMO::Fixr, MMO::Fixrx,
-                           MMO::File, MMO::Line, MMO::Spec>>
+  std::vector<
+      std::variant<ArrayRef<std::uint8_t>, MMOQuote, MMOLoc, MMOSkip, MMOFixo,
+                   MMOFixr, MMOFixrx, MMOFile, MMOLine, MMOSpec>>
       Content;
-  MMO::Post Postamble;
+  MMOPost Postamble;
   SmallVector<llvm::MMO::Symbol, 32> SymbTab;
+  const unsigned char *DataEnd;
   using SymbItT = decltype(SymbTab.begin());
 
 private:
@@ -198,17 +193,19 @@ private:
   Error initContent(const unsigned char *&Iter);
   Error initSymbolTable(const unsigned char *&Iter);
   Error initPostamble(const unsigned char *&Iter);
-  void decodeSymbolTable(const uint8_t *&Start, SmallVector<UTF16, 32> &Name,
-                         Error &E);
-  Error decodeSymbolTable(const unsigned char *&Iter);
+  void decodeSymbolTable(const unsigned char *&Start,
+                         SmallVector<UTF16, 32> &Name, Error &E);
 
 public:
+  Error decodeSymbolTable(const unsigned char *&Iter,
+                          bool SortSymbolTable = true);
+
 public:
   using ContentT = decltype(Content);
   const llvm::MMO::Symbol &getMMOSymbol(const SymbolRef &Symb) const;
   const llvm::MMO::Symbol &getMMOSymbol(const DataRefImpl &Symb) const;
-  const MMO::Pre &getMMOPreamble() const;
-  const MMO::Post &getMMOPostamble() const;
+  const MMOPre &getMMOPreamble() const;
+  const MMOPost &getMMOPostamble() const;
   const ContentT &getMMOContent() const;
   const auto &getSTab() const { return SymbTab; }
   bool isSymbolNameUTF16() const;
