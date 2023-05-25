@@ -16,40 +16,35 @@ using std::get;
 using std::holds_alternative;
 using std::visit;
 
-namespace llvm {
-
-namespace MMOYAML {
+using namespace llvm;
+using namespace MMOYAML;
 
 Object::Object(const object::MMIXObjectFile &O)
     : Preamble(O.getMMOPreamble()), Postamble(O.getMMOPostamble()) {}
 
-Quote::Quote(const object::MMO::Quote &Q) : Value(Q.Value) {}
-Loc::Loc(const object::MMO::Loc &L) : HighByte(L.HighByte), Offset(L.Offset) {}
-Skip::Skip(const object::MMO::Skip &S) : Delta(S.Delta) {}
-Fixo::Fixo(const object::MMO::Fixo &F)
-    : HighByte(F.HighByte), Offset(F.Offset) {}
-Fixr::Fixr(const object::MMO::Fixr &F) : Delta(F.Delta) {}
-Fixrx::Fixrx(const object::MMO::Fixrx &F)
-    : FixType(F.FixType), Delta(F.Delta) {}
-File::File(const object::MMO::File &F) : Name(F.Name), Number(F.Number) {}
-Line::Line(const object::MMO::Line &L) : Number(L.Number) {}
-Spec::Spec(const object::MMO::Spec &S) : Type(S.Type) {}
-Pre::Pre(const object::MMO::Pre &P)
+Quote::Quote(const object::MMOQuote &Q) : Value(Q.Value) {}
+Loc::Loc(const object::MMOLoc &L) : HighByte(L.HighByte), Offset(L.Offset) {}
+Skip::Skip(const object::MMOSkip &S) : Delta(S.Delta) {}
+Fixo::Fixo(const object::MMOFixo &F) : HighByte(F.HighByte), Offset(F.Offset) {}
+Fixr::Fixr(const object::MMOFixr &F) : Delta(F.Delta) {}
+Fixrx::Fixrx(const object::MMOFixrx &F) : FixType(F.FixType), Delta(F.Delta) {}
+File::File(const object::MMOFile &F) : Name(F.Name), Number(F.Number) {}
+Line::Line(const object::MMOLine &L) : Number(L.Number) {}
+Spec::Spec(const object::MMOSpec &S) : Type(S.Type) {}
+Pre::Pre(const object::MMOPre &P)
     : Version(P.Version), CreatedTime(P.CreatedTime) {
   if (P.ExtraData.has_value()) {
     ExtraData = yaml::BinaryRef(*P.ExtraData);
   }
 }
 
-Post::Post(const object::MMO::Post &P) : G(P.G) {
+Post::Post(const object::MMOPost &P) : G(P.G) {
   for (const auto &V : P.Values) {
     Values.push_back(V);
   }
 }
 
-} // namespace MMOYAML
-
-namespace yaml {
+namespace llvm::yaml {
 
 // lops
 
@@ -225,6 +220,4 @@ void CustomMappingTraits<MMOYAML::Segment>::output(IO &IO,
                         }},
              Seg);
 }
-
-} // namespace yaml
-} // namespace llvm
+} // namespace llvm::yaml

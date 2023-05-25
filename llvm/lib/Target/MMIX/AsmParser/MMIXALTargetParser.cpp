@@ -210,7 +210,6 @@ OperandMatchResultTy llvm::MMIXAL::MMIXALAsmParser::tryParseBaseAddressOperand(
 
 void llvm::MMIXAL::MMIXALAsmParser::resolveBaseAddress(
     MCInst &Inst, const OperandVector &Operands) {
-  Inst.dump();
   assert(Operands.size() == 3 && "must 2 operands!");
   auto &DestReg = static_cast<MMIXALOperand &>(*Operands[1]);
   auto &DestOperand = static_cast<MMIXALOperand &>(*Operands[2]);
