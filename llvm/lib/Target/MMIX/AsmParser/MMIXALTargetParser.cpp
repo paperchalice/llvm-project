@@ -106,7 +106,7 @@ bool MMIXALAsmParser::ParseInstruction(ParseInstructionInfo &Info,
       }
     }
   }
-  Lex(); // eat end of statement
+  // don't eat end of statement for line counter
   return false;
 }
 

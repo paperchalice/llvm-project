@@ -176,11 +176,12 @@ void MMIXALParser::resolveLabel(MCSymbol *Symbol) {
       switch (Fixup.Kind) {
       case MMO::FixupInfo::FixupKind::FIXUP_OCTA: {
         char HighByte = Fixup.Addr >> 56;
+        std::uint64_t Addr = Fixup.Addr & ((1UL << 56) - 1);
         char Z = 1;
         Out.emitBinaryData(StringRef("\x98\x03", 2));
         Out.emitBinaryData(StringRef(&HighByte, 1));
         char Data[4];
-        uint32_t AddrHigh = Hi_32(Fixup.Addr);
+        uint32_t AddrHigh = Hi_32(Addr);
         if (AddrHigh) {
           Z = 2;
           Out.emitBinaryData(StringRef(&Z, 1));
@@ -189,7 +190,7 @@ void MMIXALParser::resolveLabel(MCSymbol *Symbol) {
         } else {
           Out.emitBinaryData(StringRef(&Z, 1));
         }
-        uint32_t AddrLow = Lo_32(Fixup.Addr);
+        uint32_t AddrLow = Lo_32(Addr);
         support::endian::write32be(Data, AddrLow);
         Out.emitBinaryData(StringRef(Data, 4));
         break;
@@ -217,13 +218,20 @@ void MMIXALParser::resolveLabel(MCSymbol *Symbol) {
         break;
       case MMO::FixupInfo::FixupKind::FIXUP_JUMP: {
         auto Delta = (SharedInfo.PC - Fixup.Addr) / 4;
-        Out.emitBinaryData(StringRef("\x98\x05\x00\x18", 4));
-        char Data[4];
-        support::endian::write32be(Data, Delta);
-        if (SharedInfo.PC < Fixup.Addr) {
-          Data[0] = 1;
+        if (Delta < UINT16_MAX) {
+          Out.emitBinaryData(StringRef("\x98\x04", 2));
+          char Data[2];
+          support::endian::write16be(Data, static_cast<std::uint16_t>(Delta));
+          Out.emitBinaryData(StringRef(Data, 2));
+        } else {
+          Out.emitBinaryData(StringRef("\x98\x05\x00\x18", 4));
+          char Data[4];
+          support::endian::write32be(Data, Delta);
+          if (SharedInfo.PC < Fixup.Addr) {
+            Data[0] = 1;
+          }
+          Out.emitBinaryData(StringRef(Data, 4));
         }
-        Out.emitBinaryData(StringRef(Data, 4));
       }
       }
     }
@@ -485,20 +493,20 @@ void MMIXALParser::syncLOC() {
     char Buf[2];
     support::endian::write16be(Buf, static_cast<std::uint16_t>(Delta));
     Out.emitBytes(StringRef(Buf, 2));
-
   } else {
     Out.emitBytes(StringRef("\x98\x01", 2));
     char HighByte = SharedInfo.PC >> 56;
+    std::uint64_t Loc = SharedInfo.PC & ((1UL << 56) - 1);
     Out.emitBytes(StringRef(&HighByte, 1));
-    if (Hi_32(SharedInfo.PC)) {
+    if (Hi_32(Loc)) {
       Out.emitBytes(StringRef("\x2", 1));
       char Buf[8];
-      support::endian::write64be(Buf, SharedInfo.PC);
+      support::endian::write64be(Buf, Loc);
       Out.emitBytes(StringRef(Buf, sizeof(Buf)));
     } else {
       char Buf[4];
       Out.emitBytes(StringRef("\x1", 1));
-      support::endian::write32be(Buf, Lo_32(SharedInfo.PC));
+      support::endian::write32be(Buf, Lo_32(Loc));
       Out.emitBytes(StringRef(Buf, sizeof(Buf)));
     }
   }
@@ -677,11 +685,11 @@ bool MMIXALParser::parseStatement() {
   auto CurTok = getTok();
   if (CurTok.is(AsmToken::HashDirective)) {
     Lex(); // skip hash directive
-    CurrentLineNumber = getTok().getIntVal();
+    CurrentLineNumber = getTok().getIntVal() - 1;
     Lex(); // skip line number
     CurrentFileName = getTok().getStringContents();
     Lex(); // eat line number
-    return false;
+    return handleEndOfStatement();
   }
 
   // parse label
@@ -813,9 +821,9 @@ bool MMIXALParser::parseStatement() {
     }
     DataCounter = 0;
   }
+
   alignPC();
   syncLOC();
-  syncMMO();
   if (LabelSymbol) {
     auto MMOSymbol = cast<MCSymbolMMO>(LabelSymbol);
     MMOSymbol->setVariableValue(
@@ -823,6 +831,7 @@ bool MMIXALParser::parseStatement() {
                            static_cast<int64_t>(SharedInfo.PC), getContext()));
     resolveLabel(LabelSymbol);
   }
+  syncMMO();
   // parse instruciton
   ParseInstructionInfo IInfo;
   SmallVector<std::unique_ptr<MCParsedAsmOperand>, 4> Operands;
@@ -839,7 +848,7 @@ bool MMIXALParser::parseStatement() {
   SharedInfo.PC += 4;
   SharedInfo.MMOLoc += 4;
   ++SharedInfo.MMOLine;
-  return Failed;
+  return handleEndOfStatement() && Failed;
 }
 
 bool MMIXALParser::handleEndOfStatement() {

@@ -83,7 +83,7 @@ private:
       }
       Out.emitBytes(StringRef(&C, 1));
       ++DataCounter;
-      if(DataCounter % 4 == 0) {
+      if (DataCounter % 4 == 0) {
         ++SharedInfo.MMOLine;
       }
       if (!SpecialMode) {
@@ -139,6 +139,13 @@ private:
         if (Res->evaluateAsAbsolute(Val)) {
           emitData(static_cast<T>(Val));
         } else {
+          if (isa<MCSymbolRefExpr>(Res) && sizeof(T) == 8) {
+            auto SRE = dyn_cast<MCSymbolRefExpr>(Res);
+            SharedInfo.FixupList.push_front(
+                {SharedInfo.PC, MMO::FixupInfo::FixupKind::FIXUP_OCTA,
+                 &SRE->getSymbol()});
+            emitData(static_cast<T>(0));
+          }
           return false;
         }
       }

@@ -65,6 +65,9 @@ void MMIXObjectWriter::writeSymbolTable(MCAssembler &Asm) {
   auto SymbolTable = Asm.symbols();
   for (auto &Symbol : SymbolTable) {
     auto MMOSymbol = cast<MCSymbolMMO>(&Symbol);
+    if(MMOSymbol->getIndex() == 0) {
+      continue; // skip directional symbol
+    }
     MMO::Symbol S = {Symbol.getName().drop_front().str(), Symbol.getIndex(),
                      MMOSymbol->getEquivalent(),
                      MMOSymbol->isReg() ? MMO::REGISTER : MMO::NORMAL};

@@ -4,7 +4,9 @@
 namespace llvm {
 
 MMIXMCAsmInfoMMIXAL::MMIXMCAsmInfoMMIXAL(const MCTargetOptions &Options)
-    : Options(Options) {}
+    : Options(Options) {
+  PrivateGlobalPrefix = "^";
+}
 
 MMIXMCAsmInfoMMIXAL *createMMIXMCAsmInfoMMIXAL(const MCTargetOptions &Options) {
   return new MMIXMCAsmInfoMMIXAL(Options);
