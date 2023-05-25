@@ -161,7 +161,7 @@ AsmToken MMIXALLexer::LexLineComment() {
     LenOfEnd = 2;
 
   return AsmToken(AsmToken::EndOfStatement,
-                  StringRef(TokStart, CurPtr - TokStart - LenOfEnd));
+                  StringRef(TokStart, CurPtr - TokStart));
 }
 
 AsmToken MMIXALLexer::LexHexDigit() {
@@ -401,10 +401,8 @@ AsmToken MMIXALLexer::LexToken() {
           TokenBuf[1].is(AsmToken::String)) {
         CurPtr = TokStart; // reset curPtr;
         StringRef S = LexUntilEndOfLine();
-        CurrentLine = TokenBuf[0].getIntVal();
-        CurrentFileName = TokenBuf[1].getStringContents();
-        UnLex(TokenBuf[1]);
-        UnLex(TokenBuf[0]);
+        UnLex(TokenBuf[1]); // file name
+        UnLex(TokenBuf[0]); // line number
         return AsmToken(AsmToken::HashDirective, S);
       } else {
         // else it is line comment
@@ -460,7 +458,6 @@ AsmToken MMIXALLexer::LexToken() {
   case '\n':
     IsAtStartOfLine = true;
     IsAtStartOfStatement = true;
-    CurrentLine++;
     return AsmToken(AsmToken::EndOfStatement, StringRef(TokStart, 1));
   case '\'':
     return LexSingleQuote();
@@ -493,7 +490,7 @@ AsmToken MMIXALLexer::LexToken() {
   case '/':
     if (peekNextChar() == '/') {
       getNextChar();
-      return AsmToken(AsmToken::Slash, StringRef(TokStart, 2));
+      return AsmToken(AsmToken::SlashSlash, StringRef(TokStart, 2));
     } else {
       return AsmToken(AsmToken::Slash, StringRef(TokStart, 1));
     }
@@ -516,10 +513,6 @@ AsmToken MMIXALLexer::LexToken() {
 }
 
 void MMIXALLexer::regardAsComment() { RegardAsComment = true; }
-
-std::size_t MMIXALLexer::getCurrentLine() const { return CurrentLine; }
-
-StringRef MMIXALLexer::getCurrentFileName() const { return CurrentFileName; }
 
 void MMIXALLexer::setBuffer(StringRef Buf, const char *ptr,
                             bool EndStatementAtEOF) {

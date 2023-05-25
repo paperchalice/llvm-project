@@ -33,11 +33,16 @@ private:
   raw_ostream &Lst;
 
   bool SpecialMode = false;
-  std::size_t SpecialDataLoc = 0;
+  bool LastIsESPEC = false;
   std::string CurPrefix = ":";
   std::uint16_t SerialCnt = 1;
-  StringRef CurrentFileName = "";
-  SmallVector<StringRef, 257> FileNames;
+  StringRef CurrentFileName;
+  std::size_t CurrentLineNumber = 1;
+  // indicate how many bytes have been wrote
+  // we are only interested in the \mathbb{Z}/4\mathbb{Z}
+  std::size_t DataCounter = 0;
+
+  std::vector<StringRef> FileNames;
 
   enum IdentifierKind {
     Invalid,
@@ -49,16 +54,44 @@ private:
 
 private:
   static IdentifierKind getIdentifierKind(StringRef Name);
+  // utilities to imitate DEK's MMIXAL
   void alignPC(unsigned Alignment = 4);
+  ///
+  // sync file and line number
   void syncMMO();
+  /// sync file loc and PC
+  void syncLOC();
+
   bool parseBinOpRHS(unsigned Precedence, const MCExpr *&Res, SMLoc &EndLoc);
   unsigned getBinOpPrecedence(AsmToken::TokenKind K,
                               MCBinaryExpr::Opcode &Kind);
   bool parseStatement();
+  bool handleEndOfStatement();
   void initInternalSymbols();
-  void BypassLine();
   std::string getQualifiedName(StringRef Name);
   void resolveLabel(MCSymbol *Symbol);
+  template <typename T> void emitData(T Data) {
+    char Buf[sizeof(T)];
+    support::endian::write<T, support::big>(Buf, Data);
+    for (const auto &C : Buf) {
+      if (DataCounter % 4 == 0 && !SpecialMode) {
+        syncLOC();
+        syncMMO();
+        if (static_cast<std::uint8_t>(Buf[0]) == MMO::MM) {
+          Out.emitBytes(StringRef("\x98\x00\x00\x01", 4));
+        }
+      }
+      Out.emitBytes(StringRef(&C, 1));
+      ++DataCounter;
+      if(DataCounter % 4 == 0) {
+        ++SharedInfo.MMOLine;
+      }
+      if (!SpecialMode) {
+        ++SharedInfo.PC;
+        ++SharedInfo.MMOLoc;
+      }
+    }
+  }
 
   bool parsePseudoOperationIS(StringRef Label);
   bool parsePseudoOperationLOC(StringRef Label);
@@ -67,42 +100,61 @@ private:
   bool parsePseudoOperationLOCAL();
   bool parsePseudoOperationBSPEC();
   bool parsePseudoOperationOCTA();
-  void emitPostamble();
-  std::uint8_t getCurGreg();
-  template <typename T> bool parseData() {
-    const MCExpr *Res;
-    SMLoc EndLoc;
+  template <typename T> bool parsePseudoOperationBWTO() {
+    // firstly align the output
+    // if it is the first data related instruction
     if (!SpecialMode) {
       alignPC(sizeof(T));
-    }
-
-    while (getTok().isNot(AsmToken::EndOfStatement)) {
-      bool HasErr = parseExpression(Res, EndLoc);
-      if (HasErr)
-        return true;
-      int64_t Val;
-      if (!Res->evaluateAsAbsolute(Val)) {
-        return true;
-      }
-
-      // before write sync mmo to produce line number info
-      if(!SpecialMode && SharedInfo.PC %4==0) {
+      auto Rem = SharedInfo.PC % 4;
+      if (Rem != 0 && DataCounter == 0) {
+        syncLOC();
         syncMMO();
+        Out.emitZeros(Rem);
+        DataCounter += Rem;
       }
-      char Buf[sizeof(T)];
-      support::endian::write<T>(Buf, Val, support::endianness::big);
-      Out.emitBinaryData({Buf, sizeof(T)});
-      if (!SpecialMode) {
-        SharedInfo.PC += sizeof(T);
+    } else if (!SpecialMode) {
+      auto OldLoc = SharedInfo.PC;
+      alignPC(sizeof(T));
+      auto Diff = SharedInfo.PC - OldLoc;
+      for (std::uint64_t I = 0; I != Diff; ++I) {
+        emitData<std::uint8_t>(0);
+      }
+    }
+
+    auto CurTok = getTok();
+    while (CurTok.isNot(AsmToken::EndOfStatement)) {
+      if (CurTok.is(AsmToken::String)) {
+        auto Str = CurTok.getStringContents();
+        for (const auto &B : Str.bytes()) {
+          emitData<T>(B);
+        }
+        CurTok = Lex();
       } else {
-        SpecialDataLoc += sizeof(T);
+        const MCExpr *Res;
+        SMLoc EndLoc;
+        if (parseExpression(Res, EndLoc)) {
+          return true;
+        }
+        std::int64_t Val;
+        if (Res->evaluateAsAbsolute(Val)) {
+          emitData(static_cast<T>(Val));
+        } else {
+          return false;
+        }
       }
 
-      if (getTok().is(AsmToken::Comma))
-        Lex();
+      CurTok = getTok();
+      if (CurTok.is(AsmToken::Comma)) {
+        CurTok = Lex();
+      } else {
+        break;
+      }
     }
-    return false;
+    return handleEndOfStatement(); // eat end of statement
   }
+
+  void emitPostamble();
+  std::uint8_t getCurGreg();
 
 public:
   void addDirectiveHandler(StringRef Directive,

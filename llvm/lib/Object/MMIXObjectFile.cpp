@@ -256,9 +256,6 @@ Error MMIXObjectFile::decodeSymbolTable(const unsigned char *&Iter,
                 return S1.Serial < S2.Serial;
               });
   }
-  // align Iter to 4
-  auto Diff = Iter - getData().bytes_begin();
-  Iter = getData().bytes_begin() + alignTo<4>(Diff);
   if (Iter >= DataEnd) {
     if (E) {
       return std::move(E);
@@ -321,7 +318,7 @@ void MMIXObjectFile::decodeSymbolTable(const unsigned char *&Start,
       }
       // set print position
       auto ObjBegin = getData().bytes_begin();
-      S.PrintPos = Start + alignTo<4>(Start - ObjBegin);
+      S.PrintPos = ObjBegin + alignTo<4>(Start - ObjBegin);
       // serial number
       uint32_t SN = *Start++;
       S.Serial = SN;

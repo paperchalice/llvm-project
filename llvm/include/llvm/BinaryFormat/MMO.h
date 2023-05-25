@@ -119,6 +119,8 @@ private:
 
 struct AsmSharedInfo {
   std::uint64_t PC = 0;
+  std::uint64_t MMOLoc = 0;
+  std::uint16_t MMOLine = 1;
   std::forward_list<FixupInfo> FixupList = {};
   std::vector<uint64_t> GregList = {0};
   bool Expand = false;

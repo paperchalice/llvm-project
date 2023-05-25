@@ -285,6 +285,7 @@ let isAsmParserOnly = true in {
 def TRAP_ii: Inst_X_YZ<0x00, (outs), (ins ui8imm:$X, ui16imm:$YZ), "TRAP">;
 def TRAP_i: Inst_XYZ<0x00, (outs), (ins ui24imm:$XYZ), "TRAP">;
 }
+def : InstAlias<"TRAP", (TRAP 0, 0, 0)>;
 def RESUME: Inst_XYZ<0xF9, (outs), (ins ui8imm:$XYZ), "RESUME"> {
   let Inst{24...8} = 0;
 }

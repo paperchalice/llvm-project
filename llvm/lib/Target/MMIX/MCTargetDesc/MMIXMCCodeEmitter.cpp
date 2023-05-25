@@ -27,10 +27,10 @@ MMIXMCCodeEmitter::MMIXMCCodeEmitter(const MCInstrInfo &MCII, MCContext &Ctx)
 
 void MMIXMCCodeEmitter::encodeInstruction(const MCInst &Inst, raw_ostream &OS,
                                           SmallVectorImpl<MCFixup> &Fixups,
-                                          const MCSubtargetInfo &STI) const {
+                                         const MCSubtargetInfo &STI) const {
+  support::endian::Writer W(OS, support::big);
   if (Inst.getOpcode() == MMO::MM) {
-    uint32_t Quote = (MMO::MM << 24) + (MMO::LOP_QUOTE << 16) + 1;
-    support::endian::write(OS, Quote, support::big);
+    OS.write("\x98\x00\x00\x01", 4);
   }
   uint32_t Bits = getBinaryCodeForInstr(Inst, Fixups, STI);
   if (!Fixups.empty()) {
@@ -39,7 +39,7 @@ void MMIXMCCodeEmitter::encodeInstruction(const MCInst &Inst, raw_ostream &OS,
       Fixups.pop_back();
     }
   }
-  support::endian::write(OS, Bits, support::big);
+  W.write(Bits);
 }
 
 std::uint64_t

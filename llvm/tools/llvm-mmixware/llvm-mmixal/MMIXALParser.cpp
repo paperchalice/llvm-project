@@ -8,6 +8,7 @@
 
 namespace llvm {
 
+static StringRef QUOTE("\x98\x00\00\01", 4);
 static struct {
   StringRef Name;
   uint64_t Value;
@@ -148,23 +149,16 @@ bool MMIXALParser::parseIdentifier(StringRef &Res) {
     case 'B':
     case 'F':
     case 'H':
+      break;
+    default:
       Error(CurTok.getLoc(), "invalid local label!");
       return true;
-    default:
       break;
     }
   }
   Res = CurTok.getString();
   Lex();
   return false;
-}
-
-void MMIXALParser::BypassLine() {
-  auto CurTok = getTok();
-  while (getTok().getString() != "\n" && getTok().isNot(AsmToken::Eof)) {
-    Lex();
-  }
-  Lex(); // now it is end of line
 }
 
 std::string MMIXALParser::getQualifiedName(StringRef Name) {
@@ -255,8 +249,9 @@ bool MMIXALParser::parsePseudoOperationIS(StringRef Label) {
       Val %= 256;
     }
     MMOSymbol->setVariableValue(static_cast<std::uint64_t>(Val), Res);
+    resolveLabel(Symbol);
   }
-  return parseToken(AsmToken::EndOfStatement);
+  return handleEndOfStatement();
 }
 
 bool MMIXALParser::parsePseudoOperationPREFIX() {
@@ -264,9 +259,9 @@ bool MMIXALParser::parsePseudoOperationPREFIX() {
   if (P.is(AsmToken::Identifier)) {
     Lex();
     CurPrefix = getQualifiedName(P.getString());
-    return parseToken(AsmToken::EndOfStatement);
+    return handleEndOfStatement();
   } else {
-    return true;
+    return !handleEndOfStatement();
   }
 }
 
@@ -292,7 +287,7 @@ bool MMIXALParser::parsePseudoOperationGREG(StringRef Label) {
     getStreamer().emitSymbolAttribute(Symbol, MCSA_Global);
     MMOSymbol->setReg();
   }
-  return parseToken(AsmToken::EndOfStatement);
+  return handleEndOfStatement();
 }
 
 bool MMIXALParser::parsePseudoOperationLOCAL() {
@@ -301,70 +296,22 @@ bool MMIXALParser::parsePseudoOperationLOCAL() {
   bool HasErr = parseExpression(Res, EndLoc);
   if (HasErr)
     return true;
+  ++SharedInfo.MMOLine;
   return parseToken(AsmToken::EndOfStatement);
 }
 
 bool MMIXALParser::parsePseudoOperationLOC(StringRef Label) {
   const MCExpr *Res;
   SMLoc EndLoc;
-  bool HasErr = parseExpression(Res, EndLoc);
-  if (HasErr)
+  if (parseExpression(Res, EndLoc))
     return true;
-  int64_t NewLoc;
-  bool Sucess = Res->evaluateAsAbsolute(NewLoc);
-  if (!Sucess)
+  std::int64_t NewLoc;
+  if (!Res->evaluateAsAbsolute(NewLoc))
     return true;
 
-  uint64_t NewPC = static_cast<uint64_t>(NewLoc);
-  if (NewPC > SharedInfo.PC && NewPC - SharedInfo.PC <= UINT16_MAX) {
-    // this case we prefer use LOP_SKIP
-    auto Delta = NewPC - SharedInfo.PC;
-    Out.emitBytes(StringRef("\x98\x02"));
-    char Data[2];
-    support::endian::write16be(Data, Delta);
-    Out.emitBytes(StringRef(Data, 2));
-  } else {
-    char HighByte = NewPC >> 56;
-    Out.emitBytes(StringRef("\x98\x01"));
-    Out.emitBytes(StringRef(&HighByte, 1));
-    char Z = 1;
-    if ((NewPC >> 32) & 0x00FF'FFFF) {
-      Z = 2;
-    }
-    Out.emitBytes(StringRef(&Z, 1));
-    if (Z == 1) {
-      char Data[4];
-      support::endian::write32be(Data, NewPC);
-      Data[0] = 0;
-      Out.emitBytes(StringRef(Data, 4));
-    } else {
-      char Data[8];
-      support::endian::write64be(Data, NewPC);
-      Data[0] = 0;
-      Out.emitBytes(StringRef(Data, 8));
-    }
-  }
-
-  if (!Label.empty()) {
-    auto Symbol = getContext().getOrCreateSymbol(getQualifiedName(Label));
-    auto MMOSymbol = cast<MCSymbolMMO>(Symbol);
-    MMOSymbol->setVariableValue(
-        NewLoc, MCConstantExpr::create(NewLoc, getContext(), true));
-  }
   SharedInfo.PC = static_cast<std::uint64_t>(NewLoc);
-  while (getTok().is(AsmToken::Space)) {
-    Lex(); // skip any white space
-  }
-  if (getTok().is(AsmToken::EndOfStatement)) {
-    Lex();
-    return false;
-  } else {
-    // all of rest content are comment
-    Lexer.regardAsComment();
-    Lex(); // current token is comment
-    Lex(); // eat comment
-    return false;
-  }
+  ++SharedInfo.MMOLine;
+  return handleEndOfStatement();
 }
 
 bool MMIXALParser::parsePseudoOperationBSPEC() {
@@ -378,72 +325,32 @@ bool MMIXALParser::parsePseudoOperationBSPEC() {
   if (HasErr)
     return true;
   int64_t Val;
-  HasErr = Res->evaluateAsAbsolute(Val);
-  if (HasErr)
+  bool Success = Res->evaluateAsAbsolute(Val);
+  if (!Success)
     return true;
   syncMMO();
-  StringRef Bspec("\x98\x05", 2);
+  StringRef Bspec("\x98\x08", 2);
   uint16_t ValueToWrite = static_cast<uint16_t>(Val) % 0x1'0000;
   char Data[2];
   support::endian::write16be(Data, ValueToWrite);
   Out.emitBinaryData(Bspec);
   Out.emitBinaryData(StringRef(Data, 2));
   SpecialMode = true;
-  return HasErr;
+  return handleEndOfStatement();
 }
 
-bool MMIXALParser::parsePseudoOperationOCTA() {
-  const MCExpr *Res;
-  SMLoc EndLoc;
-  if (!SpecialMode) {
-    alignPC(8);
-  }
-
-  while (getTok().isNot(AsmToken::EndOfStatement)) {
-    bool HasErr = parseExpression(Res, EndLoc);
-    if (HasErr)
-      return true;
-    int64_t Val;
-    if (!Res->evaluateAsAbsolute(Val)) {
-      if (auto SRE = dyn_cast<MCSymbolRefExpr>(Res)) {
-        Val = 0;
-        MMO::FixupInfo F = {SharedInfo.PC,
-                            MMO::FixupInfo::FixupKind::FIXUP_OCTA,
-                            &SRE->getSymbol()};
-        SharedInfo.FixupList.emplace_front(F);
-      } else {
-        return true;
-      }
-    }
-
-    char Buf[4];
-    support::endian::write64be(Buf, Hi_32(Val));
-    Out.emitBinaryData({Buf, 4});
-    if (!SpecialMode) {
-      SharedInfo.PC += 4;
-      syncMMO();
-    }
-    support::endian::write64be(Buf, Lo_32(Val));
-    Out.emitBinaryData({Buf, 4});
-    if (!SpecialMode) {
-      SharedInfo.PC += 4;
-      syncMMO();
-    }
-
-    if (getTok().is(AsmToken::Comma))
-      Lex();
-  }
-  return false;
-}
+bool MMIXALParser::parsePseudoOperationOCTA() { return false; }
 
 void MMIXALParser::emitPostamble() {
   Out.emitBinaryData(StringRef("\x98\x0a\x00", 3));
   char Count = 256 - SharedInfo.GregList.size();
   Out.emitBinaryData(StringRef(&Count, 1));
-  for (const auto &RegVal : SharedInfo.GregList) {
+  for (auto I = SharedInfo.GregList.rbegin(), E = SharedInfo.GregList.rend();
+       I != E; I++) {
     char Buf[8];
     StringRef SR(Buf, 8);
-    support::endian::write64be(Buf, RegVal);
+    support::endian::write64be(Buf, *I);
+    ;
     Out.emitBinaryData(SR);
   }
 }
@@ -485,12 +392,21 @@ MMIXALParser::IdentifierKind MMIXALParser::getIdentifierKind(StringRef Name) {
 }
 
 void MMIXALParser::syncMMO() {
-  static StringRef LastFileName = "";
-  if (Lexer.getCurrentFileName() != LastFileName) {
-    Out.emitBinaryData({"\x98\x06", 2});
+  if (SharedInfo.PC & (0xEUL << 60)) {
+    return;
+  }
+
+  if (SpecialMode) {
+    return;
+  }
+
+  static StringRef LastFileName;
+
+  if (CurrentFileName != LastFileName) {
 
     auto FindResult =
         std::find(FileNames.begin(), FileNames.end(), CurrentFileName);
+    Out.emitBinaryData({"\x98\x06", 2});
     if (FindResult == FileNames.end()) {
       FileNames.push_back(CurrentFileName);
       char Y = FileNames.size() - 1;
@@ -509,15 +425,12 @@ void MMIXALParser::syncMMO() {
     LastFileName = CurrentFileName;
   }
 
-  static std::uint16_t LastLineNumber = 0;
-
-  auto CurrentLineNumber = Lexer.getCurrentLine();
-  if (LastLineNumber != CurrentLineNumber) {
+  if (SharedInfo.MMOLine != CurrentLineNumber) {
     Out.emitBinaryData({"\x98\x07", 2});
     char Buf[2];
     support::endian::write16be(Buf, CurrentLineNumber);
     Out.emitBinaryData({Buf, 2});
-    LastLineNumber = CurrentLineNumber;
+    SharedInfo.MMOLine = CurrentLineNumber;
   }
 }
 
@@ -528,9 +441,9 @@ bool MMIXALParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
       return false;
     }
     MCBinaryExpr::Opcode Kind = MCBinaryExpr::Add;
-    unsigned TokPrec = getBinOpPrecedence(Lexer.getKind(), Kind);
-    SMLoc BinOpLoc = getTok().getLoc(); // HACK: use loc to test whether the
-                                        // operator is fractional division
+    auto TokenKind = Lexer.getKind();
+    unsigned TokPrec = getBinOpPrecedence(TokenKind, Kind);
+    SMLoc BinOpLoc = getTok().getLoc();
 
     // If the next token is lower precedence than we are allowed to eat,
     // return successfully with what we ate already.
@@ -552,13 +465,50 @@ bool MMIXALParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
       return true;
 
     // Merge LHS and RHS according to operator.
-    Res = MCBinaryExpr::create(Kind, Res, RHS, getContext(), BinOpLoc);
+    if (TokenKind != AsmToken::SlashSlash)
+      Res = MCBinaryExpr::create(Kind, Res, RHS, getContext(), BinOpLoc);
+    else {
+      auto LHS = MCBinaryExpr::createShl(
+          MCConstantExpr::create(64, getContext()), Res, getContext());
+      Res = MCBinaryExpr::createDiv(LHS, RHS, getContext());
+    }
   }
+}
+
+void MMIXALParser::syncLOC() {
+  auto Delta = SharedInfo.PC - SharedInfo.MMOLoc;
+  if (Delta < 4 && !LastIsESPEC) {
+    SharedInfo.MMOLoc = SharedInfo.PC;
+    return;
+  } else if (Delta < 0x1'0000 && !LastIsESPEC) {
+    Out.emitBytes(StringRef("\x98\x02", 2));
+    char Buf[2];
+    support::endian::write16be(Buf, static_cast<std::uint16_t>(Delta));
+    Out.emitBytes(StringRef(Buf, 2));
+
+  } else {
+    Out.emitBytes(StringRef("\x98\x01", 2));
+    char HighByte = SharedInfo.PC >> 56;
+    Out.emitBytes(StringRef(&HighByte, 1));
+    if (Hi_32(SharedInfo.PC)) {
+      Out.emitBytes(StringRef("\x2", 1));
+      char Buf[8];
+      support::endian::write64be(Buf, SharedInfo.PC);
+      Out.emitBytes(StringRef(Buf, sizeof(Buf)));
+    } else {
+      char Buf[4];
+      Out.emitBytes(StringRef("\x1", 1));
+      support::endian::write32be(Buf, Lo_32(SharedInfo.PC));
+      Out.emitBytes(StringRef(Buf, sizeof(Buf)));
+    }
+  }
+  ++SharedInfo.MMOLine;
+  SharedInfo.MMOLoc = SharedInfo.PC;
 }
 
 unsigned MMIXALParser::getBinOpPrecedence(AsmToken::TokenKind K,
                                           MCBinaryExpr::Opcode &Kind) {
-  constexpr unsigned weak_prec = 2, strong_prec = 3;
+  constexpr unsigned weak_prec = 10, strong_prec = 20;
 
   switch (K) {
   default:
@@ -582,9 +532,9 @@ unsigned MMIXALParser::getBinOpPrecedence(AsmToken::TokenKind K,
     Kind = MCBinaryExpr::Mul;
     return strong_prec;
   case AsmToken::Slash:
+  case AsmToken::SlashSlash:
     Kind = MCBinaryExpr::Div;
     return strong_prec;
-  // case AsmToken::DoubleSlash
   case AsmToken::Percent:
     Kind = MCBinaryExpr::Mod;
     return strong_prec;
@@ -599,7 +549,6 @@ unsigned MMIXALParser::getBinOpPrecedence(AsmToken::TokenKind K,
 
 void MMIXALParser::alignPC(unsigned Alignment) {
   auto NewPC = alignTo(SharedInfo.PC, Alignment);
-  Out.emitZeros(NewPC - SharedInfo.PC);
   SharedInfo.PC = NewPC;
 }
 
@@ -721,15 +670,19 @@ bool MMIXALParser::parseExpression(const MCExpr *&Res, SMLoc &EndLoc) {
 }
 
 bool MMIXALParser::parseStatement() {
-  if (getTok().is(AsmToken::EndOfStatement)) {
-    Lex();
-    return false;
-  }
   // line: ^[label]\s+<instruction>[;\s*<instruction>]\s+[arbitray
   // contents]$ if we get error, discard all rest content until line end
   bool Failed = false;
 
   auto CurTok = getTok();
+  if (CurTok.is(AsmToken::HashDirective)) {
+    Lex(); // skip hash directive
+    CurrentLineNumber = getTok().getIntVal();
+    Lex(); // skip line number
+    CurrentFileName = getTok().getStringContents();
+    Lex(); // eat line number
+    return false;
+  }
 
   // parse label
   StringRef Label = "";
@@ -737,9 +690,11 @@ bool MMIXALParser::parseStatement() {
     Lexer.setSkipSpace(true);
     if (CurTok.isNot(AsmToken::Space)) {
       // we get a label
-      // check if it start with
-      if (parseIdentifier(Label))
-        return true;
+      // check if it start with number
+      if (parseIdentifier(Label)) {
+        Lexer.setSkipSpace(false);
+        return handleEndOfStatement();
+      }
     } else {
       Lex(); // eat space
     }
@@ -759,29 +714,30 @@ bool MMIXALParser::parseStatement() {
   }
 
   // handle label field
+  MCSymbol *LabelSymbol = nullptr;
   if (!Label.empty()) {
     auto Kind = getIdentifierKind(Label);
-    MCSymbol *Symbol = nullptr;
     if (Kind == IdentifierKind::LocalLabelHere) {
       unsigned Val;
       if (Label.drop_back().getAsInteger<unsigned>(10, Val)) {
         return true;
       }
-      Symbol = getContext().createDirectionalLocalSymbol(Val);
-      Symbol->setIndex(0);
+      LabelSymbol = getContext().createDirectionalLocalSymbol(Val);
+      LabelSymbol->setIndex(0);
     } else {
-      Symbol = getContext().lookupSymbol(getQualifiedName(Label));
-      if (!Symbol) {
-        Symbol = getContext().getOrCreateSymbol(getQualifiedName(Label));
-        Symbol->setIndex(++SerialCnt);
-        getStreamer().emitSymbolAttribute(Symbol, MCSA_Global);
+      LabelSymbol = getContext().lookupSymbol(getQualifiedName(Label));
+      if (!LabelSymbol) {
+        LabelSymbol = getContext().getOrCreateSymbol(getQualifiedName(Label));
+        LabelSymbol->setIndex(++SerialCnt);
+        getStreamer().emitSymbolAttribute(LabelSymbol, MCSA_Global);
       }
     }
-    auto MMOSymbol = cast<MCSymbolMMO>(Symbol);
+    auto MMOSymbol = cast<MCSymbolMMO>(LabelSymbol);
+
+    // may modify in future
     MMOSymbol->setVariableValue(
         SharedInfo.PC, MCConstantExpr::create(
                            static_cast<int64_t>(SharedInfo.PC), getContext()));
-    resolveLabel(Symbol);
   }
 
   // parse instruction field
@@ -811,27 +767,33 @@ bool MMIXALParser::parseStatement() {
     return parseToken(AsmToken::EndOfStatement);
   }
   if (InstTok.getString() == "BSPEC") {
-    alignPC();
+    syncLOC();
+    syncMMO();
     return parsePseudoOperationBSPEC();
   }
   if (InstTok.getString() == "ESPEC") {
+    if (auto Rem = DataCounter % 4) {
+      Out.emitZeros(4 - Rem);
+      SharedInfo.MMOLoc += 4 - Rem;
+      SharedInfo.PC += 4 - Rem;
+    }
     SpecialMode = false;
-    const auto AlignedLoc = alignTo<4>(SpecialDataLoc);
-    Out.emitZeros(AlignedLoc - SpecialDataLoc);
-    SpecialDataLoc = 0;
-    return parseToken(AsmToken::EndOfStatement);
+    DataCounter = 0;
+    LastIsESPEC = true;
+    return handleEndOfStatement();
   }
+
   if (InstTok.getString() == "BYTE") {
-    return parseData<std::uint8_t>();
+    return parsePseudoOperationBWTO<std::uint8_t>();
   }
   if (InstTok.getString() == "WYDE") {
-    return parseData<std::uint16_t>();
+    return parsePseudoOperationBWTO<std::uint16_t>();
   }
   if (InstTok.getString() == "TETRA") {
-    return parseData<std::uint32_t>();
+    return parsePseudoOperationBWTO<std::uint32_t>();
   }
   if (InstTok.getString() == "OCTA") {
-    return parsePseudoOperationOCTA();
+    return parsePseudoOperationBWTO<std::uint64_t>();
   }
 
   // check if in special mode
@@ -841,7 +803,26 @@ bool MMIXALParser::parseStatement() {
     return true;
   }
 
+  // prepare work
+  // clear
+  if (DataCounter != 0) {
+    if (auto Rem = DataCounter % 4) {
+      SharedInfo.PC += 4 - Rem;
+      Out.emitZeros(4 - Rem);
+      ++SharedInfo.MMOLine;
+    }
+    DataCounter = 0;
+  }
+  alignPC();
+  syncLOC();
   syncMMO();
+  if (LabelSymbol) {
+    auto MMOSymbol = cast<MCSymbolMMO>(LabelSymbol);
+    MMOSymbol->setVariableValue(
+        SharedInfo.PC, MCConstantExpr::create(
+                           static_cast<int64_t>(SharedInfo.PC), getContext()));
+    resolveLabel(LabelSymbol);
+  }
   // parse instruciton
   ParseInstructionInfo IInfo;
   SmallVector<std::unique_ptr<MCParsedAsmOperand>, 4> Operands;
@@ -852,12 +833,27 @@ bool MMIXALParser::parseStatement() {
 
   uint64_t ErrorInfo;
   unsigned int Opcode;
-  alignPC();
   getTargetParser().MatchAndEmitInstruction(
       Operands[0]->getStartLoc(), Opcode, Operands, Out, ErrorInfo,
       getTargetParser().isParsingMSInlineAsm());
-  SharedInfo.PC += 4; // FIXME: shoule += 4 here? what about the case -x
+  SharedInfo.PC += 4;
+  SharedInfo.MMOLoc += 4;
+  ++SharedInfo.MMOLine;
   return Failed;
+}
+
+bool MMIXALParser::handleEndOfStatement() {
+  if (getTok().isNot(AsmToken::EndOfStatement)) {
+    Lexer.regardAsComment();
+    Lex();
+    ++CurrentLineNumber;
+    return parseToken(AsmToken::EndOfStatement);
+  } else {
+    if (getTok().getString().ends_with("\n")) {
+      ++CurrentLineNumber;
+    }
+    return parseToken(AsmToken::EndOfStatement);
+  }
 }
 
 void MMIXALParser::Note(SMLoc L, const Twine &Msg, SMRange Range) {}
@@ -891,6 +887,9 @@ bool MMIXALParser::Run(bool NoInitialTextSection, bool NoFinalize) {
 
   while (getTok().isNot(AsmToken::Eof)) {
     parseStatement();
+  }
+  if (auto Rem = DataCounter % 4) {
+    Out.emitZeros(4 - Rem);
   }
 
   if (auto MainSymbol =

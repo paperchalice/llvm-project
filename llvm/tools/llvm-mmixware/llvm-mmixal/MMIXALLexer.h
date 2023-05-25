@@ -8,6 +8,8 @@
 namespace llvm {
 
 class MMIXALLexer : public MCAsmLexer {
+  friend class MMIXALParser;
+
 private:
   const char *CurPtr = nullptr;
   StringRef CurBuf;
@@ -18,8 +20,6 @@ private:
   bool EndStatementAtEOF = true;
   bool RegardAsComment = false;
   const bool &StrictMode;
-  std::size_t CurrentLine = 1;
-  StringRef CurrentFileName;
 
 private:
   // utilities
@@ -45,12 +45,12 @@ protected:
   StringRef LexUntilEndOfStatement() override;
   size_t peekTokens(MutableArrayRef<AsmToken> Buf,
                     bool ShouldSkipSpace = true) override;
+
 public:
-void setBuffer(StringRef Buf, const char *ptr = nullptr,
+  void setBuffer(StringRef Buf, const char *ptr = nullptr,
                  bool EndStatementAtEOF = true);
-void regardAsComment();
-std::size_t getCurrentLine() const;
-StringRef getCurrentFileName() const;
+  void regardAsComment();
+
 public:
   MMIXALLexer(const MCAsmInfo &MAI, const bool &StrictMode);
   MMIXALLexer(const AsmLexer &) = delete;
