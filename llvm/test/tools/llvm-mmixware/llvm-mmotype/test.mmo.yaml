@@ -1,0 +1,160 @@
+# RUN: yaml2obj %s | llvm-mmotype -v - | FileCheck %s
+
+--- !MMO
+Preamble:
+  Version:         1
+  CreatedTime:     0
+Segments:
+  - OpCode:          LOC
+    HighByte:        DATA
+    Offset:          0x0
+  - Bin:             '000000000000000061620000'
+  - OpCode:          LOC
+    HighByte:        INSTRUCTION
+    Offset:          0x12345678C
+  - OpCode:          FILE
+    Name:            test.mms
+    Number:          0
+  - OpCode:          LINE
+    Number:          8
+  - Bin:             F0000000
+  - OpCode:          SKIP
+    Delta:           0x4000
+  - OpCode:          LINE
+    Number:          10
+  - Bin:             8103FE0142030000
+  - OpCode:          LINE
+    Number:          11
+  - Bin:             '00000000'
+  - OpCode:          LOC
+    HighByte:        INSTRUCTION
+    Offset:          0x12345A768
+  - OpCode:          FIXRX
+    FixType:         OTHERWISE
+    Delta:           -11
+  - OpCode:          FIXR
+    Delta:           0xFF7
+  - OpCode:          FIXO
+    HighByte:        0x20
+    Offset:          0x0
+  - OpCode:          FILE
+    Name:            "foo.mms\0"
+    Number:          1
+  - OpCode:          LINE
+    Number:          4
+  - Bin:             F000000A
+  - OpCode:          SPEC
+    Type:            5
+  - Bin:             0000020000FE0000
+  - OpCode:          LOC
+    HighByte:        DATA
+    Offset:          0xA
+  - Bin:             '00006364'
+  - OpCode:          LOC
+    HighByte:        DATA
+    Offset:          0xC
+  - OpCode:          QUOTE
+    Value:           '98000000'
+Postamble:
+  G:               254
+  Values:          [ 0x12345678C, 0x0 ]
+SymbolTable:
+  IsUTF16:         false
+  Symbol:
+    - Name:            ':Main'
+      Serial:          1
+      Equiv:           0x12345678C
+      Type:            NORMAL
+    - Name:            ':a'
+      Serial:          2
+      Equiv:           0xFE
+      Type:            REGISTER
+    - Name:            ':ABCD'
+      Serial:          3
+      Equiv:           0x2000000000000008
+      Type:            NORMAL
+...
+
+# CHECK:   98090101
+# CHECK:   00000000
+# CHECK: File was created Thu Jan  1 08:00:00 1970
+# CHECK:   98012001
+# CHECK:   00000000
+# CHECK:   00000000
+# CHECK: 2000000000000000: 00000000
+# CHECK:   00000000
+# CHECK: 2000000000000004: 00000000
+# CHECK:   61620000
+# CHECK: 2000000000000008: 61620000
+# CHECK:   98010002
+# CHECK:   00000001
+# CHECK:   2345678c
+# CHECK:   98060002
+# CHECK:   74657374
+# CHECK:   2e6d6d73
+# CHECK:   98070008
+# CHECK:   f0000000
+# CHECK: 000000012345678c: f0000000 ("test.mms", line 8)
+# CHECK:   98024000
+# CHECK:   9807000a
+# CHECK:   8103fe01
+# CHECK: 000000012345a790: 8103fe01 (line 10)
+# CHECK:   42030000
+# CHECK: 000000012345a794: 42030000 (line 11)
+# CHECK:   9807000b
+# CHECK:   00000000
+# CHECK: 000000012345a798: 00000000 (line 11)
+# CHECK:   98010002
+# CHECK:   00000001
+# CHECK:   2345a768
+# CHECK:   98050010
+# CHECK:   0100fff5
+# CHECK: 000000012345a794: 0100fff5
+# CHECK:   98040ff7
+# CHECK: 000000012345678c: 00000ff7
+# CHECK:   98032001
+# CHECK:   00000000
+# CHECK: 2000000000000000: 000000012345a768
+# CHECK:   98060102
+# CHECK:   666f6f2e
+# CHECK:   6d6d7300
+# CHECK:   98070004
+# CHECK:   f000000a
+
+# CHECK:   98080005
+# CHECK: Special data 5 at loc 000000012345a76c (line 5)
+# CHECK:   00000200
+# CHECK:                    00000200
+# CHECK:   00fe0000
+# CHECK:                    00fe0000
+# CHECK:   98012001
+# CHECK:   0000000a
+# CHECK:   00006364
+# CHECK: 200000000000000a: 00006364
+# CHECK:   98012001
+# CHECK:   0000000c
+# CHECK:   98000001
+# CHECK:   98000000
+# CHECK: 200000000000000c: 98000000
+# CHECK:   980a00fe
+# CHECK:   00000001
+# CHECK:   2345678c
+# CHECK: g254: 000000012345678c
+# CHECK:   00000000
+# CHECK:   00000000
+# CHECK: g255: 0000000000000000
+# CHECK:   980b0000
+# CHECK: Symbol table (beginning at tetra 50):
+# CHECK:   203a5060
+# CHECK:   20412042
+# CHECK:   20430944
+# CHECK:   08834d20
+# CHECK:     ABCD = #2000000000000008 (3)
+# CHECK:   61206905
+# CHECK:   6e012345
+# CHECK:   678c810f
+# CHECK:     Main = #12345678c (1)
+# CHECK:   61fe8200
+# CHECK:     a = $254 (2)
+# CHECK:   980c0008
+# CHECK: Symbol table ends at tetra 59.
