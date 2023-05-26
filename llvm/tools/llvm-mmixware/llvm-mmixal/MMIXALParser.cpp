@@ -322,7 +322,6 @@ bool MMIXALParser::parsePseudoOperationLOC(StringRef Label) {
     return true;
 
   SharedInfo.PC = static_cast<std::uint64_t>(NewLoc);
-  ++SharedInfo.MMOLine;
   return handleEndOfStatement();
 }
 
@@ -511,8 +510,8 @@ void MMIXALParser::syncLOC() {
       support::endian::write32be(Buf, Lo_32(Loc));
       Out.emitBytes(StringRef(Buf, sizeof(Buf)));
     }
+    ++SharedInfo.MMOLine;
   }
-  ++SharedInfo.MMOLine;
   SharedInfo.MMOLoc = SharedInfo.PC;
 }
 

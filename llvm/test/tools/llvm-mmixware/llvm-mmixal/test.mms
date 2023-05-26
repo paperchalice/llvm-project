@@ -1,81 +1,28 @@
-# RUN: yaml2obj %s | obj2yaml | FileCheck %s
-
---- !MMO
-Preamble:
-  Version:         1
-  CreatedTime:     0
-Segments:
-  - OpCode:          LOC
-    HighByte:        DATA
-    Offset:          0x0
-  - Bin:             '000000000000000061620000'
-  - OpCode:          LOC
-    HighByte:        INSTRUCTION
-    Offset:          0x12345678C
-  - OpCode:          FILE
-    Name:            test.mms
-    Number:          0
-  - OpCode:          LINE
-    Number:          7
-  - Bin:             F0000000
-  - OpCode:          SKIP
-    Delta:           0x4000
-  - OpCode:          LINE
-    Number:          9
-  - Bin:             8103FE0142030000
-  - OpCode:          LINE
-    Number:          10
-  - Bin:             '00000000'
-  - OpCode:          LOC
-    HighByte:        INSTRUCTION
-    Offset:          0x12345A768
-  - OpCode:          FIXRX
-    FixType:         OTHERWISE
-    Delta:           -11
-  - OpCode:          FIXR
-    Delta:           0xFF7
-  - OpCode:          FIXO
-    HighByte:        0x20
-    Offset:          0x0
-  - OpCode:          FILE
-    Name:            "foo.mms\0"
-    Number:          1
-  - OpCode:          LINE
-    Number:          4
-  - Bin:             F000000A
-  - OpCode:          SPEC
-    Type:            5
-  - Bin:             0000020000FE0000
-  - OpCode:          LOC
-    HighByte:        DATA
-    Offset:          0xA
-  - Bin:             '00006364'
-  - OpCode:          QUOTE
-    Value:           '98000000'
-Postamble:
-  G:               254
-  Values:          [ 0x2000000000000008, 0x12345678C ]
-SymbolTable:
-  IsUTF16:         false
-  Symbol:
-    - Name:            ':Main'
-      Serial:          1
-      Equiv:           0x12345678C
-      Type:            NORMAL
-    - Name:            ':a'
-      Serial:          2
-      Equiv:           0xFE
-      Type:            REGISTER
-    - Name:            ':ABCD'
-      Serial:          3
-      Equiv:           0x2000000000000008
-      Type:            NORMAL
-...
+% RUN: llvm-mmixal -strict-mode -o - %s | obj2yaml - | FileCheck %s
+% A peculiar example of MMIXAL
+     LOC   Data_Segment  % location #2000000000000000
+     OCTA  1F            % a future reference
+a    GREG  @             % $254 is base register for ABCD
+ABCD BYTE  "ab"          % two bytes of data
+     LOC   #123456789    % switch to the instruction segment
+Main JMP   1F            % another future reference
+     LOC   @+#4000       % skip past 16384 bytes
+2H   LDB   $3,ABCD+1     % use the base register
+     BZ    $3,1F; TRAP   % and refer to the future again
+# 3 "foo.mms"            % this comment is a line directive
+     LOC   2B-4*10       % move 10 tetras before prev loc
+1H   JMP   2B            % resolve previous references to 1F
+     BSPEC 5             % begin special data of type 5
+     TETRA &a<<8         % four bytes of special data
+     WYDE  a-$0          % two more bytes of special data
+     ESPEC               % end a special data packet
+     LOC   ABCD+2        % resume the data segment
+     BYTE  "cd",#98      % assemble three more bytes of data
 
 # CHECK: --- !MMO
 # CHECK: Preamble:
 # CHECK:   Version:         1
-# CHECK:   CreatedTime:     0
+# CHECK:   CreatedTime:     {{[0-9]+}}
 # CHECK: Segments:
 # CHECK:   - OpCode:          LOC
 # CHECK:     HighByte:        DATA
@@ -85,18 +32,18 @@ SymbolTable:
 # CHECK:     HighByte:        INSTRUCTION
 # CHECK:     Offset:          0x12345678C
 # CHECK:   - OpCode:          FILE
-# CHECK:     Name:            test.mms
+# CHECK:     Name:            {{.+}}
 # CHECK:     Number:          0
 # CHECK:   - OpCode:          LINE
-# CHECK:     Number:          7
+# CHECK:     Number:          8
 # CHECK:   - Bin:             F0000000
 # CHECK:   - OpCode:          SKIP
 # CHECK:     Delta:           0x4000
 # CHECK:   - OpCode:          LINE
-# CHECK:     Number:          9
+# CHECK:     Number:          10
 # CHECK:   - Bin:             8103FE0142030000
 # CHECK:   - OpCode:          LINE
-# CHECK:     Number:          10
+# CHECK:     Number:          11
 # CHECK:   - Bin:             '00000000'
 # CHECK:   - OpCode:          LOC
 # CHECK:     HighByte:        INSTRUCTION
@@ -122,11 +69,14 @@ SymbolTable:
 # CHECK:     HighByte:        DATA
 # CHECK:     Offset:          0xA
 # CHECK:   - Bin:             '00006364'
+# CHECK:   - OpCode:          LOC
+# CHECK:     HighByte:        DATA
+# CHECK:     Offset:          0xC
 # CHECK:   - OpCode:          QUOTE
 # CHECK:     Value:           '98000000'
 # CHECK: Postamble:
 # CHECK:   G:               254
-# CHECK:   Values:          [ 0x2000000000000008, 0x12345678C ]
+# CHECK:   Values:          [ 0x12345678C, 0x0 ]
 # CHECK: SymbolTable:
 # CHECK:   IsUTF16:         false
 # CHECK:   Symbol:
