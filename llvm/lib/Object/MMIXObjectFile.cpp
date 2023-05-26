@@ -94,10 +94,16 @@ Error MMIXObjectFile::initPreamble(const unsigned char *&Iter) {
 
 Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
   bool ReachPostamble = false;
+  bool LastIsLOP = true;
+  const std::uint8_t *BinRefStart = Iter;
   Error Err = Error::success();
   while (!ReachPostamble && Iter < DataEnd) {
     // handle LOP
     if (getInst(Iter) == MMO::MM) {
+      if (!LastIsLOP && Iter != BinRefStart) {
+        Content.emplace_back(ArrayRef<std::uint8_t>(BinRefStart, Iter));
+        LastIsLOP = true;
+      }
       // handle lop_xxx
       switch (getX(Iter)) {
       case MMO::LOP_QUOTE:
@@ -135,7 +141,7 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
       case MMO::LOP_FIXO: {
         MMOFixo Fix;
         auto FixoBegin = Iter;
-        Fix.HighByte = getX(Iter);
+        Fix.HighByte = getY(Iter);
         auto TetraCount = getZ(Iter);
         Iter += 4;
         uint64_t Offset = 0;
@@ -208,9 +214,14 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         return createError("Unknown LOP");
       }
     } else {
+      if (LastIsLOP) {
+        BinRefStart = Iter;
+        LastIsLOP = false;
+      }
       Iter += 4;
     }
   }
+
   if (Err)
     return Err;
 
