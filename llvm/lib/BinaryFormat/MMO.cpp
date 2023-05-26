@@ -6,25 +6,22 @@ using namespace llvm::support::endian;
 using namespace llvm::MMO;
 
 void SymNode::encodeEquivLen(int &M) {
-  if (IsRegister) {
-    M += 0xF;
-  } else {
-    std::uint32_t X = Equiv >> 32;
-    if ((Equiv & (0xFFFFUL << (32 + 16))) == (0x2000UL << (32 + 16))) {
-      M += 8;
-      X -= 0x2000'0000;
-    }
-    if (X)
-      M += 4;
-    else
-      X = Equiv & 0xFFFF'FFFF;
-    int j = 1;
-    for (; j < 4; ++j) {
-      if (X < static_cast<uint32_t>(1 << (8 * j)))
-        break;
-    }
-    M += j;
+  std::uint32_t X = Hi_32(Equiv);
+  if ((X & 0xFFFF'0000) == 0x2000'0000) {
+    M += 8;
+    X -= 0x2000'0000;
   }
+  if (X) {
+    M += 4;
+  } else {
+    X = Equiv & 0xFFFF'FFFF;
+  }
+  int j = 1;
+  for (; j < 4; ++j) {
+    if (X < static_cast<uint32_t>(1 << (8 * j)))
+      break;
+  }
+  M += j;
 }
 
 std::size_t SymNode::writeBinEquivLen(raw_ostream &OS, int &M) {
@@ -69,7 +66,7 @@ MMOTrie::MMOTrie() : Root(std::make_shared<MMOTrieNode>(':')) {
 
 void MMOTrie::insert(const MMO::Symbol &S) {
   auto Tt = search(S.Name);
-  Tt->SymNode = {S.Serial, S.Equiv, MMO::SymbolType::REGISTER};
+  Tt->SymNode = {S.Serial, S.Equiv, S.Type == MMO::SymbolType::REGISTER};
 }
 
 std::shared_ptr<MMOTrieNode> MMOTrie::search(StringRef S) {
@@ -123,9 +120,11 @@ void MMOTrie::writeBin(raw_ostream &OS, std::shared_ptr<MMOTrieNode> N) const {
     M += 0x10;
 
   if (N->SymNode) {
-    if (N->SymNode->IsRegister)
+    if (N->SymNode->IsRegister) {
       M += 0xF;
-    N->SymNode->encodeEquivLen(M);
+    } else {
+      N->SymNode->encodeEquivLen(M);
+    }
   }
   OS.write(static_cast<std::uint8_t>(M));
   ++OutCnt;

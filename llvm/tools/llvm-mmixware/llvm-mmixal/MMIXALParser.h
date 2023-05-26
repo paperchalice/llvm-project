@@ -43,6 +43,7 @@ private:
   std::size_t DataCounter = 0;
 
   std::vector<StringRef> FileNames;
+  std::vector<std::uint8_t> LocalRegList;
 
   enum IdentifierKind {
     Invalid,
@@ -133,7 +134,7 @@ private:
         const MCExpr *Res;
         SMLoc EndLoc;
         if (parseExpression(Res, EndLoc)) {
-          return true;
+          break;
         }
         std::int64_t Val;
         if (Res->evaluateAsAbsolute(Val)) {
@@ -145,8 +146,9 @@ private:
                 {SharedInfo.PC, MMO::FixupInfo::FixupKind::FIXUP_OCTA,
                  &SRE->getSymbol()});
             emitData(static_cast<T>(0));
+            continue;
           }
-          return false;
+          break;
         }
       }
 
@@ -162,6 +164,7 @@ private:
 
   void emitPostamble();
   std::uint8_t getCurGreg();
+  void checkLocalRegs();
 
 public:
   void addDirectiveHandler(StringRef Directive,

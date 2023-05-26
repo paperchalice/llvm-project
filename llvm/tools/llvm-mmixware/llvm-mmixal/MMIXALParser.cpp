@@ -286,7 +286,7 @@ bool MMIXALParser::parsePseudoOperationGREG(StringRef Label) {
   if (!Res->evaluateAsAbsolute(RegVal))
     return true;
 
-  SharedInfo.GregList.push_back(static_cast<uint64_t>(RegVal));
+  SharedInfo.GregList.emplace_front(static_cast<uint64_t>(RegVal));
   if (!Label.empty()) {
     auto Symbol = getContext().getOrCreateSymbol(getQualifiedName(Label));
     auto MMOSymbol = cast<MCSymbolMMO>(Symbol);
@@ -305,7 +305,11 @@ bool MMIXALParser::parsePseudoOperationLOCAL() {
   if (HasErr)
     return true;
   ++SharedInfo.MMOLine;
-  return parseToken(AsmToken::EndOfStatement);
+  int64_t Reg;
+  if (Res->evaluateAsAbsolute(Reg) && Reg < 256) {
+    LocalRegList.emplace_back(static_cast<std::uint8_t>(Reg));
+  }
+  return handleEndOfStatement();
 }
 
 bool MMIXALParser::parsePseudoOperationLOC(StringRef Label) {
@@ -353,12 +357,10 @@ void MMIXALParser::emitPostamble() {
   Out.emitBinaryData(StringRef("\x98\x0a\x00", 3));
   char Count = 256 - SharedInfo.GregList.size();
   Out.emitBinaryData(StringRef(&Count, 1));
-  for (auto I = SharedInfo.GregList.rbegin(), E = SharedInfo.GregList.rend();
-       I != E; I++) {
+  for (const auto RegVal : SharedInfo.GregList) {
     char Buf[8];
     StringRef SR(Buf, 8);
-    support::endian::write64be(Buf, *I);
-    ;
+    support::endian::write64be(Buf, RegVal);
     Out.emitBinaryData(SR);
   }
 }
@@ -668,6 +670,15 @@ bool MMIXALParser::parseParenExpression(const MCExpr *&Res, SMLoc &EndLoc) {
   return parseRParen();
 }
 
+void MMIXALParser::checkLocalRegs() {
+  std::uint16_t Bound = getCurGreg();
+  for(const auto RegNum : LocalRegList) {
+    if(RegNum >= Bound) {
+      Error(SMLoc(), "out of local reg bound");
+    }
+  }
+}
+
 // <expression> -> <term> | <expression> <weak operator> <term>
 bool MMIXALParser::parseExpression(const MCExpr *&Res, SMLoc &EndLoc) {
   Res = nullptr;
@@ -771,8 +782,7 @@ bool MMIXALParser::parseStatement() {
     return parsePseudoOperationGREG(Label);
   }
   if (InstTok.getString() == "LOCAL") {
-    Lex();
-    return parseToken(AsmToken::EndOfStatement);
+    return parsePseudoOperationLOCAL();
   }
   if (InstTok.getString() == "BSPEC") {
     syncLOC();
@@ -907,6 +917,7 @@ bool MMIXALParser::Run(bool NoInitialTextSection, bool NoFinalize) {
   }
 
   getTargetParser().onEndOfFile();
+
   printPendingErrors();
 
   emitPostamble();

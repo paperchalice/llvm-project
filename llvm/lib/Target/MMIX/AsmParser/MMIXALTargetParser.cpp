@@ -224,8 +224,8 @@ void llvm::MMIXAL::MMIXALAsmParser::resolveBaseAddress(
       return false;
     }
   };
-  auto SearchBegin = SharedInfo.GregList.cbegin() + 1;
-  auto SearchEnd = SharedInfo.GregList.cend();
+  auto SearchBegin = SharedInfo.GregList.cbegin();
+  auto SearchEnd = SharedInfo.GregList.cend() - 1;
   auto Result = std::find_if(SearchBegin, SearchEnd, Predicate);
   if (Result != SearchEnd) {
     auto BaseAddress = *Result;
