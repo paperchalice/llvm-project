@@ -671,8 +671,8 @@ bool MMIXALParser::parseParenExpression(const MCExpr *&Res, SMLoc &EndLoc) {
 
 void MMIXALParser::checkLocalRegs() {
   std::uint16_t Bound = getCurGreg();
-  for(const auto RegNum : LocalRegList) {
-    if(RegNum >= Bound) {
+  for (const auto RegNum : LocalRegList) {
+    if (RegNum >= Bound) {
       Error(SMLoc(), "out of local reg bound");
     }
   }
@@ -690,6 +690,14 @@ bool MMIXALParser::parseExpression(const MCExpr *&Res, SMLoc &EndLoc) {
 bool MMIXALParser::parseStatement() {
   // line: ^[label]\s+<instruction>[;\s*<instruction>]\s+[arbitray
   // contents]$ if we get error, discard all rest content until line end
+  //
+  // label must after newline immediately, because in MMIXAL if we ignore
+  // whitespace, the following code snippet
+  // ```
+  // JMP Dest
+  // Main TRAP
+  // ```
+  // is ambiguous
   bool Failed = false;
 
   auto CurTok = getTok();
@@ -704,31 +712,16 @@ bool MMIXALParser::parseStatement() {
 
   // parse label
   StringRef Label = "";
-  if (StrictMode) {
-    Lexer.setSkipSpace(true);
-    if (CurTok.isNot(AsmToken::Space)) {
-      // we get a label
-      // check if it start with number
-      if (parseIdentifier(Label)) {
-        Lexer.setSkipSpace(false);
-        return handleEndOfStatement();
-      }
-    } else {
-      Lex(); // eat space
+  Lexer.setSkipSpace(true);
+  if (CurTok.isNot(AsmToken::Space)) {
+    // we get a label
+    // check if it start with number
+    if (parseIdentifier(Label)) {
+      Lexer.setSkipSpace(false);
+      return handleEndOfStatement();
     }
   } else {
-    AsmToken Tokens[3];
-    MutableArrayRef<AsmToken> Buf(Tokens, 2);
-    getLexer().peekTokens(Buf);
-    // the only case that we have 3 consecutive identifiers
-    // is the case LABEL OP ID,...,...
-    if (std::all_of(Buf.begin(), Buf.end(), [](const AsmToken &Tok) {
-          return Tok.is(AsmToken::Identifier);
-        })) {
-      if (parseIdentifier(Label)) {
-        return true;
-      }
-    }
+    Lex(); // eat space
   }
 
   // handle label field
@@ -766,7 +759,7 @@ bool MMIXALParser::parseStatement() {
   }
 
   Lex(); // eat opcode and white space
-  Lexer.setSkipSpace(!StrictMode);
+  Lexer.setSkipSpace(true); // expressions can contain space
   // handle pseudo operation
   if (InstTok.getString() == "IS") {
     return parsePseudoOperationIS(Label);
@@ -932,9 +925,7 @@ MMIXALParser::MMIXALParser(SourceMgr &SM, MCContext &Ctx, MCStreamer &Out,
   auto MB = SrcMgr.getMemoryBuffer(CurBuffer);
   CurrentFileName = MB->getBufferIdentifier();
   Lexer.setBuffer(MB->getBuffer());
-  if (MAI.StrictMode) {
-    Lexer.setSkipSpace(false);
-  }
+  Lexer.setSkipSpace(false);
   initInternalSymbols();
   auto MainSymb =
       getContext().getOrCreateSymbol(":Main"); // ensure it is the first entry

@@ -148,17 +148,12 @@ AsmToken MMIXALLexer::LexWhiteSpace() {
 
 AsmToken MMIXALLexer::LexLineComment() {
   int CurChar = getNextChar();
-  ptrdiff_t LenOfEnd = 1;
   while (!isLineEndChar(CurChar)) {
     CurChar = getNextChar();
   }
 
   IsAtStartOfLine = true;
   IsAtStartOfStatement = true;
-  if (CurChar == EOF)
-    LenOfEnd = 0;
-  else if (*(CurPtr - 2) == '\r')
-    LenOfEnd = 2;
 
   return AsmToken(AsmToken::EndOfStatement,
                   StringRef(TokStart, CurPtr - TokStart));

@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
   // Tell SrcMgr about this buffer, which is what the parser will pick up.
   SrcMgr.AddNewSourceBuffer(std::move(*BufferPtr), SMLoc());
 
-  constexpr auto TripleStr = "mmix-mmo";
+  constexpr auto TripleStr = "mmix-none-mmixware-mmo";
   auto MMIXTriple = Triple(TripleStr);
 
   std::string Error;
