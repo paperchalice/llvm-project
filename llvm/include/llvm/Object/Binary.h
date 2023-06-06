@@ -69,6 +69,7 @@ protected:
     ID_MachO64L, // MachO 64-bit, little endian
     ID_MachO64B, // MachO 64-bit, big endian
 
+    ID_MMO,
     ID_GOFF,
     ID_Wasm,
 
