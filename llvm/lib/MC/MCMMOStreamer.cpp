@@ -23,8 +23,7 @@ void MCMMOStreamer::emitInstToData(const MCInst &Inst,
   MCDataFragment *DF = getOrCreateDataFragment();
   SmallVector<MCFixup, 4> Fixups;
   SmallString<256> Code;
-  raw_svector_ostream VecOS(Code);
-  getAssembler().getEmitter().encodeInstruction(Inst, VecOS, Fixups, STI);
+  getAssembler().getEmitter().encodeInstruction(Inst, Code, Fixups, STI);
   DF->getFixups().append(Fixups);
   DF->getContents().append(Code.begin(), Code.end());
 }

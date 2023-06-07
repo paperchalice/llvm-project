@@ -41,6 +41,7 @@ add_llvm_target(MMIXCodeGen
   Analysis
   AsmPrinter
   CodeGen
+  CodeGenTypes
   Core
   GlobalISel
   IRPrinter
