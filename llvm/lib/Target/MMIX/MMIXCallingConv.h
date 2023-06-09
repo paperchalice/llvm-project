@@ -16,7 +16,10 @@
 #include "llvm/CodeGen/CallingConvLower.h"
 
 namespace llvm {
-bool CC_MMIX(unsigned ValNo, MVT ValVT, MVT LocVT, CCValAssign::LocInfo LocInfo,
+bool CC_MMIX_Caller(unsigned ValNo, MVT ValVT, MVT LocVT, CCValAssign::LocInfo LocInfo,
+             ISD::ArgFlagsTy ArgFlags, CCState &State);
+
+bool CC_MMIX_Callee(unsigned ValNo, MVT ValVT, MVT LocVT, CCValAssign::LocInfo LocInfo,
              ISD::ArgFlagsTy ArgFlags, CCState &State);
 
 bool RetCC_MMIX(unsigned ValNo, MVT ValVT, MVT LocVT,

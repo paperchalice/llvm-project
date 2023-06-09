@@ -3,6 +3,7 @@
 
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/Register.h"
 #include "llvm/Support/Debug.h"
@@ -36,13 +37,17 @@ MMIXCallLowering::MMIXIncomingValueHandler::MMIXIncomingValueHandler(MachineIRBu
 
 Register MMIXCallLowering::MMIXIncomingValueHandler::getStackAddress(uint64_t Size, int64_t Offset,
   MachinePointerInfo &MPO, ISD::ArgFlagsTy Flags) {
+  auto &MFI = MIRBuilder.getMF().getFrameInfo();
+  // Byval is assumed to be writable memory, but other stack passed arguments
+  // are not.
+  const bool IsImmutable = !Flags.isByVal();
   unsigned PtrSize = MIRBuilder.getDataLayout().getPointerSizeInBits();
-  LLT p0 = LLT::pointer(0, PtrSize);
-  LLT s = LLT::scalar(PtrSize);
+  auto AS = MIRBuilder.getDataLayout().getDefaultGlobalsAddressSpace();
 
-  static const auto SPtr = MIRBuilder.buildCopy(p0, Register{MMIX::r0});
-  const auto OffsetReg = MIRBuilder.buildConstant(s, Offset);
-  return MIRBuilder.buildPtrAdd(p0, SPtr, OffsetReg).getReg(0);
+  int FI = MFI.CreateFixedObject(Size, Offset, IsImmutable);
+  MPO = MachinePointerInfo::getFixedStack(MIRBuilder.getMF(), FI);
+  auto AddrReg = MIRBuilder.buildFrameIndex(LLT::pointer(AS, PtrSize), FI);
+  return AddrReg.getReg(0);
 }
 
 void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToReg(Register ValVReg, Register PhysReg,

@@ -22,7 +22,7 @@ namespace llvm {
 
 MMIXFrameLowering::MMIXFrameLowering(const MMIXSubtarget &STI)
     : TargetFrameLowering(StackGrowsDown,
-                          /*StackAlignment=*/Align(16),
+                          /*StackAlignment=*/Align(8),
                           /*LocalAreaOffset=*/0),
       STI(STI) {}
 

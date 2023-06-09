@@ -26,6 +26,7 @@ public:
   MMIXCallLowering(const TargetLowering &TLI);
 
 public: // CallLowering
+  bool enableBigEndian() const override;
   bool lowerCall(MachineIRBuilder &MIRBuilder,
                          CallLoweringInfo &Info) const override;
   bool lowerFormalArguments(MachineIRBuilder &MIRBuilder, const Function &F,

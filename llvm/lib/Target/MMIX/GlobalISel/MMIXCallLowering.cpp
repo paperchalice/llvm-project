@@ -28,9 +28,34 @@ namespace llvm {
 MMIXCallLowering::MMIXCallLowering(const TargetLowering &TLI)
     : CallLowering(&TLI) {}
 
+bool MMIXCallLowering::enableBigEndian() const { return true; }
+
 bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
-                         CallLoweringInfo &Info) const {
-  
+                                 CallLoweringInfo &Info) const {
+  MachineFunction &MF = MIRBuilder.getMF();
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+  const DataLayout &DL = MF.getDataLayout();
+  // const TargetRegisterInfo &TRI = *MF.getSubtarget().getRegisterInfo();
+
+  SmallVector<ArgInfo, 8> OutArgs;
+  for (auto &OrigArg : Info.OrigArgs) {
+    splitToValueTypes(OrigArg, OutArgs, DL, Info.CallConv);
+  }
+
+  MMIXOutgoingValueHandler Handler(MIRBuilder, MRI);
+  OutgoingValueAssigner Assigner(CC_MMIX_Caller);
+  bool Success = determineAndHandleAssignments(
+      Handler, Assigner, OutArgs, MIRBuilder, Info.CallConv, Info.IsVarArg);
+  if(!Success) {
+    return false;
+  }
+
+  if (Info.Callee.isReg()) {
+    Info.Callee.getReg();
+    MIRBuilder.buildInstr(MMIX::PUSHGOI).addReg(Info.Callee.getReg()).addImm(0);
+  } else {
+    MIRBuilder.buildInstr(MMIX::PUSHJ).addReg(MMIX::r0).add(Info.Callee);
+  }
   return true;
 }
 
@@ -41,20 +66,20 @@ bool MMIXCallLowering::lowerFormalArguments(MachineIRBuilder &MIRBuilder,
   MachineFunction &MF = MIRBuilder.getMF();
   MachineRegisterInfo &MRI = MF.getRegInfo();
   const DataLayout &DL = MF.getDataLayout();
-
   SmallVector<ArgInfo, 8> SplitArgs;
+  LLVM_DEBUG(dbgs() << "lower formal arguments for function: " << F.getName()
+                    << '\n');
   for (auto &Arg : F.args()) {
+    LLVM_DEBUG(dbgs() << "handle formal arg:");
+    LLVM_DEBUG(Arg.dump());
     const auto ArgNo = Arg.getArgNo();
-
-    ArgInfo OrigArgInfo{VRegs[ArgNo], Arg, ArgNo};
+    ArgInfo OrigArgInfo(VRegs[ArgNo], Arg, ArgNo);
     setArgFlags(OrigArgInfo, AttributeList::FirstArgIndex + ArgNo, DL, F);
     splitToValueTypes(OrigArgInfo, SplitArgs, DL, F.getCallingConv());
-
-    // TODO: construct IncomingArgs here, using OrigArgInfo
   }
 
   MMIXIncomingValueHandler Handler(MIRBuilder, MRI);
-  IncomingValueAssigner Assigner(CC_MMIX);
+  IncomingValueAssigner Assigner(CC_MMIX_Callee);
   return determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
                                        F.getCallingConv(), F.isVarArg());
 }
@@ -62,6 +87,13 @@ bool MMIXCallLowering::lowerFormalArguments(MachineIRBuilder &MIRBuilder,
 bool MMIXCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
                                    const Value *Val, ArrayRef<Register> VRegs,
                                    FunctionLoweringInfo &FLI) const {
+  if (Val == nullptr) {
+    // nothing to lower
+    assert(VRegs.empty() && "Return value but have VRegs!");
+    MIRBuilder.buildInstr(MMIX::POP).addImm(0).addImm(0);
+    return true;
+  }
+
   MachineFunction &MF = MIRBuilder.getMF();
   const Function &F = MF.getFunction();
   MachineRegisterInfo &MRI = MF.getRegInfo();
@@ -69,22 +101,27 @@ bool MMIXCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   const MMIXTargetLowering &TLI = *getTLI<MMIXTargetLowering>();
 
   SmallVector<EVT, 8> SplitEVTs;
+  LLVM_DEBUG(dbgs() << "lower return for val: ");
+  LLVM_DEBUG(Val->dump());
   // Compute the primitive types that underlying the Val
   ComputeValueVTs(TLI, DL, Val->getType(), SplitEVTs);
   assert(VRegs.size() == SplitEVTs.size() &&
          "For each split Type there should be exactly one VReg.");
 
   SmallVector<ArgInfo, 8> SplitArgs;
-  for (unsigned i = 0; i < SplitEVTs.size(); ++i) {
-    // TODO: construct return value here
+  for (const auto &[VReg, ValueEVT] : zip(VRegs, SplitEVTs)) {
+    SplitArgs.emplace_back(VReg, ValueEVT.getTypeForEVT(Val->getContext()), 0);
+    setArgFlags(SplitArgs.back(), AttributeList::ReturnIndex, DL, F);
   }
 
   bool Success = true;
   MMIXOutgoingValueHandler Handler(MIRBuilder, MRI);
   OutgoingValueAssigner Assigner(RetCC_MMIX);
-  Success = determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder, F.getCallingConv(), F.isVarArg());
+  Success =
+      determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
+                                    F.getCallingConv(), F.isVarArg());
 
-  // TODO: insert return instruction
+  MIRBuilder.buildInstr(MMIX::POP).addImm(1).addImm(0);
   return Success;
 }
 

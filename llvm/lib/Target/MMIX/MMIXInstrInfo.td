@@ -137,6 +137,8 @@ def OR#PosList<i>.ret: Inst_r_i16<!add(0xE8, i), "OR"#PosList<i>.ret>;
 def ANDN#PosList<i>.ret: Inst_r_i16<!add(0xEC, i), "ANDN"#PosList<i>.ret>;
 }
 
+def SET: InstAlias<"SET $X,$Y", (ORI GPR:$X, GPR:$Y, 0)>;
+
 //
 // MMIX knows several ways to shift a register left or right by any number of bits
 //
@@ -246,8 +248,11 @@ defm SFLOT: InstVariant_U<0x0C, "SFLOT">;
 // Subroutine linkage
 //
 
+let Defs = [rJ] in {
 def PUSHJ: Inst_X_YZ<0xF2, (outs), (ins GPR:$X, branch_dest:$YZ), "PUSHJ">;
 defm PUSHGO: Inst_rrri8<0xBE, "PUSHGO">;
+}
+let Uses = [rJ] in
 def POP: Inst_X_YZ<0xF8, (outs), (ins ui8imm:$X, ui16imm:$YZ), "POP">;
 
 //

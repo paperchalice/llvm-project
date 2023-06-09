@@ -38,8 +38,9 @@
 using namespace llvm;
 
 namespace {
-constexpr char MMIXDLStr[] = ""; // TODO: define your data layout string
-
+constexpr char MMIXDLStr[] = "E-p:64:64-i8:8:8-i16:16:16-i32:32:32-i64:64:64"
+                             "-f32:32:32-f64:64:64"
+                             "-n8:16:32:64";
 }
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXTarget() {
@@ -61,8 +62,9 @@ MMIXTargetMachine::MMIXTargetMachine(const Target &T, const Triple &TT,
         switch (TT.getObjectFormat()) {
 
         case Triple::ObjectFormatType::ELF:
-          return ::std::make_unique<MMIXELFTargetObjectFile>();
-
+          return std::make_unique<MMIXELFTargetObjectFile>();
+        case Triple::ObjectFormatType::MMO:
+          return std::make_unique<MMIXMMOTargetObjectFile>();
         default:
           break;
         }
@@ -95,7 +97,6 @@ MMIXTargetMachine::getSubtargetImpl(const Function &F) const {
     ABIName = ModuleTargetABI->getString();
   }
 
-  // FIXME: maybe unique_ptr?
   auto I = new MMIXSubtarget(TargetTriple, CPU, TuneCPU, FS, ABIName, *this);
   return I;
 }
