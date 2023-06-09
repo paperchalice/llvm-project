@@ -17,6 +17,10 @@ class MMIXELFTargetObjectFile : public TargetLoweringObjectFileELF {
 
 };
 
+class MMIXMMOTargetObjectFile : public TargetLoweringObjectFileMMO {
+
+};
+
 class MMIXCOFFTargetObjectFile : public TargetLoweringObjectFileCOFF {
 
 };
