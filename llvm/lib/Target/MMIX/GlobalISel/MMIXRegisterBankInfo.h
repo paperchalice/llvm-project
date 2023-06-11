@@ -32,6 +32,8 @@ public:
 public:
   const InstructionMapping &
   getInstrMapping(const MachineInstr &MI) const override;
+  const RegisterBank &getRegBankFromRegClass(const TargetRegisterClass &RC,
+                                             LLT Ty) const override;
 };
 
 } // end namespace llvm

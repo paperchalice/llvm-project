@@ -23,7 +23,8 @@ include "MMIXCallingConv.td"
 // Instruction Descriptions
 //===----------------------------------------------------------------------===//
 include "MMIXInstrInfo.td"
-
+include "MMIXInstrGISel.td"
+include "MMIXCombine.td"
 //===----------------------------------------------------------------------===//
 // MMIX processors supported.
 //===----------------------------------------------------------------------===//

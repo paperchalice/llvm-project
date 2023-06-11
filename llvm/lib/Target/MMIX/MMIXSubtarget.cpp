@@ -22,7 +22,7 @@
 
 #define DEBUG_TYPE "mmix-subtarget"
 
-namespace llvm {
+using namespace llvm;
 
 MMIXSubtarget::MMIXSubtarget(const Triple &TT, StringRef CPU, StringRef TuneCPU,
                              StringRef FS, StringRef ABIName,
@@ -32,7 +32,7 @@ MMIXSubtarget::MMIXSubtarget(const Triple &TT, StringRef CPU, StringRef TuneCPU,
       CallLoweringInfo(new MMIXCallLowering(*getTargetLowering())),
       Legalizer(new MMIXLegalizerInfo(*this)),
       RegBankInfo(new MMIXRegisterBankInfo(*getRegisterInfo())),
-      InstSelector(new MMIXInstructionSelector(TM, *this, *RegBankInfo)) {}
+      InstSelector(createMMIXInstructionSelector(TM, *this, *RegBankInfo)) {}
 
 
 const MMIXInstrInfo *MMIXSubtarget::getInstrInfo() const { return &InstrInfo; }
@@ -61,8 +61,6 @@ const LegalizerInfo *MMIXSubtarget::getLegalizerInfo() const {
 const RegisterBankInfo *MMIXSubtarget::getRegBankInfo() const {
   return RegBankInfo.get();
 }
-
-} // namespace llvm
 
 #define GET_SUBTARGETINFO_TARGET_DESC
 #define GET_SUBTARGETINFO_CTOR

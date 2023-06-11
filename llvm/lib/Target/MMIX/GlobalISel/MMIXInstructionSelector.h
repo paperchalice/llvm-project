@@ -23,34 +23,12 @@ class MMIXSubtarget;
 class MMIXInstrInfo;
 class MMIXRegisterInfo;
 class MMIXRegisterBankInfo;
+class MMIXTargetMachine;
+class MMIXInstructionSelector;
 
-#define GET_GLOBALISEL_PREDICATE_BITSET
-#include "MMIXGenGlobalISel.inc"
-#undef GET_GLOBALISEL_PREDICATE_BITSET
-
-class MMIXInstructionSelector : public InstructionSelector {
-public:
-  MMIXInstructionSelector(const MMIXTargetMachine &TM,
-                           const MMIXSubtarget &STI,
-                           const MMIXRegisterBankInfo &RBI);
-  static const char *getName();
-  bool select(MachineInstr &I) override;
-private:
-  bool selectImpl(MachineInstr &I, CodeGenCoverage &CoverageInfo) const;
-
-  const MMIXSubtarget &STI;
-  const MMIXInstrInfo &TII;
-  const MMIXRegisterInfo &TRI;
-  const MMIXRegisterBankInfo &RBI;
-
-#define GET_GLOBALISEL_PREDICATES_DECL
-#include "MMIXGenGlobalISel.inc"
-#undef GET_GLOBALISEL_PREDICATES_DECL
-
-#define GET_GLOBALISEL_TEMPORARIES_DECL
-#include "MMIXGenGlobalISel.inc"
-#undef GET_GLOBALISEL_TEMPORARIES_DECL
-};
+InstructionSelector *createMMIXInstructionSelector(const MMIXTargetMachine &TM,
+                                                   MMIXSubtarget &STI,
+                                                   MMIXRegisterBankInfo &RBI);
 
 } // namespace llvm
 

@@ -6,14 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #include "MMIXRegisterBankInfo.h"
 #include "MMIXRegisterInfo.h"
 
 #include "MCTargetDesc/MMIXMCTargetDesc.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterBank.h"
 #include "llvm/CodeGen/RegisterBankInfo.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 
 #define GET_TARGET_REGBANK_IMPL
@@ -46,4 +45,15 @@ MMIXRegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
 
   return getInstructionMapping(DefaultMappingID, 0,
                                getOperandsMapping(ValMappings), NumOperands);
+}
+
+const RegisterBank &
+MMIXRegisterBankInfo::getRegBankFromRegClass(const TargetRegisterClass &RC,
+                                             LLT Ty) const {
+  switch (RC.getID()) {
+  case MMIX::GPRRegClassID:
+    return getRegBank(MMIX::GPRBankID);
+  default:
+    llvm_unreachable("Register class not supported");
+  }
 }

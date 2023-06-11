@@ -73,7 +73,7 @@ protected:
   std::unique_ptr<MMIXCallLowering> CallLoweringInfo;
   std::unique_ptr<MMIXLegalizerInfo> Legalizer;
   std::unique_ptr<MMIXRegisterBankInfo> RegBankInfo;
-  std::unique_ptr<MMIXInstructionSelector> InstSelector;
+  std::unique_ptr<InstructionSelector> InstSelector;
 };
 
 } // end namespace llvm
