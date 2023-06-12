@@ -28,7 +28,13 @@ class MMIXSubtarget;
 
 class MMIXInstrInfo : public MMIXGenInstrInfo {
 public:
-explicit MMIXInstrInfo(MMIXSubtarget &STI);
+  explicit MMIXInstrInfo(MMIXSubtarget &STI);
+
+public:
+  void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
+                   const DebugLoc &DL, MCRegister DestReg, MCRegister SrcReg,
+                   bool KillSrc) const override;
+
 private:
   const MMIXSubtarget &STI;
 };

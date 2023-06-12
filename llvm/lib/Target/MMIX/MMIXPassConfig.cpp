@@ -14,8 +14,7 @@ bool MMIXPassConfig::addIRTranslator() {
 }
 
 void MMIXPassConfig::addPreLegalizeMachineIR() {
-  if (getOptLevel() != CodeGenOpt::None) {
-  }
+  addPass(createMMIXCombiner());
 }
 
 bool MMIXPassConfig::addLegalizeMachineIR() {

@@ -25,6 +25,7 @@ add_llvm_target(MMIXCodeGen
   MMIXCodeGenPassBuilder.cpp
   MMIXFrameLowering.cpp
   MMIXInstrInfo.cpp
+  MMIXMCInstLower.cpp
   MMIXPassConfig.cpp
   MMIXRegisterInfo.cpp
   MMIXSubtarget.cpp

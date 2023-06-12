@@ -14,11 +14,12 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MMIX_H
 #define LLVM_LIB_TARGET_MMIX_MMIX_H
 
+#include "llvm/Pass.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm {
-
+void initializeMMIXCombinerPass(PassRegistry &);
 } // end namespace llvm
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIX_H

@@ -46,7 +46,7 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   OutgoingValueAssigner Assigner(CC_MMIX_Caller);
   bool Success = determineAndHandleAssignments(
       Handler, Assigner, OutArgs, MIRBuilder, Info.CallConv, Info.IsVarArg);
-  if(!Success) {
+  if (!Success) {
     return false;
   }
 
@@ -121,7 +121,9 @@ bool MMIXCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
       determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
                                     F.getCallingConv(), F.isVarArg());
 
-  MIRBuilder.buildInstr(MMIX::POP).addImm(1).addImm(0);
+  auto ImplicitR0 =
+      MachineOperand::CreateReg(MMIX::r0, /*isDef=*/false, /*isImp=*/true);
+  MIRBuilder.buildInstr(MMIX::POP).addImm(1).addImm(0).add(ImplicitR0);
   return Success;
 }
 

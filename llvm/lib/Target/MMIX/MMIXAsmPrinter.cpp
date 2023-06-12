@@ -1,19 +1,19 @@
 #include "MMIXAsmPrinter.h"
+#include "MMIXInstrInfo.h"
 #include "TargetInfo/MMIXTargetInfo.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "MMIXInstrInfo.h"
 
 namespace llvm {
 
 MMIXAsmPrinter::MMIXAsmPrinter(TargetMachine &TM,
                                std::unique_ptr<MCStreamer> Streamer)
-    : AsmPrinter(TM, std::move(Streamer)) {}
-
+    : AsmPrinter(TM, std::move(Streamer)), InstLowering(OutContext, *this) {}
 
 void MMIXAsmPrinter::emitInstruction(const MachineInstr *MI) {
-  // auto I = MCInstBuilder(MMIX::Inst).addReg(MMIX::r0).addReg(MMIX::r0).addReg(MMIX::r0);
-  // OutStreamer->emitInstruction(I, getSubtargetInfo());
+  MCInst I;
+  InstLowering.lower(MI, I);
+  EmitToStreamer(*OutStreamer, I);
 }
 
 } // namespace llvm

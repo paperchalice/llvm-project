@@ -47,6 +47,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXTarget() {
   RegisterTargetMachine<MMIXTargetMachine> X(getTheMMIXTarget());
   auto PR = PassRegistry::getPassRegistry();
   initializeGlobalISel(*PR);
+  initializeMMIXCombinerPass(*PR);
 }
 
 MMIXTargetMachine::MMIXTargetMachine(const Target &T, const Triple &TT,

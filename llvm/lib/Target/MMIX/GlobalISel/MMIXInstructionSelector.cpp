@@ -16,6 +16,7 @@
 #include "MMIXSubtarget.h"
 #include "MMIXTargetMachine.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelectorImpl.h"
+#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 
 #define DEBUG_TYPE "mmix-isel"
 
@@ -32,6 +33,17 @@ public:
 
 private:
   bool selectImpl(MachineInstr &I, CodeGenCoverage &CoverageInfo) const;
+  /// @brief select G_CONSTANT to sequence of SETx.
+  /// This function convert
+  /// ```G_CONSTANT i64 X``` ->
+  /// %0:gpr = IMPLICIT_DEF
+  /// %1:gpr = SETH %0, X[48..63]
+  /// %2:gpr = SETMH %1, X[32...47]
+  /// %3:gpr = SETML %2, X[16...31]
+  /// %4:gpr = SETL %3, X[0...15]
+  /// @param I
+  /// @return true if succcess
+  bool selectConstant(MachineInstr &I);
 
   const MMIXSubtarget &STI;
   const MMIXInstrInfo &TII;
@@ -73,19 +85,65 @@ MMIXInstructionSelector::MMIXInstructionSelector(
 {
 }
 
-bool MMIXInstructionSelector::select(MachineInstr &I) {
-  // Ignore COPY's: the register allocator will handle them.
-  if (I.getOpcode() == TargetOpcode::COPY) {
-    return true;
+bool MMIXInstructionSelector::selectConstant(MachineInstr &I) {
+  auto Op = I.getOperand(1);
+  std::uint64_t Value = 0;
+  if (Op.isImm()) {
+    Value = Op.getImm();
+  } else {
+    Value = Op.getCImm()->getZExtValue();
   }
-  if (selectImpl(I, *CoverageInfo)) {
-    return true;
+  MachineIRBuilder MIB(I);
+  MachineBasicBlock &MBB = *I.getParent();
+  MachineFunction &MF = *MBB.getParent();
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+
+  auto ImplicitReg = MRI.createVirtualRegister(&MMIX::GPRRegClass);
+  BuildMI(MBB, I, I.getDebugLoc(), TII.get(MMIX::IMPLICIT_DEF))
+             .addDef(ImplicitReg);
+
+  unsigned Ops[] = {MMIX::SETH, MMIX::SETMH, MMIX::SETML, MMIX::SETL};
+  Register Regs[] = {ImplicitReg, MRI.createVirtualRegister(&MMIX::GPRRegClass),
+                     MRI.createVirtualRegister(&MMIX::GPRRegClass),
+                     MRI.createVirtualRegister(&MMIX::GPRRegClass),
+                     I.getOperand(0).getReg()};
+  for (int i = 0; i != 4; ++i) {
+    std::uint64_t V = (Value >> (16 * (3 - i))) & 0xFFFF;
+    MIB.buildInstr(Ops[i], {Regs[i + 1]}, {Regs[i], V});
   }
   return true;
 }
 
-InstructionSelector *::llvm::createMMIXInstructionSelector(const MMIXTargetMachine &TM,
-                                                   MMIXSubtarget &STI,
-                                                   MMIXRegisterBankInfo &RBI) {
+bool MMIXInstructionSelector::select(MachineInstr &I) {
+  // Ignore COPY's: the register allocator will handle them.
+  if (!I.isPreISelOpcode()) {
+    return true;
+  }
+
+  // From SelectionDAG
+  if (selectImpl(I, *CoverageInfo)) {
+    return true;
+  }
+
+  using namespace MMIX;
+  MachineIRBuilder MIB(I);
+
+  switch (I.getOpcode()) {
+  case G_CONSTANT: {
+    if (!selectConstant(I)) {
+      return false;
+    }
+    I.eraseFromParent();
+    return true;
+  }
+  default:
+    return true;
+  }
+  return false;
+}
+
+InstructionSelector * ::llvm::createMMIXInstructionSelector(
+    const MMIXTargetMachine &TM, MMIXSubtarget &STI,
+    MMIXRegisterBankInfo &RBI) {
   return new MMIXInstructionSelector(TM, STI, RBI);
 }

@@ -25,36 +25,36 @@ namespace llvm {
 #define PRINT_ALIAS_INSTR
 #include "MMIXGenAsmWriter.inc"
 
-
-MMIXInstPrinter::MMIXInstPrinter(const MCAsmInfo &MAI,
-                                       const MCInstrInfo &MII,
-                                       const MCRegisterInfo &MRI)
+MMIXInstPrinter::MMIXInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
+                                 const MCRegisterInfo &MRI)
     : MCInstPrinter(MAI, MII, MRI) {}
 
-void MMIXInstPrinter::printOperand(const MCInst *MI, unsigned OpNo, 
-                    raw_ostream &O) {
+void MMIXInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
+                                   raw_ostream &O) {
   const auto Operand = MI->getOperand(OpNo);
-  if(Operand.isReg()) {
-    O << getRegisterName(Operand.getReg());
+  if (Operand.isReg()) {
+    O << '$' << getRegisterName(Operand.getReg());
   }
-  if(Operand.isImm()) {
+  if (Operand.isImm()) {
     O << Operand.getImm();
   }
-  if(Operand.isExpr()) {
+  if (Operand.isExpr()) {
     O << Operand.getExpr();
   }
 }
 
-void MMIXInstPrinter::printInst(const MCInst *MI, uint64_t Address, StringRef Annot,
-                         const MCSubtargetInfo &STI, raw_ostream &OS) {
-  printInstruction(MI, Address, OS);
+void MMIXInstPrinter::printInst(const MCInst *MI, uint64_t Address,
+                                StringRef Annot, const MCSubtargetInfo &STI,
+                                raw_ostream &OS) {
+  if (!printAliasInstr(MI, Address, OS)) {
+    printInstruction(MI, Address, OS);
+  }
 }
 
-MCInstPrinter *createMMIXMCInstPrinter(const Triple &T,
-                                             unsigned SyntaxVariant,
-                                             const MCAsmInfo &MAI,
-                                             const MCInstrInfo &MII,
-                                             const MCRegisterInfo &MRI) {
+MCInstPrinter *createMMIXMCInstPrinter(const Triple &T, unsigned SyntaxVariant,
+                                       const MCAsmInfo &MAI,
+                                       const MCInstrInfo &MII,
+                                       const MCRegisterInfo &MRI) {
   if (SyntaxVariant == 0) {
     return new MMIXInstPrinter(MAI, MII, MRI);
   }
@@ -62,6 +62,4 @@ MCInstPrinter *createMMIXMCInstPrinter(const Triple &T,
   return nullptr;
 }
 
-}
-
-
+} // namespace llvm

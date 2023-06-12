@@ -13,18 +13,28 @@
 #include "MMIXInstrInfo.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/ErrorHandling.h"
 
-namespace llvm {
+#define DEBUG_TYPE "mmix-instrinfo"
 
-MMIXInstrInfo::MMIXInstrInfo(MMIXSubtarget &STI): STI(STI) {}
+using namespace llvm;
 
-} // namespace llvm
+MMIXInstrInfo::MMIXInstrInfo(MMIXSubtarget &STI) : STI(STI) {}
+
+void MMIXInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+                                MachineBasicBlock::iterator MI,
+                                const DebugLoc &DL, MCRegister DestReg,
+                                MCRegister SrcReg, bool KillSrc) const {
+  BuildMI(MBB, MI, DL, get(MMIX::ORI), DestReg)
+      .addReg(SrcReg, getKillRegState(KillSrc))
+      .addImm(0);
+}
 
 #define GET_INSTRINFO_CTOR_DTOR
 #include "MMIXGenInstrInfo.inc"

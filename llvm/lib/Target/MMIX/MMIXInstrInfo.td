@@ -131,7 +131,10 @@ class PosList<int i> {
                       true: "");
 }
 foreach i = {0...3} in {
-def SET#PosList<i>.ret: Inst_r_i16<!add(0xE0, i), "SET"#PosList<i>.ret>;
+def SET#PosList<i>.ret: Inst_r_i16<!add(0xE0, i), "SET"#PosList<i>.ret> {
+  let InOperandList = (ins GPR:$X0, ui16imm:$YZ);
+  let Constraints = "$X = $X0";
+}
 def INC#PosList<i>.ret: Inst_r_i16<!add(0xE4, i), "INC"#PosList<i>.ret>;
 def OR#PosList<i>.ret: Inst_r_i16<!add(0xE8, i), "OR"#PosList<i>.ret>;
 def ANDN#PosList<i>.ret: Inst_r_i16<!add(0xEC, i), "ANDN"#PosList<i>.ret>;
