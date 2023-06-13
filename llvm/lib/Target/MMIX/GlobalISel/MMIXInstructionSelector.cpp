@@ -130,8 +130,8 @@ bool MMIXInstructionSelector::selectG_ADD(MachineInstr &I) const {
   MachineFunction &MF = *MBB.getParent();
   MachineRegisterInfo &MRI = MF.getRegInfo();
 
-  std::uint8_t ImmVal = 0;
-  if (mi_match(I, MRI, m_GAdd(m_Reg(), m_UI8Cst(ImmVal)))) {
+  if (std::uint8_t ImmVal;
+      mi_match(I, MRI, m_GAdd(m_Reg(), m_UI8Cst(ImmVal)))) {
     // select ADDI
     auto Instr = MIB.buildInstr(MMIX::ADDI, {I.getOperand(0)},
                                 {I.getOperand(1), std::int64_t(ImmVal)});
