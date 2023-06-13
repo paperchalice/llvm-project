@@ -316,5 +316,4 @@ def UNSAVE: Inst_X__Z<0xFB, (outs), (ins ui8imm:$X, GPR:$Z), "UNSAVE">;
 // Instruction Patterns
 //===----------------------------------------------------------------------===//
 def :Pat<(sextloadi8 (add GPR:$Y, GPR:$Z)), (LDB GPR:$Y, GPR:$Z)>;
-def :Pat<(add GPR:$Y, GPR:$Z), (ADD GPR:$Y, GPR:$Z)>;
 #endif

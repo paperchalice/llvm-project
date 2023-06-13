@@ -15,8 +15,8 @@
 #define LLVM_LIB_TARGET_MMIX_GLOBALISEL_MMIXINSTRUCTIONSELECTOR_H
 
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
+#include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/Support/Debug.h"
-
 namespace llvm {
 
 class MMIXSubtarget;
@@ -30,6 +30,39 @@ InstructionSelector *createMMIXInstructionSelector(const MMIXTargetMachine &TM,
                                                    MMIXSubtarget &STI,
                                                    MMIXRegisterBankInfo &RBI);
 
+namespace MIPatternMatch {
+
+template <>
+inline std::optional<std::uint8_t>
+matchConstant(Register Reg, const MachineRegisterInfo &MRI) {
+  auto Val = getIConstantVRegSExtVal(Reg, MRI);
+  if (Val && *Val <= UINT8_MAX) {
+    return Val;
+  } else {
+    return std::nullopt;
+  }
+}
+
+template <>
+inline std::optional<std::uint16_t>
+matchConstant(Register Reg, const MachineRegisterInfo &MRI) {
+  auto Val = getIConstantVRegSExtVal(Reg, MRI);
+  if (Val && *Val <= UINT16_MAX) {
+    return Val;
+  } else {
+    return std::nullopt;
+  }
+}
+
+inline ConstantMatch<std::uint8_t> m_UI8Cst(std::uint8_t &Cst) {
+  return ConstantMatch<std::uint8_t>(Cst);
+}
+
+inline ConstantMatch<std::uint16_t> m_UI16Cst(std::uint16_t &Cst) {
+  return ConstantMatch<std::uint16_t>(Cst);
+}
+
+} // namespace MIPatternMatch
 } // namespace llvm
 
 #endif // LLVM_LIB_TARGET_MMIX_GLOBALISEL_MMIXINSTRUCTIONSELECTOR_H
