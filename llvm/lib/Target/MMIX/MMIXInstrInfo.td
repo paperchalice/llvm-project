@@ -56,8 +56,9 @@ multiclass LoadInst<int idx> {
 
 let mayLoad = false, mayStore = true in
 multiclass StoreInst<int idx> {
-  defm ""#SuffixList<idx>.ret: Inst_r_rri8<!add(0xA0, !mul(idx, 4)), "ST"#SuffixList<idx>.ret>;
-  defm ""#SuffixList<idx>.ret#"U": Inst_r_rri8<!add(0xA2, !mul(idx, 4)), "ST"#SuffixList<idx>.ret#"U">;
+  let Defs = [rA] in
+  defm ""#SuffixList<idx>.ret: Inst_rrri8<!add(0xA0, !mul(idx, 4)), "ST"#SuffixList<idx>.ret>;
+  defm ""#SuffixList<idx>.ret#"U": Inst_rrri8<!add(0xA2, !mul(idx, 4)), "ST"#SuffixList<idx>.ret#"U">;
 }
 
 foreach s = {0...3} in {
@@ -65,7 +66,7 @@ foreach s = {0...3} in {
   defm ST: StoreInst<s>;
 }
 let mayLoad = true, mayStore = false in
-defm LDHT: Inst_rrri8<0x92, "LDHT">;
+defm LDHT: Inst_r_rri8<0x92, "LDHT">;
 
 let mayLoad = false, mayStore = true in
 def STCO: Inst_X_Y_Z<0xB4, (outs), (ins ui8imm:$X, GPR:$Y, GPR:$Z), "STCO">;
@@ -77,6 +78,7 @@ defm STHT: Inst_rrri8<0xB2, "STHT">;
 //
 
 multiclass InstVariant_U<bits<8> opcode, string opstr> {
+  let Defs = [rA] in
   defm "": Inst_r_rri8<opcode, opstr>;
   defm U: Inst_r_rri8<!add(opcode, 2), opstr#"U">;
 }
@@ -315,5 +317,63 @@ def UNSAVE: Inst_X__Z<0xFB, (outs), (ins ui8imm:$X, GPR:$Z), "UNSAVE">;
 //===----------------------------------------------------------------------===//
 // Instruction Patterns
 //===----------------------------------------------------------------------===//
+
 def :Pat<(sextloadi8 (add GPR:$Y, GPR:$Z)), (LDB GPR:$Y, GPR:$Z)>;
+def :Pat<(sextloadi8 (add GPR:$Y, ui8imm:$Z)), (LDBI GPR:$Y, GPR:$Z)>;
+def :Pat<(zextloadi8 (add GPR:$Y, GPR:$Z)), (LDBU GPR:$Y, GPR:$Z)>;
+def :Pat<(zextloadi8 (add GPR:$Y, ui8imm:$Z)), (LDBUI GPR:$Y, GPR:$Z)>;
+
+def :Pat<(sextloadi16 (add GPR:$Y, GPR:$Z)), (LDW GPR:$Y, GPR:$Z)>;
+def :Pat<(sextloadi16 (add GPR:$Y, ui8imm:$Z)), (LDWI GPR:$Y, GPR:$Z)>;
+def :Pat<(zextloadi16 (add GPR:$Y, GPR:$Z)), (LDWU GPR:$Y, GPR:$Z)>;
+def :Pat<(zextloadi16 (add GPR:$Y, ui8imm:$Z)), (LDWUI GPR:$Y, GPR:$Z)>;
+
+def :Pat<(sextloadi32 (add GPR:$Y, GPR:$Z)), (LDT GPR:$Y, GPR:$Z)>;
+def :Pat<(sextloadi32 (add GPR:$Y, ui8imm:$Z)), (LDTI GPR:$Y, GPR:$Z)>;
+def :Pat<(zextloadi32 (add GPR:$Y, GPR:$Z)), (LDTU GPR:$Y, GPR:$Z)>;
+def :Pat<(zextloadi32 (add GPR:$Y, ui8imm:$Z)), (LDTUI GPR:$Y, GPR:$Z)>;
+
+def :Pat<(sextloadi64 (add GPR:$Y, GPR:$Z)), (LDO GPR:$Y, GPR:$Z)>;
+def :Pat<(sextloadi64 (add GPR:$Y, ui8imm:$Z)), (LDOI GPR:$Y, GPR:$Z)>;
+def :Pat<(zextloadi64 (add GPR:$Y, GPR:$Z)), (LDOU GPR:$Y, GPR:$Z)>;
+def :Pat<(zextloadi64 (add GPR:$Y, ui8imm:$Z)), (LDOI GPR:$Y, GPR:$Z)>;
+
+def :Pat<(shl (sextloadi32 (add GPR:$Y, GPR:$Z)), 32), (LDHT GPR:$Y, GPR:$Z)>;
+def :Pat<(shl (sextloadi32 (add GPR:$Y, ui8imm:$Z)), 32), (LDHTI GPR:$Y, GPR:$Z)>;
+
+
+def :Pat<(truncstorei8 GPR:$X, (add GPR:$Y, GPR:$Z)), (STB GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei8 GPR:$X, (add GPR:$Y, ui8imm:$Z)), (STBI GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei8 GPR:$X, (add GPR:$Y, GPR:$Z)), (STBU GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei8 GPR:$X, (add GPR:$Y, ui8imm:$Z)), (STBUI GPR:$X, GPR:$Y, GPR:$Z)>;
+
+def :Pat<(truncstorei16 GPR:$X, (add GPR:$Y, GPR:$Z)), (STW GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei16 GPR:$X, (add GPR:$Y, ui8imm:$Z)), (STWI GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei16 GPR:$X, (add GPR:$Y, GPR:$Z)), (STWU GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei16 GPR:$X, (add GPR:$Y, ui8imm:$Z)), (STWUI GPR:$X, GPR:$Y, GPR:$Z)>;
+
+def :Pat<(truncstorei32 GPR:$X, (add GPR:$Y, GPR:$Z)), (STT GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei32 GPR:$X, (add GPR:$Y, ui8imm:$Z)), (STTI GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei32 GPR:$X, (add GPR:$Y, GPR:$Z)), (STTU GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei32 GPR:$X, (add GPR:$Y, ui8imm:$Z)), (STTUI GPR:$X, GPR:$Y, GPR:$Z)>;
+
+def :Pat<(truncstorei64 GPR:$X, (add GPR:$Y, GPR:$Z)), (STO GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei64 GPR:$X, (add GPR:$Y, ui8imm:$Z)), (STOI GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei64 GPR:$X, (add GPR:$Y, GPR:$Z)), (STOU GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei64 GPR:$X, (add GPR:$Y, ui8imm:$Z)), (STOI GPR:$X, GPR:$Y, GPR:$Z)>;
+
+def :Pat<(truncstorei64 ui8imm:$X, (add GPR:$Y, GPR:$Z)), (STCO ui8imm:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei64 ui8imm:$X, (add GPR:$Y, ui8imm:$Z)), (STCO ui8imm:$X, GPR:$Y, ui8imm:$Z)>;
+
+def :Pat<(truncstorei32 (srl GPR:$X, 32), (add GPR:$Y, GPR:$Z)), (STHT GPR:$X, GPR:$Y, GPR:$Z)>;
+def :Pat<(truncstorei32 (srl GPR:$X, 32), (add GPR:$Y, ui8imm:$Z)), (STHT GPR:$X, GPR:$Y, ui8imm:$Z)>;
+
+
+//
+def :Pat<(add GPR:$Y, GPR:$Z), (ADD GPR:$Y, GPR:$Z)>;
+def :Pat<(add GPR:$Y, ui8imm:$Z), (ADDI GPR:$Y, ui8imm:$Z)>;
+def :Pat<(add (mul GPR:$Y, 2), GPR:$Z), (ADD2U GPR:$Y, GPR:$Z)>;
+def :Pat<(add (mul GPR:$Y, 4), GPR:$Z), (ADD4U GPR:$Y, GPR:$Z)>;
+def :Pat<(add (mul GPR:$Y, 8), GPR:$Z), (ADD8U GPR:$Y, GPR:$Z)>;
+def :Pat<(add (mul GPR:$Y, 16), GPR:$Z), (ADD16U GPR:$Y, GPR:$Z)>;
 #endif

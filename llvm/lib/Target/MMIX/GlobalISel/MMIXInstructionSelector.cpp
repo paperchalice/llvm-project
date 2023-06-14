@@ -125,6 +125,9 @@ bool MMIXInstructionSelector::selectG_CONSTANT(MachineInstr &I) const {
 
 bool MMIXInstructionSelector::selectG_ADD(MachineInstr &I) const {
   assert(I.getOpcode() == TargetOpcode::G_ADD && "not G_ADD");
+  LLVM_DEBUG(dbgs() << "selecting for instruction: ");
+  LLVM_DEBUG(I.dump());
+
   MachineIRBuilder MIB(I);
   MachineBasicBlock &MBB = *I.getParent();
   MachineFunction &MF = *MBB.getParent();
@@ -157,6 +160,9 @@ bool MMIXInstructionSelector::selectG_ADD(MachineInstr &I) const {
 }
 
 bool MMIXInstructionSelector::select(MachineInstr &I) {
+  LLVM_DEBUG(dbgs() << "select for instruction: ");
+  LLVM_DEBUG(I.dump());
+
   // Ignore COPY's: the register allocator will handle them.
   if (!I.isPreISelOpcode()) {
     return true;
