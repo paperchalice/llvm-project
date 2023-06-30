@@ -73,6 +73,7 @@ class UImmAsmOperand<int width>
   let DiagnosticType = !strconcat("Invalid", Name);
 }
 
+let OperandType = "OPERAND_IMMEDIATE" in {
 def ui8imm : Operand<i64>, ImmLeaf<i64, [{return isUInt<8>(Imm) && Imm > 0;}]> {
   let ParserMatchClass = UImmAsmOperand<8>;
   let DecoderMethod = "decodeUImmOperand<8>";
@@ -86,6 +87,7 @@ def ui16imm : Operand<i64>, ImmLeaf<i64, [{return isUInt<16>(Imm);}]> {
 def ui24imm : Operand<i64>, ImmLeaf<i64, [{return isUInt<24>(Imm);}]> {
   let ParserMatchClass = UImmAsmOperand<24>;
   let DecoderMethod = "decodeUImmOperand<24>";
+}
 }
 
 class Inst_X_Y_Z<bits<8> opcode, dag oops, dag iops, string opstr>: MMIXInst<opcode,
