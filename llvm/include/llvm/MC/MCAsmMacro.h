@@ -60,9 +60,6 @@ public:
     PercentHigher, PercentHighest, PercentLo, PercentNeg, PercentPcrel_Hi,
     PercentPcrel_Lo, PercentTlsgd, PercentTlsldm, PercentTprel_Hi,
     PercentTprel_Lo,
-
-    // MMIX '//' operator
-    SlashSlash,
   };
 
 private:
