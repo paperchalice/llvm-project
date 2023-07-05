@@ -143,6 +143,7 @@ MCTargetAsmParser *LLVMInitializeMMIXALTargetParser(
     const MCSubtargetInfo &STI, MCAsmParser &Parser, const MCInstrInfo &MII,
     const MCTargetOptions &Options, llvm::MMO::AsmSharedInfo &SI);
 }
+
 int main(int argc, char *argv[]) {
   InitLLVM X(argc, argv);
   cl::ParseCommandLineOptions(argc, argv);
@@ -257,5 +258,5 @@ int main(int argc, char *argv[]) {
   if (Res == 0) {
     Out->keep();
   }
-  return Res;
+  return ParserPtr->getErrorCount();
 }

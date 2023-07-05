@@ -32,6 +32,7 @@ private:
   bool StrictMode;
   raw_ostream &Lst;
 
+  std::size_t ErrorCount = 0;
   bool SpecialMode = false;
   bool LastIsESPEC = false;
   std::string CurPrefix = ":";
@@ -174,6 +175,7 @@ public:
   bool isParsingMSInlineAsm() override { return false; }
 
   bool Run(bool NoInitialTextSection, bool NoFinalize = false) override;
+  std::size_t getErrorCount() const;
 
   // Notification
   void Note(SMLoc L, const Twine &Msg, SMRange Range = std::nullopt) override;

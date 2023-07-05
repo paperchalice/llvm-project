@@ -277,6 +277,8 @@ defm SYNCD: Inst_i8rri8<0xB8, "SYNCD">;
 defm SYNCID: Inst_i8rri8<0xBC, "SYNCID">;
 }
 
+defm PREGO: Inst_i8rri8<0x9C, "PREGO">;
+
 //
 // MMIX is designed to work not only on a single processor but also in situations where several processors
 // share a common memory
@@ -294,12 +296,24 @@ def TRAP: Inst_iii<0x00, "TRAP">;
 let isAsmParserOnly = true in {
 def TRAP_ii: Inst_X_YZ<0x00, (outs), (ins ui8imm:$X, ui16imm:$YZ), "TRAP">;
 def TRAP_i: Inst_XYZ<0x00, (outs), (ins ui24imm:$XYZ), "TRAP">;
+def TRAP_iri: Inst_X_Y_Z<0x00, (outs), (ins ui8imm:$X, GPR:$Y, ui8imm:$Z), "TRAP">;
 }
 def : InstAlias<"TRAP", (TRAP 0, 0, 0)>;
-def RESUME: Inst_XYZ<0xF9, (outs), (ins ui8imm:$XYZ), "RESUME"> {
+def : InstAlias<"TRAP $X, $Y", (TRAP_iri ui8imm:$X, GPR:$Y, 0)>;
+def RESUME: Inst_XYZ<0xF9, (outs), (ins ui24imm:$XYZ), "RESUME"> {
   let Inst{24...8} = 0;
 }
+def : InstAlias<"RESUME", (RESUME 0)>;
 
+def TRIP: Inst_iii <0xFF, "TRIP">;
+let isAsmParserOnly = true in {
+def TRIP_ii: Inst_X_YZ<0xFF, (outs), (ins ui8imm:$X, ui16imm:$YZ), "TRIP">;
+def TRIP_i: Inst_XYZ<0xFF, (outs), (ins ui24imm:$XYZ), "TRIP">;
+def TRIP_iri: Inst_X_Y_Z<0xFF, (outs), (ins ui8imm:$X, GPR:$Y, ui8imm:$Z), "TRIP">;
+def TRIP_irr: Inst_X_Y_Z<0xFF, (outs), (ins ui8imm:$X, GPR:$Y, GPR:$Z), "TRIP">;
+}
+def : InstAlias<"TRIP", (TRIP 0, 0, 0)>;
+def : InstAlias<"TRIP $X, $Y", (TRIP_iri ui8imm:$X, GPR:$Y, 0)>;
 //
 // Special registers
 //
@@ -312,7 +326,9 @@ def GET_i8: Inst_X__Z<0xFE, (outs GPR:$X), (ins i8imm:$Z), "GET"> {
 }
 
 def SAVE: Inst_X__Z<0xFA, (outs), (ins GPR:$X, ui8imm:$Z), "SAVE">;
+def : InstAlias<"SAVE $X", (SAVE GPR:$X, 0)>;
 def UNSAVE: Inst_X__Z<0xFB, (outs), (ins ui8imm:$X, GPR:$Z), "UNSAVE">;
+def : InstAlias<"UNSAVE $Y", (UNSAVE 0, GPR:$Y)>;
 
 //===----------------------------------------------------------------------===//
 // Instruction Patterns

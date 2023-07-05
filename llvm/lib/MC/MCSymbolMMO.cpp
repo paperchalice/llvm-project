@@ -23,15 +23,15 @@ std::uint64_t MCSymbolMMO::getEquivalent() const { return Equivalent; }
 namespace MMIX {
 bool IsValidExpr(const MCExpr *Expr, bool AllowFutureReference) {
   int64_t Res;
-  bool HasErr = Expr->evaluateAsAbsolute(Res);
-  if (HasErr) {
+  bool Success = Expr->evaluateAsAbsolute(Res);
+  if (Success) {
+    return true;
+  } else {
     if (AllowFutureReference && isa<MCSymbolRefExpr>(Expr)) {
       return true;
     } else {
       return false;
     }
-  } else {
-    return true;
   }
 }
 } // namespace MMIX

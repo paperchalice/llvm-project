@@ -485,7 +485,7 @@ AsmToken MMIXALLexer::LexToken() {
   case '/':
     if (peekNextChar() == '/') {
       getNextChar();
-      return AsmToken(AsmToken::SlashSlash, StringRef(TokStart, 2));
+      return AsmToken(AsmToken::Slash, StringRef(TokStart, 2));
     } else {
       return AsmToken(AsmToken::Slash, StringRef(TokStart, 1));
     }
@@ -493,6 +493,14 @@ AsmToken MMIXALLexer::LexToken() {
     if (peekNextChar() == '<') {
       CurPtr++;
       return AsmToken(AsmToken::LessLess, StringRef(TokStart, 2));
+    } else {
+      return AsmToken(AsmToken::Error, StringRef());
+    }
+  }
+  case '>': {
+    if (peekNextChar() == '>') {
+      CurPtr++;
+      return AsmToken(AsmToken::GreaterGreater, StringRef(TokStart, 2));
     } else {
       return AsmToken(AsmToken::Error, StringRef());
     }

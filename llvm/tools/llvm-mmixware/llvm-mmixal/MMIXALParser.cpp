@@ -5,6 +5,9 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbolMMO.h"
+#include "llvm/Support/FormatVariadic.h"
+
+#define DEBUG_TYPE "mmixal"
 
 namespace llvm {
 
@@ -278,15 +281,20 @@ bool MMIXALParser::parsePseudoOperationGREG(StringRef Label) {
     Error(getLexer().getLoc(), "cannot use `GREG' in special mode!");
     return true;
   }
-  const MCExpr *Res;
-  SMLoc EndLoc;
-  if (parseExpression(Res, EndLoc))
-    return true;
-  int64_t RegVal;
-  if (!Res->evaluateAsAbsolute(RegVal))
-    return true;
 
-  SharedInfo.GregList.emplace_front(static_cast<uint64_t>(RegVal));
+  if (getTok().isNot(AsmToken::EndOfStatement)) {
+    const MCExpr *Res;
+    SMLoc EndLoc;
+    if (parseExpression(Res, EndLoc))
+      return true;
+    int64_t RegVal;
+    if (!Res->evaluateAsAbsolute(RegVal))
+      return true;
+    SharedInfo.GregList.emplace_front(static_cast<uint64_t>(RegVal));
+  } else {
+    SharedInfo.GregList.emplace_front(0);
+  }
+
   if (!Label.empty()) {
     auto Symbol = getContext().getOrCreateSymbol(getQualifiedName(Label));
     auto MMOSymbol = cast<MCSymbolMMO>(Symbol);
@@ -451,6 +459,8 @@ bool MMIXALParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
     }
     MCBinaryExpr::Opcode Kind = MCBinaryExpr::Add;
     auto TokenKind = Lexer.getKind();
+    auto IsSlashSlash =
+        getTok().is(AsmToken::Slash) && getTok().getString().size() == 2;
     unsigned TokPrec = getBinOpPrecedence(TokenKind, Kind);
     SMLoc BinOpLoc = getTok().getLoc();
 
@@ -463,8 +473,11 @@ bool MMIXALParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
 
     // Eat the next primary expression.
     const MCExpr *RHS;
-    if (parsePrimaryExpr(RHS, EndLoc, nullptr))
+    if (parsePrimaryExpr(RHS, EndLoc, nullptr)) {
+      const char C = *BinOpLoc.getPointer();
+      Error(BinOpLoc, formatv("syntax error after character `{0}'!", C));
       return true;
+    }
 
     // If BinOp binds less tightly with RHS than the operator after RHS,
     // let the pending operator take RHS as its LHS.
@@ -474,7 +487,7 @@ bool MMIXALParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
       return true;
 
     // Merge LHS and RHS according to operator.
-    if (TokenKind != AsmToken::SlashSlash)
+    if (!IsSlashSlash)
       Res = MCBinaryExpr::create(Kind, Res, RHS, getContext(), BinOpLoc);
     else {
       auto LHS = MCBinaryExpr::createShl(
@@ -541,7 +554,6 @@ unsigned MMIXALParser::getBinOpPrecedence(AsmToken::TokenKind K,
     Kind = MCBinaryExpr::Mul;
     return strong_prec;
   case AsmToken::Slash:
-  case AsmToken::SlashSlash:
     Kind = MCBinaryExpr::Div;
     return strong_prec;
   case AsmToken::Percent:
@@ -600,7 +612,8 @@ bool MMIXALParser::parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc,
     }
 
     assert(Symbol && "Invalid symbol!");
-    Res = MCSymbolRefExpr::create(Symbol, getContext());
+    Res = MCSymbolRefExpr::create(Symbol, MCSymbolRefExpr::VK_None,
+                                  getContext(), EndLoc);
     Lex();
     return false;
   }
@@ -731,6 +744,7 @@ bool MMIXALParser::parseStatement() {
     if (Kind == IdentifierKind::LocalLabelHere) {
       unsigned Val;
       if (Label.drop_back().getAsInteger<unsigned>(10, Val)) {
+        Error(CurTok.getLoc(), "improper local label `12C'!");
         return true;
       }
       LabelSymbol = getContext().createDirectionalLocalSymbol(Val);
@@ -744,6 +758,7 @@ bool MMIXALParser::parseStatement() {
       }
     }
     auto MMOSymbol = cast<MCSymbolMMO>(LabelSymbol);
+    getContext().getSymbols();
 
     // may modify in future
     MMOSymbol->setVariableValue(
@@ -755,11 +770,13 @@ bool MMIXALParser::parseStatement() {
   auto InstTok = getTok();
 
   if (InstTok.isNot(AsmToken::Identifier)) {
-    return Error(InstTok.getLoc(), "unknown opcode");
+    Warning(InstTok.getLoc(), "ilegal opcode");
+    return handleEndOfStatement();
   }
 
-  Lex(); // eat opcode and white space
-  Lexer.setSkipSpace(true); // expressions can contain space
+  Lex();                     // eat opcode and white space
+  Lexer.setSkipSpace(false); // expressions can't contain space
+
   // handle pseudo operation
   if (InstTok.getString() == "IS") {
     return parsePseudoOperationIS(Label);
@@ -839,12 +856,13 @@ bool MMIXALParser::parseStatement() {
   SmallVector<std::unique_ptr<MCParsedAsmOperand>, 4> Operands;
   if (getTargetParser().ParseInstruction(IInfo, InstTok.getString().lower(),
                                          InstTok, Operands)) {
+    handleEndOfStatement();
     return true;
   }
 
   uint64_t ErrorInfo;
   unsigned int Opcode;
-  getTargetParser().MatchAndEmitInstruction(
+  Failed = getTargetParser().MatchAndEmitInstruction(
       Operands[0]->getStartLoc(), Opcode, Operands, Out, ErrorInfo,
       getTargetParser().isParsingMSInlineAsm());
   SharedInfo.PC += 4;
@@ -897,8 +915,9 @@ bool MMIXALParser::Run(bool NoInitialTextSection, bool NoFinalize) {
   getTargetParser().onBeginOfFile();
 
   while (getTok().isNot(AsmToken::Eof)) {
-    parseStatement();
+    ErrorCount += parseStatement();
   }
+
   if (auto Rem = DataCounter % 4) {
     Out.emitZeros(4 - Rem);
   }
@@ -915,8 +934,15 @@ bool MMIXALParser::Run(bool NoInitialTextSection, bool NoFinalize) {
   emitPostamble();
 
   Out.finish(Lexer.getLoc());
-  return false;
+  if (ErrorCount == 1) {
+    errs() << "(One error were found.)\n";
+  } else if (ErrorCount > 1) {
+    errs() << '(' << ErrorCount << " error were found.)\n";
+  }
+  return ErrorCount;
 }
+
+std::size_t MMIXALParser::getErrorCount() const { return ErrorCount; }
 
 MMIXALParser::MMIXALParser(SourceMgr &SM, MCContext &Ctx, MCStreamer &Out,
                            const MMIXMCAsmInfoMMIXAL &MAI, raw_ostream &Lst)

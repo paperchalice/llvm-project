@@ -24,6 +24,7 @@
 #include "llvm/MC/MCSymbolMMO.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
@@ -32,8 +33,8 @@ using namespace MMIXAL;
 #define GET_REGISTER_MATCHER
 // #define GET_SUBTARGET_FEATURE_NAME
 #define GET_MATCHER_IMPLEMENTATION
-// #define GET_MNEMONIC_SPELL_CHECKER
-// #define GET_MNEMONIC_CHECKER
+#define GET_MNEMONIC_SPELL_CHECKER
+#define GET_MNEMONIC_CHECKER
 #include "MMIXALGenAsmMatcher.inc"
 
 MMIXALAsmParser::MMIXALAsmParser(const MCSubtargetInfo &STI,
@@ -81,31 +82,47 @@ bool MMIXALAsmParser::ParseInstruction(ParseInstructionInfo &Info,
                                        StringRef Name, SMLoc NameLoc,
                                        OperandVector &Operands) {
 
+  // check mnemonic
+  auto FBS = getAvailableFeatures();
+  auto VariantID = getParser().getAssemblerDialect();
+  if (!MMIXALCheckMnemonic(Name, FBS, VariantID)) {
+    const auto S = MMIXALMnemonicSpellCheck(Name, FBS, VariantID);
+    const auto Message =
+        formatv("{0} `{1}'{2}", "unknown operation code", Name, S);
+    Error(NameLoc, Message);
+    return true;
+  }
+
   // eat the mnemonic
   Operands.push_back(MMIXALOperand::createMnemonic(Name, NameLoc));
   auto CurTok = getTok();
 
-  while (getTok().isNot(AsmToken::EndOfStatement)) {
-    bool HasErr = parseOperand(Operands, Name);
-    if (HasErr) {
-      // regard as comment
-      while (getTok().isNot(AsmToken::EndOfStatement)) {
-        Lex();
+  if (getTok().isNot(AsmToken::EndOfStatement)) {
+    if (parseOperand(Operands, Name)) {
+      // if parser doesn't consume any token, it is start of a comment
+      if(CurTok.getLoc() == getTok().getLoc()) {
+        return false;
       }
+      return true;
     }
-
-    if (getTok().is(AsmToken::Comma)) {
-      // eat comma
-      Lex();
-    }
-
-    // reach end of instruction
-    if (getTok().is(AsmToken::Space)) {
-      while (getTok().isNot(AsmToken::EndOfStatement)) {
+    while (getTok().isNot(AsmToken::EndOfStatement) && getTok().isNot(AsmToken::Space)) {
+      auto StartLoc = getTok().getLoc();
+      if (getTok().is(AsmToken::Comma)) {
+        getLexer().setSkipSpace(true);
         Lex();
+        getLexer().setSkipSpace(false);
+      }
+      
+      if (getTok().is(AsmToken::EndOfStatement)) {
+        Error(StartLoc, "Syntax error after `,'!");
+        return true;
+      }
+      if (parseOperand(Operands, Name)) {
+        return true;
       }
     }
   }
+
   // don't eat end of statement for line counter
   return false;
 }
@@ -125,6 +142,7 @@ bool MMIXALAsmParser::parseOperand(OperandVector &Operands,
     return false;
   }
   if (ResTy == MatchOperand_ParseFail) {
+    Error(getTok().getLoc(), "Parse failed in TargetParser");
     return true;
   }
 
@@ -139,9 +157,16 @@ bool MMIXALAsmParser::parseOperand(OperandVector &Operands,
   int64_t Res;
   bool Success = Expr->evaluateAsAbsolute(Res);
   if (!Success) {
+    if (MMIXMCExpr::isGPRExpr(Expr)) {
+      SMRange R = {StartLoc, getTok().getLoc()};
+      Error(StartLoc, "can registerize pure values only!", R);
+    }
     return true;
   } else {
     if (MMIXMCExpr::isGPRExpr(Expr)) {
+      if (Res > 0x100) {
+        Warning(StartLoc, "register number too large, will be reduced mod 256");
+      }
       auto RegNo = toMCRegNum(Res);
       Operands.emplace_back(
           MMIXALOperand::createGPR(RegNo, StartLoc, getLexer().getLoc()));
@@ -174,6 +199,7 @@ MMIXALAsmParser::tryParseJumpDestOperand(OperandVector &Operands) {
     }
     return MatchOperand_Success;
   } else {
+    Error(StartLoc, "Invalid jump dest!");
     return MatchOperand_ParseFail;
   }
 }
@@ -185,6 +211,7 @@ MMIXALAsmParser::tryParseBranchDestOperand(OperandVector &Operands) {
   bool HasError = getParser().parseExpression(Expr);
   auto EndLoc = getTok().getLoc();
   if (HasError) {
+    Error(StartLoc, "parse fail!");
     return MatchOperand_ParseFail;
   }
 

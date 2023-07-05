@@ -57,9 +57,9 @@ unsigned MMIXALOperand::getReg() const {
   assert(Kind == KindTy::Register && "not register");
   return Content.Reg;
 }
-bool MMIXALOperand::isUImm8() const { return isUInt<8>(getImm()); }
-bool MMIXALOperand::isUImm16() const { return isUInt<16>(getImm()); }
-bool MMIXALOperand::isUImm24() const { return isUInt<24>(getImm()); }
+bool MMIXALOperand::isUImm8() const { return Kind == KindTy::Immediate && isUInt<8>(getImm()); }
+bool MMIXALOperand::isUImm16() const { return Kind == KindTy::Immediate && isUInt<16>(getImm()); }
+bool MMIXALOperand::isUImm24() const { return Kind == KindTy::Immediate && isUInt<24>(getImm()); }
 bool MMIXALOperand::isRoundMode() const {
   auto Expr = getExpr();
   int64_t Res;
