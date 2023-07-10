@@ -42,6 +42,186 @@ defvar SuffixString = "BWTO";
 class SuffixList<int i> {
   string ret = !substr(SuffixString, i, 1);
 }
+
+defvar rel_addr_bit = 0x1;
+defvar immed_bit = 0x2;
+defvar zar_bit = 0x4;
+defvar zr_bit = 0x8;
+defvar yar_bit = 0x10;
+defvar yr_bit = 0x20;
+defvar xar_bit = 0x40;
+defvar xr_bit = 0x80;
+defvar yzar_bit = 0x100;
+defvar yzr_bit = 0x200;
+defvar xyzar_bit = 0x400;
+defvar xyzr_bit = 0x800;
+defvar one_arg_bit = 0x1000;
+defvar two_arg_bit = 0x2000;
+defvar three_arg_bit = 0x4000;
+defvar many_arg_bit = 0x8000;
+defvar align_bits = 0x30000;
+defvar no_label_bit = 0x40000;
+defvar mem_bit = 0x80000;
+defvar spec_bit = 0x100000;
+
+
+class OpSpec<string name, bits<8> op_code, int spec> {
+  string Name = name;
+  bits<8> OpCode = op_code;
+  int SpecBits = spec;
+}
+
+defvar OpInitTable = [
+  OpSpec<"TRAP", 0x0, 0x27554>,
+  OpSpec<"FCMP", 0x1, 0x240A8>,
+  OpSpec<"FUN", 0x2, 0x240A8>,
+  OpSpec<"FEQL", 0x3, 0x240A8>,
+  OpSpec<"FADD", 0x4, 0x240A8>,
+  OpSpec<"FIX", 0x5, 0x26288>,
+  OpSpec<"FSUB", 0x6, 0x240A8>,
+  OpSpec<"FIXU", 0x7, 0x26288>,
+  OpSpec<"FLOT", 0x8, 0x26282>,
+  OpSpec<"FLOTU", 0xA, 0x26282>,
+  OpSpec<"SFLOT", 0xC, 0x26282>,
+  OpSpec<"SFLOTU", 0xE, 0x26282>,
+  OpSpec<"FMUL", 0x10, 0x240A8>,
+  OpSpec<"FCMPE", 0x11, 0x240A8>,
+  OpSpec<"FUNE", 0x12, 0x240A8>,
+  OpSpec<"FEQLE", 0x13, 0x240A8>,
+  OpSpec<"FDIV", 0x14, 0x240A8>,
+  OpSpec<"FSQRT", 0x15, 0x26288>,
+  OpSpec<"FREM", 0x16, 0x240A8>,
+  OpSpec<"FINT", 0x17, 0x26288>,
+  OpSpec<"MUL", 0x18, 0x240A2>,
+  OpSpec<"MULU", 0x1A, 0x240A2>,
+  OpSpec<"DIV", 0x1C, 0x240A2>,
+  OpSpec<"DIVU", 0x1E, 0x240A2>,
+  OpSpec<"ADD", 0x20, 0x240A2>,
+  OpSpec<"ADDU", 0x22, 0x240A2>,
+  OpSpec<"SUB", 0x24, 0x240A2>,
+  OpSpec<"SUBU", 0x26, 0x240A2>,
+  OpSpec<"2ADDU", 0x28, 0x240A2>,
+  OpSpec<"4ADDU", 0x2A, 0x240A2>,
+  OpSpec<"8ADDU", 0x2C, 0x240A2>,
+  OpSpec<"16ADDU", 0x2E, 0x240A2>,
+  OpSpec<"CMP", 0x30, 0x240A2>,
+  OpSpec<"CMPU", 0x32, 0x240A2>,
+  OpSpec<"NEG", 0x34, 0x26082>,
+  OpSpec<"NEGU", 0x36, 0x26082>,
+  OpSpec<"SL", 0x38, 0x240A2>,
+  OpSpec<"SLU", 0x3A, 0x240A2>,
+  OpSpec<"SR", 0x3C, 0x240A2>,
+  OpSpec<"SRU", 0x3E, 0x240A2>,
+  OpSpec<"BN", 0x40, 0x22081>,
+  OpSpec<"BZ", 0x42, 0x22081>,
+  OpSpec<"BP", 0x44, 0x22081>,
+  OpSpec<"BOD", 0x46, 0x22081>,
+  OpSpec<"BNN", 0x48, 0x22081>,
+  OpSpec<"BNZ", 0x4A, 0x22081>,
+  OpSpec<"BNP", 0x4C, 0x22081>,
+  OpSpec<"BEV", 0x4E, 0x22081>,
+  OpSpec<"PBN", 0x50, 0x22081>,
+  OpSpec<"PBZ", 0x52, 0x22081>,
+  OpSpec<"PBP", 0x54, 0x22081>,
+  OpSpec<"PBOD", 0x56, 0x22081>,
+  OpSpec<"PBNN", 0x58, 0x22081>,
+  OpSpec<"PBNZ", 0x5A, 0x22081>,
+  OpSpec<"PBNP", 0x5C, 0x22081>,
+  OpSpec<"PBEV", 0x5E, 0x22081>,
+  OpSpec<"CSN", 0x60, 0x240A2>,
+  OpSpec<"CSZ", 0x62, 0x240A2>,
+  OpSpec<"CSP", 0x64, 0x240A2>,
+  OpSpec<"CSOD", 0x66, 0x240A2>,
+  OpSpec<"CSNN", 0x68, 0x240A2>,
+  OpSpec<"CSNZ", 0x6A, 0x240A2>,
+  OpSpec<"CSNP", 0x6C, 0x240A2>,
+  OpSpec<"CSEV", 0x6E, 0x240A2>,
+  OpSpec<"ZSN", 0x70, 0x240A2>,
+  OpSpec<"ZSZ", 0x72, 0x240A2>,
+  OpSpec<"ZSP", 0x74, 0x240A2>,
+  OpSpec<"ZSOD", 0x76, 0x240A2>,
+  OpSpec<"ZSNN", 0x78, 0x240A2>,
+  OpSpec<"ZSNZ", 0x7A, 0x240A2>,
+  OpSpec<"ZSNP", 0x7C, 0x240A2>,
+  OpSpec<"ZSEV", 0x7E, 0x240A2>,
+  OpSpec<"LDB", 0x80, 0xA60A2>,
+  OpSpec<"LDBU", 0x82, 0xA60A2>,
+  OpSpec<"LDW", 0x84, 0xA60A2>,
+  OpSpec<"LDWU", 0x86, 0xA60A2>,
+  OpSpec<"LDT", 0x88, 0xA60A2>,
+  OpSpec<"LDTU", 0x8A, 0xA60A2>,
+  OpSpec<"LDO", 0x8C, 0xA60A2>,
+  OpSpec<"LDOU", 0x8E, 0xA60A2>,
+  OpSpec<"LDSF", 0x90, 0xA60A2>,
+  OpSpec<"LDHT", 0x92, 0xA60A2>,
+  OpSpec<"CSWAP", 0x94, 0xA60A2>,
+  OpSpec<"LDUNC", 0x96, 0xA60A2>,
+  OpSpec<"LDVTS", 0x98, 0xA60A2>,
+  OpSpec<"PRELD", 0x9A, 0xA6022>,
+  OpSpec<"PREGO", 0x9C, 0xA6022>,
+  OpSpec<"GO", 0x9E, 0xA60A2>,
+  OpSpec<"STB", 0xA0, 0xA60A2>,
+  OpSpec<"STBU", 0xA2, 0xA60A2>,
+  OpSpec<"STW", 0xA4, 0xA60A2>,
+  OpSpec<"STWU", 0xA6, 0xA60A2>,
+  OpSpec<"STT", 0xA8, 0xA60A2>,
+  OpSpec<"STTU", 0xAA, 0xA60A2>,
+  OpSpec<"STO", 0xAC, 0xA60A2>,
+  OpSpec<"STOU", 0xAE, 0xA60A2>,
+  OpSpec<"STSF", 0xB0, 0xA60A2>,
+  OpSpec<"STHT", 0xB2, 0xA60A2>,
+  OpSpec<"STCO", 0xB4, 0xA6022>,
+  OpSpec<"STUNC", 0xB6, 0xA60A2>,
+  OpSpec<"SYNCD", 0xB8, 0xA6022>,
+  OpSpec<"PREST", 0xBA, 0xA6022>,
+  OpSpec<"SYNCID", 0xBC, 0xA6022>,
+  OpSpec<"PUSHGO", 0xBE, 0xA6062>,
+  OpSpec<"OR", 0xC0, 0x240A2>,
+  OpSpec<"ORN", 0xC2, 0x240A2>,
+  OpSpec<"NOR", 0xC4, 0x240A2>,
+  OpSpec<"XOR", 0xC6, 0x240A2>,
+  OpSpec<"AND", 0xC8, 0x240A2>,
+  OpSpec<"ANDN", 0xCA, 0x240A2>,
+  OpSpec<"NAND", 0xCC, 0x240A2>,
+  OpSpec<"NXOR", 0xCE, 0x240A2>,
+  OpSpec<"BDIF", 0xD0, 0x240A2>,
+  OpSpec<"WDIF", 0xD2, 0x240A2>,
+  OpSpec<"TDIF", 0xD4, 0x240A2>,
+  OpSpec<"ODIF", 0xD6, 0x240A2>,
+  OpSpec<"MUX", 0xD8, 0x240A2>,
+  OpSpec<"SADD", 0xDA, 0x240A2>,
+  OpSpec<"MOR", 0xDC, 0x240A2>,
+  OpSpec<"MXOR", 0xDE, 0x240A2>,
+  OpSpec<"SETH", 0xE0, 0x22080>,
+  OpSpec<"SETMH", 0xE1, 0x22080>,
+  OpSpec<"SETML", 0xE2, 0x22080>,
+  OpSpec<"SETL", 0xE3, 0x22080>,
+  OpSpec<"INCH", 0xE4, 0x22080>,
+  OpSpec<"INCMH", 0xE5, 0x22080>,
+  OpSpec<"INCML", 0xE6, 0x22080>,
+  OpSpec<"INCL", 0xE7, 0x22080>,
+  OpSpec<"ORH", 0xE8, 0x22080>,
+  OpSpec<"ORMH", 0xE9, 0x22080>,
+  OpSpec<"ORML", 0xEA, 0x22080>,
+  OpSpec<"ORL", 0xEB, 0x22080>,
+  OpSpec<"ANDNH", 0xEC, 0x22080>,
+  OpSpec<"ANDNMH", 0xED, 0x22080>,
+  OpSpec<"ANDNML", 0xEE, 0x22080>,
+  OpSpec<"ANDNL", 0xEF, 0x22080>,
+  OpSpec<"JMP", 0xF0, 0x21001>,
+  OpSpec<"PUSHJ", 0xF2, 0x22041>,
+  OpSpec<"GETA", 0xF4, 0x22081>,
+  OpSpec<"PUT", 0xF6, 0x22002>,
+  OpSpec<"POP", 0xF8, 0x23000>,
+  OpSpec<"RESUME", 0xF9, 0x21000>,
+  OpSpec<"SAVE", 0xFA, 0x22080>,
+  OpSpec<"UNSAVE", 0xFB, 0x23A00>,
+  OpSpec<"SYNC", 0xFC, 0x21000>,
+  OpSpec<"SWYM", 0xFD, 0x27554>,
+  OpSpec<"GET", 0xFE, 0x22080>,
+  OpSpec<"TRIP", 0xFF, 0x27554>,
+];
+
 //
 // Loading and storing
 //
@@ -50,28 +230,75 @@ let mayLoad = true, mayStore = false in
 multiclass LoadInst<int idx> {
   defm ""#SuffixList<idx>.ret: Inst_r_rri8base<!add(0x80, !mul(idx, 4)), "LD"#SuffixList<idx>.ret>;
   defm ""#SuffixList<idx>.ret#"U": Inst_r_rri8base<!add(0x82, !mul(idx, 4)), "LD"#SuffixList<idx>.ret#"U">;
-  // def ""#SuffixList<idx>.ret#"_base": Inst_r_base<!add(0x81, !mul(idx, 4)), "LD"#SuffixList<idx>.ret>;
-  // def ""#SuffixList<idx>.ret#"U_base": Inst_r_base<!add(0x83, !mul(idx, 4)), "LD"#SuffixList<idx>.ret>;
 }
 
-let mayLoad = false, mayStore = true in
-multiclass StoreInst<int idx> {
-  let Defs = [rA] in
-  defm ""#SuffixList<idx>.ret: Inst_rrri8<!add(0xA0, !mul(idx, 4)), "ST"#SuffixList<idx>.ret>;
-  defm ""#SuffixList<idx>.ret#"U": Inst_rrri8<!add(0xA2, !mul(idx, 4)), "ST"#SuffixList<idx>.ret#"U">;
+let mayLoad = true, mayStore = false in {
+def LDB   : Inst_r_rr <0x80, "LDB">;
+def LDBI  : Inst_r_ri8<0x81, "LDB">;
+def LDBU  : Inst_r_rr <0x82, "LDBU">;
+def LDBUI : Inst_r_ri8<0x83, "LDBU">;
+
+def LDW   : Inst_r_rr <0x84, "LDW">;
+def LDWI  : Inst_r_ri8<0x85, "LDW">;
+def LDWU  : Inst_r_rr <0x86, "LDWU">;
+def LDWUI : Inst_r_ri8<0x87, "LDWU">;
+
+def LDT   : Inst_r_rr<0x88, "LDT">;
+def LDTI  : Inst_r_ri8<0x89, "LDT">;
+def LDTU  : Inst_r_rr<0x8A, "LDTU">;
+def LDTUI : Inst_r_ri8<0x8B, "LDTU">;
+
+def LDO   : Inst_r_rr<0x8C, "LDO">;
+def LDOI  : Inst_r_ri8<0x8D, "LDO">;
+def LDOU  : Inst_r_ri8<0x8E, "LDOU">;
+def LDOUI : Inst_r_ri8<0x8F, "LDOU">;
+
+def LDHT  : Inst_r_rr<0x92, "LDHT">;
+def LDHTI : Inst_r_ri8<0x93, "LDHT">;
+
+// LDA is alias
 }
 
-foreach s = {0...3} in {
-  defm LD: LoadInst<s>;
-  defm ST: StoreInst<s>;
+let mayLoad = false, mayStore = true in {
+let Defs = [rA] in {
+def STB : Inst_rrr<0xA0, "STB">;
+def STBI : Inst_rri8<0xA1, "STB">;
 }
-let mayLoad = true, mayStore = false in
-defm LDHT: Inst_r_rri8<0x92, "LDHT">;
+def STBU : Inst_rrr<0xA2, "STBU">;
+def STBUI : Inst_rri8<0xA3, "STBU">;
+
+let Defs = [rA] in {
+def STW : Inst_rrr<0xA4, "STW">;
+def STWI : Inst_rri8<0xA5, "STW">;
+}
+def STWU : Inst_rrr<0xA6, "STWU">;
+def STWUI : Inst_rri8<0xA7, "STWU">;
+
+let Defs = [rA] in {
+def STT : Inst_rrr<0xA8, "STT">;
+def STTI : Inst_rri8<0xA9, "STT">;
+}
+def STTU : Inst_rrr<0xAA, "STTU">;
+def STTUI : Inst_rri8<0xAB, "STTU">;
+
+def STO : Inst_rrr<0xAC, "STO">;
+def STOI : Inst_rri8<0xAD, "STO">;
+def STOU : Inst_rrr<0xAE, "STOU">;
+def STOUI : Inst_rri8<0xAF, "STOU">;
+
+def STHT : Inst_rrr<0xB2, "STHT">;
+def STHTI : Inst_rri8<0xB3, "STHT">;
+}
+
+/// another obscure definition
+// foreach s = {0...3} in {
+//   defm LD: LoadInst<s>;
+//   defm ST: StoreInst<s>;
+// }
 
 let mayLoad = false, mayStore = true in
 def STCO: Inst_X_Y_Z<0xB4, (outs), (ins ui8imm:$X, GPR:$Y, GPR:$Z), "STCO">;
 def STCOI: Inst_X_Y_Z<0xB5, (outs), (ins ui8imm:$X, GPR:$Y, ui8imm:$Z), "STCO">;
-defm STHT: Inst_rrri8<0xB2, "STHT">;
 
 //
 // Adding and subtracting
@@ -259,7 +486,7 @@ defm PUSHGO: Inst_rrri8<0xBE, "PUSHGO">;
 }
 let Uses = [rJ] in
 def POP: Inst_X_YZ<0xF8, (outs), (ins ui8imm:$X, ui16imm:$YZ), "POP">;
-
+def : InstAlias<"POP", (POP 0, 0)>;
 //
 // System considerations
 //
@@ -319,8 +546,8 @@ def : InstAlias<"TRIP $X, $Y", (TRIP_iri ui8imm:$X, GPR:$Y, 0)>;
 //
 
 def GET: Inst_X__Z<0xFE, (outs GPR:$X), (ins SPR:$Z), "GET">;
-def PUT: Inst_X__Z<0xF6, (outs), (ins SPR:$X, ui8imm:$Z), "PUT">;
-def PUTI: Inst_X__Z<0xF7, (outs), (ins SPR:$X, GPR:$Z), "PUT">;
+def PUT: Inst_X__Z<0xF6, (outs), (ins ui8imm:$X, ui8imm:$Z), "PUT">;
+def PUTI: Inst_X__Z<0xF7, (outs), (ins ui8imm:$X, GPR:$Z), "PUT">;
 def GET_i8: Inst_X__Z<0xFE, (outs GPR:$X), (ins i8imm:$Z), "GET"> {
   let isAsmParserOnly = true;
 }
