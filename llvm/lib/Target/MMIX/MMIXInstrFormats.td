@@ -149,6 +149,12 @@ class Inst_r_base<bits<8> opcode, string opstr>:
   let AsmMatchConverter = "resolveBaseAddress";
 }
 
+class Inst_rbase<bits<8> opcode, string opstr>:
+  Inst_X_YZ<opcode, (outs), (ins GPR:$X, base_address:$YZ), opstr> {
+  let isAsmParserOnly = true;
+  let AsmMatchConverter = "resolveBaseAddress";
+}
+
 multiclass Inst_r_rri8<bits<8> opcode, string opstr> {
   def "": Inst_r_rr<opcode, opstr>;
   def I: Inst_r_ri8<!or(opcode, 1), opstr>;
@@ -162,6 +168,11 @@ multiclass Inst_r_rri8base<bits<8> opcode, string opstr> {
 multiclass Inst_rrri8<bits<8> opcode, string opstr> {
   def "": Inst_rrr<opcode, opstr>;
   def I: Inst_rri8<!or(opcode, 1), opstr>;
+}
+
+multiclass Inst_rrri8base<bits<8> opcode, string opstr> {
+  defm "": Inst_rrri8<opcode, opstr>;
+  def I_base: Inst_rbase<!or(opcode, 1), opstr>;
 }
 
 class Inst_r_i16<bits<8> opcode, string opstr>:

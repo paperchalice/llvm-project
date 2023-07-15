@@ -60,6 +60,7 @@ bool MMIXALAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
 
   switch (MatchResult) {
   default:
+    Error(IDLoc, "Unable to match Instruction");
     return true;
   case Match_Success:
     Inst.setLoc(IDLoc);

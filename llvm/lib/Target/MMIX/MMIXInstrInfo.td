@@ -232,69 +232,24 @@ multiclass LoadInst<int idx> {
   defm ""#SuffixList<idx>.ret#"U": Inst_r_rri8base<!add(0x82, !mul(idx, 4)), "LD"#SuffixList<idx>.ret#"U">;
 }
 
-let mayLoad = true, mayStore = false in {
-def LDB   : Inst_r_rr <0x80, "LDB">;
-def LDBI  : Inst_r_ri8<0x81, "LDB">;
-def LDBU  : Inst_r_rr <0x82, "LDBU">;
-def LDBUI : Inst_r_ri8<0x83, "LDBU">;
-
-def LDW   : Inst_r_rr <0x84, "LDW">;
-def LDWI  : Inst_r_ri8<0x85, "LDW">;
-def LDWU  : Inst_r_rr <0x86, "LDWU">;
-def LDWUI : Inst_r_ri8<0x87, "LDWU">;
-
-def LDT   : Inst_r_rr<0x88, "LDT">;
-def LDTI  : Inst_r_ri8<0x89, "LDT">;
-def LDTU  : Inst_r_rr<0x8A, "LDTU">;
-def LDTUI : Inst_r_ri8<0x8B, "LDTU">;
-
-def LDO   : Inst_r_rr<0x8C, "LDO">;
-def LDOI  : Inst_r_ri8<0x8D, "LDO">;
-def LDOU  : Inst_r_ri8<0x8E, "LDOU">;
-def LDOUI : Inst_r_ri8<0x8F, "LDOU">;
-
-def LDHT  : Inst_r_rr<0x92, "LDHT">;
-def LDHTI : Inst_r_ri8<0x93, "LDHT">;
-
-// LDA is alias
-}
-
-let mayLoad = false, mayStore = true in {
-let Defs = [rA] in {
-def STB : Inst_rrr<0xA0, "STB">;
-def STBI : Inst_rri8<0xA1, "STB">;
-}
-def STBU : Inst_rrr<0xA2, "STBU">;
-def STBUI : Inst_rri8<0xA3, "STBU">;
-
-let Defs = [rA] in {
-def STW : Inst_rrr<0xA4, "STW">;
-def STWI : Inst_rri8<0xA5, "STW">;
-}
-def STWU : Inst_rrr<0xA6, "STWU">;
-def STWUI : Inst_rri8<0xA7, "STWU">;
-
-let Defs = [rA] in {
-def STT : Inst_rrr<0xA8, "STT">;
-def STTI : Inst_rri8<0xA9, "STT">;
-}
-def STTU : Inst_rrr<0xAA, "STTU">;
-def STTUI : Inst_rri8<0xAB, "STTU">;
-
-def STO : Inst_rrr<0xAC, "STO">;
-def STOI : Inst_rri8<0xAD, "STO">;
-def STOU : Inst_rrr<0xAE, "STOU">;
-def STOUI : Inst_rri8<0xAF, "STOU">;
-
-def STHT : Inst_rrr<0xB2, "STHT">;
-def STHTI : Inst_rri8<0xB3, "STHT">;
+let mayLoad = false, mayStore = true in
+multiclass StoreInst<int idx> {
+  let Defs = [rA] in
+  defm ""#SuffixList<idx>.ret: Inst_rrri8base<!add(0x80, !mul(idx, 4)), "ST"#SuffixList<idx>.ret>;
+  defm ""#SuffixList<idx>.ret#"U": Inst_rrri8base<!add(0x82, !mul(idx, 4)), "ST"#SuffixList<idx>.ret#"U">;
 }
 
 /// another obscure definition
-// foreach s = {0...3} in {
-//   defm LD: LoadInst<s>;
-//   defm ST: StoreInst<s>;
-// }
+foreach s = {0...3} in {
+  defm LD: LoadInst<s>;
+  defm ST: StoreInst<s>;
+}
+
+let mayLoad = true, mayStore = false in
+defm LDHT  : Inst_r_rri8<0x92, "LDHT">;
+
+let mayLoad = false, mayStore = true in
+defm STHT : Inst_rrri8<0xB2, "STHT">;
 
 let mayLoad = false, mayStore = true in
 def STCO: Inst_X_Y_Z<0xB4, (outs), (ins ui8imm:$X, GPR:$Y, GPR:$Z), "STCO">;
