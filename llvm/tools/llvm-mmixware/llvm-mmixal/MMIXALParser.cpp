@@ -868,7 +868,7 @@ bool MMIXALParser::parseStatement() {
   SharedInfo.PC += 4;
   SharedInfo.MMOLoc += 4;
   ++SharedInfo.MMOLine;
-  return handleEndOfStatement() && Failed;
+  return handleEndOfStatement() || Failed;
 }
 
 bool MMIXALParser::handleEndOfStatement() {
@@ -924,7 +924,7 @@ bool MMIXALParser::Run(bool NoInitialTextSection, bool NoFinalize) {
 
   if (auto MainSymbol =
           dyn_cast<MCSymbolMMO>(getContext().getOrCreateSymbol(":Main"))) {
-    SharedInfo.GregList[0] = MainSymbol->getEquivalent();
+    *SharedInfo.GregList.rbegin() = MainSymbol->getEquivalent();
   }
 
   getTargetParser().onEndOfFile();

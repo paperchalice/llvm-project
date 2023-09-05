@@ -151,7 +151,7 @@ MMIXLegalizerInfo::MMIXLegalizerInfo(const MMIXSubtarget &ST) {
   getActionDefinitionsBuilder(
       {G_PTRMASK, G_SMIN, G_SMAX, G_UMIN, G_UMAX, G_ABS, G_LROUND, G_LLROUND});
 
-  getActionDefinitionsBuilder({G_BR});
+  getActionDefinitionsBuilder(G_BR);
 
   getActionDefinitionsBuilder(G_BRJT).legalIf([=](const LegalityQuery &Query) {
     return Query.Types[0] == p0 && Query.Types[1] == s64;
@@ -176,7 +176,7 @@ MMIXLegalizerInfo::MMIXLegalizerInfo(const MMIXSubtarget &ST) {
 
   getActionDefinitionsBuilder(G_JUMP_TABLE).legalFor({{p0}, {s64}});
 
-  getActionDefinitionsBuilder({G_DYN_STACKALLOC});
+  getActionDefinitionsBuilder(G_DYN_STACKALLOC);
 
   getActionDefinitionsBuilder({
       G_STRICT_FADD,

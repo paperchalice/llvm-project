@@ -235,8 +235,8 @@ multiclass LoadInst<int idx> {
 let mayLoad = false, mayStore = true in
 multiclass StoreInst<int idx> {
   let Defs = [rA] in
-  defm ""#SuffixList<idx>.ret: Inst_rrri8base<!add(0x80, !mul(idx, 4)), "ST"#SuffixList<idx>.ret>;
-  defm ""#SuffixList<idx>.ret#"U": Inst_rrri8base<!add(0x82, !mul(idx, 4)), "ST"#SuffixList<idx>.ret#"U">;
+  defm ""#SuffixList<idx>.ret: Inst_rrri8base<!add(0xA0, !mul(idx, 4)), "ST"#SuffixList<idx>.ret>;
+  defm ""#SuffixList<idx>.ret#"U": Inst_rrri8base<!add(0xA2, !mul(idx, 4)), "ST"#SuffixList<idx>.ret#"U">;
 }
 
 /// another obscure definition
@@ -246,14 +246,17 @@ foreach s = {0...3} in {
 }
 
 let mayLoad = true, mayStore = false in
-defm LDHT  : Inst_r_rri8<0x92, "LDHT">;
+defm LDHT  : Inst_r_rri8base<0x92, "LDHT">;
 
 let mayLoad = false, mayStore = true in
-defm STHT : Inst_rrri8<0xB2, "STHT">;
+defm STHT : Inst_rrri8base<0xB2, "STHT">;
 
 let mayLoad = false, mayStore = true in
 def STCO: Inst_X_Y_Z<0xB4, (outs), (ins ui8imm:$X, GPR:$Y, GPR:$Z), "STCO">;
 def STCOI: Inst_X_Y_Z<0xB5, (outs), (ins ui8imm:$X, GPR:$Y, ui8imm:$Z), "STCO">;
+let isAsmParserOnly = true, AsmMatchConverter = "resolveBaseAddress" in {
+  def STCO_base : Inst_X_YZ<0xB4, (outs), (ins ui8imm:$X, base_address:$YZ), "STCO">;
+}
 
 //
 // Adding and subtracting
@@ -274,6 +277,8 @@ foreach i = [2, 4, 8, 16] in {
 def LDA: MnemonicAlias<"LDA", "ADDU">;
 defm SUB: InstVariant_U<0x24, "SUB">;
 defm NEG: InstVariant_U<0x34, "NEG">;
+def NEG_base : Inst_r_base<0x34, "NEG">;
+def NEGU_base : Inst_r_base<0x36, "NEGU">;
 
 //
 // Bit fiddling
@@ -379,7 +384,7 @@ def GETAB: Inst_X_YZ<0xF5, (outs GPR:$X), (ins ui16imm:$YZ), "GETAB">;
 def JMP: Inst_XYZ<0xF0, (outs), (ins jump_dest:$XYZ), "JMP">;
 def JMPB: Inst_XYZ<0xF1, (outs), (ins ui16imm:$XYZ), "JMPB">;
 
-defm GO: Inst_r_rri8<0x9E, "GO">;
+defm GO: Inst_r_rri8base<0x9E, "GO">;
 
 
 //
@@ -429,6 +434,7 @@ defm STSF: Inst_r_rri8<0xB0, "STSF">;
 defm FIX: Inst_r_RoundMode_r_Alias<0x05, "FIX">;
 defm FIXU: Inst_r_RoundMode_r_Alias<0x07, "FIXU">;
 defm FLOT: InstVariant_U<0x08, "FLOT">;
+
 defm SFLOT: InstVariant_U<0x0C, "SFLOT">;
 
 //
