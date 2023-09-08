@@ -35,7 +35,7 @@ public:
                                uint64_t &ErrorInfo,
                                bool MatchingInlineAsm) override;
 
-  OperandMatchResultTy tryParseRegister(MCRegister &RegNo, SMLoc &StartLoc,
+  ParseStatus tryParseRegister(MCRegister &RegNo, SMLoc &StartLoc,
                                         SMLoc &EndLoc) override;
 
   bool ParseInstruction(ParseInstructionInfo &Info, StringRef Name,

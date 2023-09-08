@@ -1,9 +1,11 @@
 #include "MMIXCombiner.h"
 #include "MMIX.h"
+#include "MMIXSubtarget.h"
 #include "llvm/CodeGen/GlobalISel/CSEInfo.h"
 #include "llvm/CodeGen/GlobalISel/Combiner.h"
 #include "llvm/CodeGen/GlobalISel/CombinerHelper.h"
 #include "llvm/CodeGen/GlobalISel/CombinerInfo.h"
+#include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
 #include "llvm/CodeGen/GlobalISel/GISelChangeObserver.h"
 #include "llvm/CodeGen/GlobalISel/GISelKnownBits.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
@@ -19,51 +21,59 @@
 
 using namespace llvm;
 
-class MMIXCombinerHelperState {
-protected:
-  CombinerHelper &Helper;
-
-public:
-  MMIXCombinerHelperState(CombinerHelper &Helper) : Helper(Helper) {}
-};
-
 namespace {
 
-#define MMIXCOMBINERHELPER_GENCOMBINERHELPER_H
+#define GET_GICOMBINER_TYPES
 #include "MMIXGenGICombiner.inc"
-#undef MMIXCOMBINERHELPER_GENCOMBINERHELPER_H
+#undef GET_GICOMBINER_TYPES
 
-class MMIXCombinerInfo : public CombinerInfo {
-  GISelKnownBits *KB;
-  MachineDominatorTree *MDT;
-  MMIXGenCombinerHelperRuleConfig GeneratedRuleCfg;
+class MMIXCombinerImpl : public Combiner {
+protected:
+  // TODO: Make CombinerHelper methods const.
+  mutable CombinerHelper Helper;
+  const MMIXCombinerImplRuleConfig &RuleConfig;
 
 public:
-  MMIXCombinerInfo(bool EnableOpt, bool OptSize, bool MinSize,
-                   GISelKnownBits *KB, MachineDominatorTree *MDT)
-      : CombinerInfo(/*AllowIllegalOps*/ true,
-                     /*ShouldLegalizeIllegal*/ false,
-                     /*LegalizerInfo*/ nullptr, EnableOpt, OptSize, MinSize),
-        KB(KB), MDT(MDT) {
-    if (!GeneratedRuleCfg.parseCommandLineOption())
-      report_fatal_error("Invalid rule identifier");
-  }
-  bool combine(GISelChangeObserver &Observer, MachineInstr &MI,
-               MachineIRBuilder &B) const override;
+  MMIXCombinerImpl(MachineFunction &MF, CombinerInfo &CInfo,
+                   const TargetPassConfig *TPC, GISelKnownBits &KB,
+                   GISelCSEInfo *CSEInfo,
+                   const MMIXCombinerImplRuleConfig &RuleConfig,
+                   const MMIXSubtarget &STI);
+    bool tryCombineAllImpl(MachineInstr &I) const;
+    static const char *getName();
+public:
+  bool tryCombineAll(MachineInstr &I) const override;
+
+private:
+#define GET_GICOMBINER_CLASS_MEMBERS
+#include "MMIXGenGICombiner.inc"
+#undef GET_GICOMBINER_CLASS_MEMBERS
 };
 
-#define MMIXCOMBINERHELPER_GENCOMBINERHELPER_CPP
+#define GET_GICOMBINER_IMPL
 #include "MMIXGenGICombiner.inc"
-#undef MMIXCOMBINERHELPER_GENCOMBINERHELPER_CPP
+#undef GET_GICOMBINER_IMPL
 
-bool MMIXCombinerInfo::combine(GISelChangeObserver &Observer, MachineInstr &MI,
-                               MachineIRBuilder &B) const {
-  const LegalizerInfo *LI = MI.getMF()->getSubtarget().getLegalizerInfo();
-  bool IsPreLegalize = !MI.getMF()->getProperties().hasProperty(
-      MachineFunctionProperties::Property::Legalized);
-  CombinerHelper Helper(Observer, B, IsPreLegalize, KB, MDT, LI);
-  MMIXGenCombinerHelper Generated(GeneratedRuleCfg, Helper);
-  return Generated.tryCombineAll(Observer, MI, B, Helper);
+MMIXCombinerImpl::MMIXCombinerImpl(MachineFunction &MF, CombinerInfo &CInfo,
+                                   const TargetPassConfig *TPC,
+                                   GISelKnownBits &KB, GISelCSEInfo *CSEInfo,
+                                   const MMIXCombinerImplRuleConfig &RuleConfig,
+                                   const MMIXSubtarget &STI)
+    : Combiner(MF, CInfo, TPC, &KB, CSEInfo),
+      Helper(Observer, B, /*IsPreLegalize*/ true, &KB), RuleConfig(RuleConfig),
+#define GET_GICOMBINER_CONSTRUCTOR_INITS
+#include "MMIXGenGICombiner.inc"
+#undef GET_GICOMBINER_CONSTRUCTOR_INITS
+{
+}
+
+const char * MMIXCombinerImpl::getName()
+{
+return "MMIXCombiner";
+}
+
+bool MMIXCombinerImpl::tryCombineAll(MachineInstr &I) const {
+  return tryCombineAllImpl(I);
 }
 
 } // namespace
@@ -79,6 +89,9 @@ public:
   StringRef getPassName() const override { return "MMIXCombiner"; }
   bool runOnMachineFunction(MachineFunction &MF) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+private:
+  MMIXCombinerImplRuleConfig RuleConfig;
 };
 
 char MMIXCombiner::ID = 0;
@@ -92,21 +105,19 @@ bool MMIXCombiner::runOnMachineFunction(MachineFunction &MF) {
           MachineFunctionProperties::Property::FailedISel)) {
     return false;
   }
-  auto *TPC = &getAnalysis<TargetPassConfig>();
-
-  // Enable CSE.
-  GISelCSEAnalysisWrapper &Wrapper =
-      getAnalysis<GISelCSEAnalysisWrapperPass>().getCSEWrapper();
-  auto *CSEInfo = &Wrapper.get(TPC->getCSEConfig());
+  auto &TPC = getAnalysis<TargetPassConfig>();
 
   const Function &F = MF.getFunction();
-  bool EnableOpt =
-      MF.getTarget().getOptLevel() != CodeGenOpt::None && !skipFunction(F);
   GISelKnownBits *KB = &getAnalysis<GISelKnownBitsAnalysis>().get(MF);
-  MachineDominatorTree *MDT = &getAnalysis<MachineDominatorTree>();
-  MMIXCombinerInfo PCInfo(EnableOpt, F.hasOptSize(), F.hasMinSize(), KB, MDT);
-  Combiner C(PCInfo, TPC);
-  return C.combineMachineInstrs(MF, CSEInfo);
+
+  const auto &ST = MF.getSubtarget<MMIXSubtarget>();
+
+  CombinerInfo CInfo(/*AllowIllegalOps*/ true, /*ShouldLegalizeIllegal*/ false,
+                     /*LegalizerInfo*/ nullptr, /*EnableOpt*/ false,
+                     F.hasOptSize(), F.hasMinSize());
+  MMIXCombinerImpl Impl(MF, CInfo, &TPC, *KB,
+                        /*CSEInfo*/ nullptr, RuleConfig, ST);
+  return Impl.combineMachineInstrs();
 }
 
 void MMIXCombiner::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -129,4 +140,4 @@ INITIALIZE_PASS_DEPENDENCY(GISelKnownBitsAnalysis)
 INITIALIZE_PASS_END(MMIXCombiner, DEBUG_TYPE, "Combine MMIX machine instrs",
                     false, false)
 
-FunctionPass *::llvm::createMMIXCombiner() { return new MMIXCombiner; }
+FunctionPass * ::llvm::createMMIXCombiner() { return nullptr; }

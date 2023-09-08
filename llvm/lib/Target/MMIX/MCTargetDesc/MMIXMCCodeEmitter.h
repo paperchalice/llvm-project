@@ -21,12 +21,12 @@ namespace llvm {
 
 class MMIXMCCodeEmitter : public MCCodeEmitter {
 public:
-MMIXMCCodeEmitter(const MCInstrInfo &mcii, MCContext &ctx);
+  MMIXMCCodeEmitter(const MCInstrInfo &mcii, MCContext &ctx);
 
 public:
-void encodeInstruction(const MCInst &Inst, raw_ostream &OS,
-                                 SmallVectorImpl<MCFixup> &Fixups,
-                                 const MCSubtargetInfo &STI) const override;
+  void encodeInstruction(const MCInst &Inst, SmallVectorImpl<char> &CB,
+                         SmallVectorImpl<MCFixup> &Fixups,
+                         const MCSubtargetInfo &STI) const override;
   // getBinaryCodeForInstr - TableGen'erated function for getting the
   // binary encoding for an instruction.
   uint64_t getBinaryCodeForInstr(const MCInst &MI,
@@ -35,18 +35,18 @@ void encodeInstruction(const MCInst &Inst, raw_ostream &OS,
   // getMachineOpValue - Return binary encoding of operand. If the machin
   // operand requires relocation, record the relocation and return zero.
   std::uint64_t getMachineOpValue(const MCInst &MI, const MCOperand &MO,
-                             SmallVectorImpl<MCFixup> &Fixups,
-                             const MCSubtargetInfo &STI) const;
+                                  SmallVectorImpl<MCFixup> &Fixups,
+                                  const MCSubtargetInfo &STI) const;
+
 private:
-const MCInstrInfo &MCII;
-MCContext &Ctx;
+  const MCInstrInfo &MCII;
+  MCContext &Ctx;
 };
 
-MCCodeEmitter *
-createMMIXMCCodeEmitter(const MCInstrInfo &MCII,
-                                const MCRegisterInfo &MRI,
-                                MCContext &Ctx);
+MCCodeEmitter *createMMIXMCCodeEmitter(const MCInstrInfo &MCII,
+                                       const MCRegisterInfo &MRI,
+                                       MCContext &Ctx);
 
-}
+} // namespace llvm
 
 #endif // LLVM_LIB_TARGET_MMIX_MCTARGETDESC_MMIXMCCODEEMITTER_H

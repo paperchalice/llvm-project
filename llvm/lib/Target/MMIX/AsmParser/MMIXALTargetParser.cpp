@@ -70,13 +70,13 @@ bool MMIXALAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   return false;
 }
 
-OperandMatchResultTy MMIXALAsmParser::tryParseRegister(MCRegister &RegNo,
+ParseStatus MMIXALAsmParser::tryParseRegister(MCRegister &RegNo,
                                                        SMLoc &StartLoc,
                                                        SMLoc &EndLoc) {
   auto RegTok = getTok();
   Lex();                                         // eat synthesis register token
   RegNo = MatchRegisterName(RegTok.getString()); // impossible to fail
-  return MatchOperand_Success;
+  return ParseStatus::Success;
 }
 
 bool MMIXALAsmParser::ParseInstruction(ParseInstructionInfo &Info,

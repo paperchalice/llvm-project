@@ -15,16 +15,14 @@
 #include "TargetInfo/MMIXTargetInfo.h"
 
 #include "llvm/CodeGen/Register.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/MC/TargetRegistry.h"
 #include "llvm/MC/MCDecoderOps.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/Endian.h"
 
 using namespace llvm;
 using DecodeStatus = MCDisassembler::DecodeStatus;
 
 #define DEBUG_TYPE "mmix-disassembler"
-
-
 
 namespace {
 DecodeStatus DecodeSPRRegisterClass(MCInst &Inst, uint64_t RegNo,
@@ -32,8 +30,10 @@ DecodeStatus DecodeSPRRegisterClass(MCInst &Inst, uint64_t RegNo,
 DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
                                     uint64_t Address, const void *Decoder);
 template <std::size_t Width>
-DecodeStatus decodeUImmOperand(MCInst &Inst, uint64_t RegNo,
-                                    uint64_t Address, const void *Decoder);
+DecodeStatus decodeUImmOperand(MCInst &Inst, uint64_t RegNo, uint64_t Address,
+                               const void *Decoder);
+DecodeStatus decodeRoundMode(MCInst &Inst, uint64_t RegNo, uint64_t Address,
+                             const void *Decoder);
 } // end namespace
 
 #include "MMIXGenDisassemblerTables.inc"
@@ -42,9 +42,10 @@ MMIXDisassembler::MMIXDisassembler(const MCSubtargetInfo &STI, MCContext &Ctx,
                                    MCInstrInfo const *MCII)
     : MCDisassembler(STI, Ctx), MCII(MCII) {}
 
-MCDisassembler::DecodeStatus MMIXDisassembler::getInstruction(MCInst &Instr, uint64_t &Size,
-                            ArrayRef<uint8_t> Bytes, uint64_t Address,
-                            raw_ostream &CStream) const {
+MCDisassembler::DecodeStatus
+MMIXDisassembler::getInstruction(MCInst &Instr, uint64_t &Size,
+                                 ArrayRef<uint8_t> Bytes, uint64_t Address,
+                                 raw_ostream &CStream) const {
   uint32_t Insn = 0;
   DecodeStatus Result =
       decodeInstruction(DecoderTable32, Instr, Insn, Address, this, STI);
@@ -54,14 +55,16 @@ MCDisassembler::DecodeStatus MMIXDisassembler::getInstruction(MCInst &Instr, uin
 namespace {
 
 MCDisassembler *createMMIXDisassembler(const Target &T,
-                                               const MCSubtargetInfo &STI,
-                                               MCContext &Ctx) {
+                                       const MCSubtargetInfo &STI,
+                                       MCContext &Ctx) {
   return new MMIXDisassembler(STI, Ctx, T.createMCInstrInfo());
 }
 
 DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
                                     uint64_t Address, const void *Decoder) {
-  auto RegInfo = static_cast<const MCDisassembler *>(Decoder)->getContext().getRegisterInfo();
+  auto RegInfo = static_cast<const MCDisassembler *>(Decoder)
+                     ->getContext()
+                     .getRegisterInfo();
   RegInfo->getRegClass(MMIX::GPRRegClassID);
   MCRegister Reg = MMIX::r0 + RegNo;
   Inst.addOperand(MCOperand::createReg(Reg));
@@ -74,8 +77,13 @@ DecodeStatus DecodeSPRRegisterClass(MCInst &Inst, uint64_t RegNo,
 }
 
 template <std::size_t Width>
-DecodeStatus decodeUImmOperand(MCInst &Inst, uint64_t RegNo,
-                                    uint64_t Address, const void *Decoder) {
+DecodeStatus decodeUImmOperand(MCInst &Inst, uint64_t RegNo, uint64_t Address,
+                               const void *Decoder) {
+  return DecodeStatus::Success;
+}
+
+DecodeStatus decodeRoundMode(MCInst &Inst, uint64_t RegNo, uint64_t Address,
+                             const void *Decoder) {
   return DecodeStatus::Success;
 }
 

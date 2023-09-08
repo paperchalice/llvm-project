@@ -6,9 +6,9 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 
-#define MMIXCOMBINERHELPER_GENCOMBINERHELPER_DEPS
+#define GET_GICOMBINER_DEPS
 #include "MMIXGenGICombiner.inc"
-#undef MMIXCOMBINERHELPER_GENCOMBINERHELPER_DEPS
+#undef GET_GICOMBINER_DEPS
 
 namespace llvm {
 

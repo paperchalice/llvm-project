@@ -78,7 +78,7 @@ bool MMIXAsmParser::parseRegister(MCRegister &RegNo, SMLoc &StartLoc,
   return MatchResult != OperandMatchResultTy::MatchOperand_Success;
 }
 
-OperandMatchResultTy MMIXAsmParser::tryParseRegister(MCRegister &RegNo,
+ParseStatus MMIXAsmParser::tryParseRegister(MCRegister &RegNo,
                                                      SMLoc &StartLoc,
                                                      SMLoc &EndLoc) {
 

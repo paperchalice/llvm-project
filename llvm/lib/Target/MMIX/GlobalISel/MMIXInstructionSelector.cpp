@@ -14,14 +14,16 @@
 #include "MMIXRegisterBankInfo.h"
 #include "MMIXSubtarget.h"
 #include "MMIXTargetMachine.h"
-#include "llvm/CodeGen/GlobalISel/InstructionSelectorImpl.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
+#include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
 
 #define DEBUG_TYPE "mmix-isel"
-
+namespace {
 #define GET_GLOBALISEL_PREDICATE_BITSET
 #include "MMIXGenGlobalISel.inc"
 #undef GET_GLOBALISEL_PREDICATE_BITSET
+} // namespace
+
 namespace llvm {
 class MMIXInstructionSelector : public InstructionSelector {
 public:

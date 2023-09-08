@@ -3,9 +3,9 @@
 
 include "llvm/Target/GlobalISel/Combine.td"
 
-def MMIXCombinerHelper: GICombinerHelper<
-  "MMIXGenCombinerHelper", [all_combines]> {
-  let StateClass = "MMIXCombinerHelperState";
+def MMIXCombiner: GICombiner<
+  "MMIXCombinerImpl", [all_combines]> {
+  let CombineAllMethodName = "tryCombineAllImpl";
 }
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXCOMBINE_TD

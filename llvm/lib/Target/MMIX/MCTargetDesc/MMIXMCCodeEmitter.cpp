@@ -25,12 +25,12 @@ namespace llvm {
 MMIXMCCodeEmitter::MMIXMCCodeEmitter(const MCInstrInfo &MCII, MCContext &Ctx)
     : MCII(MCII), Ctx(Ctx) {}
 
-void MMIXMCCodeEmitter::encodeInstruction(const MCInst &Inst, raw_ostream &OS,
+void MMIXMCCodeEmitter::encodeInstruction(const MCInst &Inst,
+                                          SmallVectorImpl<char> &CB,
                                           SmallVectorImpl<MCFixup> &Fixups,
-                                         const MCSubtargetInfo &STI) const {
-  support::endian::Writer W(OS, support::big);
+                                          const MCSubtargetInfo &STI) const {
   if (Inst.getOpcode() == MMO::MM) {
-    OS.write("\x98\x00\x00\x01", 4);
+    CB.append({'\x98', '\x00', '\x00', '\x01'});
   }
   uint32_t Bits = getBinaryCodeForInstr(Inst, Fixups, STI);
   if (!Fixups.empty()) {
@@ -39,7 +39,7 @@ void MMIXMCCodeEmitter::encodeInstruction(const MCInst &Inst, raw_ostream &OS,
       Fixups.pop_back();
     }
   }
-  W.write(Bits);
+  support::endian::write<uint32_t>(CB, Bits, support::big);
 }
 
 std::uint64_t
