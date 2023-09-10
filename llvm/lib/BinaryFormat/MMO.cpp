@@ -1,5 +1,6 @@
 #include "llvm/BinaryFormat/MMO.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 using namespace llvm::support::endian;
