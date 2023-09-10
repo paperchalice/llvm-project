@@ -29,8 +29,9 @@ namespace llvm {
 
 namespace object {
 
-struct Segment {
-  StringRef Data;
+struct MMOData {
+  std::uint64_t StartAddress;
+  ArrayRef<std::uint8_t> Data;
 };
 
 struct MMOQuote {
@@ -72,6 +73,7 @@ struct MMOLine {
 struct MMOSpec {
   ArrayRef<std::uint8_t> RawData;
   std::uint16_t Type;
+  ArrayRef<std::uint8_t> SpecialData;
 };
 
 struct MMOPre {
@@ -176,10 +178,8 @@ protected:
 
 private:
   MMOPre Preamble;
-  ArrayRef<std::uint8_t> ContentRef;
-  std::vector<
-      std::variant<ArrayRef<std::uint8_t>, MMOQuote, MMOLoc, MMOSkip, MMOFixo,
-                   MMOFixr, MMOFixrx, MMOFile, MMOLine, MMOSpec>>
+  std::vector<std::variant<MMOData, MMOLoc, MMOSkip, MMOFixo, MMOFixr, MMOFixrx,
+                           MMOFile, MMOLine, MMOSpec>>
       Content;
   MMOPost Postamble;
   SmallVector<llvm::MMO::Symbol, 32> SymbTab;

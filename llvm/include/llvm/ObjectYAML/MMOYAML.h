@@ -34,11 +34,11 @@ LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_SEGMENT_TYPE)
 LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_LOP_TYPE)
 LLVM_YAML_STRONG_TYPEDEF(std::uint8_t, MMO_FIXRX_TYPE)
 
-struct Quote {
-  static inline MMO_LOP_TYPE OpCode = MMO::LOP_QUOTE;
-  yaml::BinaryRef Value;
-  Quote() = default;
-  Quote(const llvm::object::MMOQuote &Q);
+struct RawData {
+  yaml::Hex64 StartAddress;
+  yaml::BinaryRef Data;
+  RawData() = default;
+  RawData(const llvm::object::MMOData &D);
   void writeAsBinary(raw_ostream &OS) const;
 };
 
@@ -106,6 +106,7 @@ struct Line {
 struct Spec {
   static inline MMO_LOP_TYPE OpCode = MMO::LOP_SPEC;
   std::uint16_t Type;
+  yaml::BinaryRef Data;
   Spec() = default;
   Spec(const llvm::object::MMOSpec &S);
   void writeAsBinary(raw_ostream &OS) const;
@@ -133,7 +134,7 @@ struct Post {
 };
 
 using ContentLop =
-    std::variant<Quote, Loc, Skip, Fixo, Fixr, Fixrx, File, Line, Spec>;
+    std::variant<Loc, Skip, Fixo, Fixr, Fixrx, File, Line, Spec>;
 
 struct Symbol {
   StringRef Name;
@@ -147,7 +148,7 @@ struct SymbolTable {
   std::vector<Symbol> Symbols;
 };
 
-using Segment = std::variant<yaml::BinaryRef, Quote, Loc, Skip, Fixo, Fixr, Fixrx, File, Line, Spec>;
+using Segment = std::variant<RawData, Loc, Skip, Fixo, Fixr, Fixrx, File, Line, Spec>;
 
 struct Object {
   Pre Preamble;
@@ -185,8 +186,8 @@ template <> struct ScalarEnumerationTraits<MMOYAML::MMO_FIXRX_TYPE> {
 
 // lops
 
-template <> struct MappingTraits<MMOYAML::Quote> {
-  static void mapping(IO &IO, MMOYAML::Quote &Q);
+template <> struct MappingTraits<MMOYAML::RawData> {
+  static void mapping(IO &IO, MMOYAML::RawData &RD);
 };
 
 template <> struct MappingTraits<MMOYAML::Loc> {
