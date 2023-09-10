@@ -74,7 +74,6 @@ SymbolTable:
       Equiv:           0x2000000000000008
       Type:            NORMAL
 ...
-
 # CHECK:   98090101
 # CHECK:   00000000
 # CHECK: File was created Thu Jan  1 08:00:00 1970
@@ -120,7 +119,7 @@ SymbolTable:
 # CHECK:   6d6d7300
 # CHECK:   98070004
 # CHECK:   f000000a
-
+# CHECK: 000000012345a768: f000000a ("foo.mms", line 4)
 # CHECK:   98080005
 # CHECK: Special data 5 at loc 000000012345a76c (line 5)
 # CHECK:   00000200
@@ -142,7 +141,7 @@ SymbolTable:
 # CHECK: g254: 000000012345678c
 # CHECK:   00000000
 # CHECK:   00000000
-# CHECK: g255: 0000000000000000
+# CHECK: g255: 0
 # CHECK:   980b0000
 # CHECK: Symbol table (beginning at tetra 50):
 # CHECK:   203a5060

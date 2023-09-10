@@ -196,7 +196,8 @@ class MMOType {
           CurFile++;
           CurLine = 0;
           FileNames.emplace_back(
-              StringRef(reinterpret_cast<const char *>(Iter), 4 * Cnt));
+              StringRef(reinterpret_cast<const char *>(Iter), 4 * Cnt)
+                  .trim('\0'));
           for (int i = 0; i != Cnt; i++) {
             outTetra();
           }
@@ -240,8 +241,12 @@ class MMOType {
             outTetra();
             outTetra();
             if (!Lst) {
-              outs() << formatv("g{0}: {1}\n", Z + i,
-                                format_hex_no_prefix(RegVal, 16));
+              if (RegVal)
+                outs() << formatv("g{0}: {1}\n", Z + i,
+                                  format_hex_no_prefix(RegVal, 16));
+              else
+                outs() << formatv("g{0}: {1}\n", Z + i,
+                                  format_hex_no_prefix(RegVal, 1));
             }
           }
         } break;
