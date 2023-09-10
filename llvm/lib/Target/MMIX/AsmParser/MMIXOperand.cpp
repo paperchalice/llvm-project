@@ -59,24 +59,7 @@ unsigned MMIXOperand::getReg() const {
   assert(Kind == KindTy::Register && "not register");
   return Content.Reg;
 }
-bool MMIXOperand::isUImm8() const {
-  auto Expr = getExpr();
-  int64_t Res;
-  Expr->evaluateAsAbsolute(Res);
-  return isUInt<8>(Res) && !isGPRExpr();
-}
-bool MMIXOperand::isUImm16() const {
-  auto Expr = getExpr();
-  int64_t Res;
-  Expr->evaluateAsAbsolute(Res);
-  return isUInt<16>(Res) && !isGPRExpr();
-}
-bool MMIXOperand::isUImm24() const {
-  auto Expr = getExpr();
-  int64_t Res;
-  Expr->evaluateAsAbsolute(Res);
-  return isUInt<24>(Res) && !isGPRExpr();
-}
+
 bool MMIXOperand::isRoundMode() const {
   auto Expr = getExpr();
   int64_t Res;

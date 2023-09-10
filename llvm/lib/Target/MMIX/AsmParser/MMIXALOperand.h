@@ -46,6 +46,7 @@ public:
   std::int64_t getImm() const;
   const MCExpr *getExpr() const;
   void addRegOperands(MCInst &Inst, unsigned N) const;
+  void addSpecialRegisterOperands(MCInst &Inst, unsigned N) const;
   void addImmOperands(MCInst &Inst, unsigned N) const;
   void addExprOperands(MCInst &Inst, unsigned N) const;
 
@@ -54,13 +55,12 @@ public:
   bool isImm() const override;
   bool isReg() const override;
   bool isMem() const override;
-  bool isGPRExpr() const;
   bool isJumpDest() const;
   bool isBranchDest() const;
-  bool isUImm8() const;
-  bool isUImm16() const;
-  bool isUImm24() const;
+  template<std::uint8_t W>
+  bool isUImm() const { return Kind == KindTy::Immediate && isUInt<W>(getImm()); }
   bool isRoundMode() const;
+  bool isBaseAddress() const { return true; }
   unsigned getReg() const override;
   SMLoc getStartLoc() const override;
   SMLoc getEndLoc() const override;
@@ -80,7 +80,7 @@ public:
   createExpression(const MCExpr *Expr, SMLoc StartLoc, SMLoc EndLoc);
   static std::unique_ptr<MMIXALOperand> createImm(const std::int64_t &Imm,
                                                   SMLoc StartLoc, SMLoc EndLoc);
-  static std::unique_ptr<MMIXALOperand> createGPR(const unsigned &RegNo,
+  static std::unique_ptr<MMIXALOperand> createReg(const unsigned &RegNo,
                                                   SMLoc StartLoc, SMLoc EndLoc);
 };
 

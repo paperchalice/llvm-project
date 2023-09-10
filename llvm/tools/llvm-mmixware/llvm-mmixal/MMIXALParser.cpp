@@ -442,12 +442,12 @@ void MMIXALParser::syncMMO() {
     LastFileName = CurrentFileName;
   }
 
-  if (SharedInfo.MMOLine != CurrentLineNumber) {
+  if (SharedInfo.MMOLine != SharedInfo.CurrentLine) {
     Out.emitBinaryData({"\x98\x07", 2});
     char Buf[2];
-    support::endian::write16be(Buf, CurrentLineNumber);
+    support::endian::write16be(Buf, SharedInfo.CurrentLine);
     Out.emitBinaryData({Buf, 2});
-    SharedInfo.MMOLine = CurrentLineNumber;
+    SharedInfo.MMOLine = SharedInfo.CurrentLine;
   }
 }
 
@@ -716,7 +716,7 @@ bool MMIXALParser::parseStatement() {
   auto CurTok = getTok();
   if (CurTok.is(AsmToken::HashDirective)) {
     Lex(); // skip hash directive
-    CurrentLineNumber = getTok().getIntVal() - 1;
+    SharedInfo.CurrentLine = getTok().getIntVal() - 1;
     Lex(); // skip line number
     CurrentFileName = getTok().getStringContents();
     Lex(); // eat line number
@@ -875,11 +875,11 @@ bool MMIXALParser::handleEndOfStatement() {
   if (getTok().isNot(AsmToken::EndOfStatement)) {
     Lexer.regardAsComment();
     Lex();
-    ++CurrentLineNumber;
+    ++SharedInfo.CurrentLine;
     return parseToken(AsmToken::EndOfStatement);
   } else {
     if (getTok().getString().ends_with("\n")) {
-      ++CurrentLineNumber;
+      ++SharedInfo.CurrentLine;
     }
     return parseToken(AsmToken::EndOfStatement);
   }

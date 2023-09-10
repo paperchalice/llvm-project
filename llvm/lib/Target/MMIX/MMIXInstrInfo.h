@@ -39,6 +39,13 @@ private:
   const MMIXSubtarget &STI;
 };
 
+namespace MMIX {
+  enum {
+    BASE_ADDRESS_ADJUST = 1,
+    DONT_EMIT
+  };
+}
+
 } // namespace llvm
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXINSTRINFO_H

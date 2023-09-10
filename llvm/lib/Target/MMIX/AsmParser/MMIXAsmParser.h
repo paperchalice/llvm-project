@@ -49,8 +49,9 @@ public:
 
 private:
   bool parseOperand(OperandVector &Operands, StringRef Mnemonic);
-  OperandMatchResultTy tryParseJumpDestOperand(OperandVector &Operands);
-  OperandMatchResultTy tryParseBranchDestOperand(OperandVector &Operands);
+  ParseStatus tryParseJumpDestOperand(OperandVector &Operands);
+  ParseStatus tryParseBranchDestOperand(OperandVector &Operands);
+  ParseStatus parseSFR(OperandVector &Operands) { return ParseStatus::Failure; }
   void resolveBaseAddress(MCInst &Inst, const OperandVector &Operands);
 };
 

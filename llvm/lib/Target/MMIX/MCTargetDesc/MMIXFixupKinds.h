@@ -6,12 +6,9 @@
 namespace llvm::MMIX {
 
 enum Fixups {
-  fixup_MMIX = FirstTargetFixupKind,
-  fixup_MMIX_backward,
-  fixup_MMIX_fixo,
-  fixup_MMIX_fixr,
-  fixup_MMIX_fixrx,
-  fixup_MMIX_expand,
+  fixup_MMIX = FirstTargetFixupKind - 1,
+#define MMIX_FIXUP_X(A0, A1, A2, A3) A0,
+#include "MMIXFixupX.def"
 
   // Marker
   LastTargetFixupKind,

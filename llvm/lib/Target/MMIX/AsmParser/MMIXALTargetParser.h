@@ -53,11 +53,12 @@ public:
 
 private:
   bool parseOperand(OperandVector &Operands, StringRef Mnemonic);
-  OperandMatchResultTy tryParseJumpDestOperand(OperandVector &Operands);
-  OperandMatchResultTy tryParseBranchDestOperand(OperandVector &Operands);
-  OperandMatchResultTy tryParseBaseAddressOperand(OperandVector &Operands);
+  ParseStatus tryParseJumpDestOperand(OperandVector &Operands);
+  ParseStatus tryParseBranchDestOperand(OperandVector &Operands);
+  ParseStatus tryParseBaseAddressOperand(OperandVector &Operands);
+  ParseStatus parseSFR(OperandVector &Operands);
   void resolveBaseAddress(MCInst &Inst, const OperandVector &Operands);
-  unsigned toMCRegNum(std::uint8_t RegNum);
+  void emitSET(std::uint64_t Val);
 };
 } // namespace MMIXAL
 

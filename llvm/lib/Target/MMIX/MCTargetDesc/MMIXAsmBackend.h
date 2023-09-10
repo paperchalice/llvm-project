@@ -9,47 +9,50 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MCTARGETDESC_MMIXASMBACKEND_H
 #define LLVM_LIB_TARGET_MMIX_MCTARGETDESC_MMIXASMBACKEND_H
 
-#include "MMIXObjectWriter.h"
 #include "MMIXFixupKinds.h"
-#include "llvm/MC/TargetRegistry.h"
+#include "MMIXObjectWriter.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCFixupKindInfo.h"
-#include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
+#include "llvm/MC/MCSubtargetInfo.h"
+#include "llvm/MC/TargetRegistry.h"
 
 namespace llvm {
 
 class MMIXAsmBackend : public MCAsmBackend {
 public:
-MMIXAsmBackend(const MCSubtargetInfo &STI,
-                       const MCRegisterInfo &MRI,
-                       const MCTargetOptions &Options);
+  MMIXAsmBackend(const MCSubtargetInfo &STI, const MCRegisterInfo &MRI,
+                 const MCTargetOptions &Options);
+
 public:
-std::unique_ptr<MCObjectTargetWriter>
+  const MCFixupKindInfo &getFixupKindInfo(MCFixupKind Kind) const override;
+
+public:
+  std::unique_ptr<MCObjectTargetWriter>
   createObjectTargetWriter() const override;
 
-unsigned getNumFixupKinds() const override;
+  unsigned getNumFixupKinds() const override;
 
-void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
-                          const MCValue &Target, MutableArrayRef<char> Data,
-                          uint64_t Value, bool IsResolved,
-                          const MCSubtargetInfo *STI) const override;
+  void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
+                  const MCValue &Target, MutableArrayRef<char> Data,
+                  uint64_t Value, bool IsResolved,
+                  const MCSubtargetInfo *STI) const override;
 
-bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
-                                    const MCRelaxableFragment *DF,
-                                    const MCAsmLayout &Layout) const override;
+  bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
+                            const MCRelaxableFragment *DF,
+                            const MCAsmLayout &Layout) const override;
 
-bool writeNopData(raw_ostream &OS, uint64_t Count, const MCSubtargetInfo *STI) const override;
+  bool writeNopData(raw_ostream &OS, uint64_t Count,
+                    const MCSubtargetInfo *STI) const override;
 
 private:
   const MCSubtargetInfo &STI;
 };
 
-MCAsmBackend *createMMIXAsmBackend(const Target &T,
-                                        const MCSubtargetInfo &STI,
-                                        const MCRegisterInfo &MRI,
-                                        const MCTargetOptions &Options);
+MCAsmBackend *createMMIXAsmBackend(const Target &T, const MCSubtargetInfo &STI,
+                                   const MCRegisterInfo &MRI,
+                                   const MCTargetOptions &Options);
 
-}
+} // namespace llvm
 
 #endif // LLVM_LIB_TARGET_MMIX_MCTARGETDESC_MMIXASMBACKEND_H

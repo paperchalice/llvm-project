@@ -76,7 +76,7 @@ Main JMP   1F            % another future reference
 # CHECK:     Value:           '98000000'
 # CHECK: Postamble:
 # CHECK:   G:               254
-# CHECK:   Values:          [ 0x12345678C, 0x0 ]
+# CHECK:   Values:          [ 0x2000000000000008, 0x12345678C ]
 # CHECK: SymbolTable:
 # CHECK:   IsUTF16:         false
 # CHECK:   Symbol:

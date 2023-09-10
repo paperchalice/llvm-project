@@ -47,6 +47,7 @@ public:
   void addRegOperands(MCInst &Inst, unsigned N) const;
   void addImmOperands(MCInst &Inst, unsigned N) const;
   void addExprOperands(MCInst &Inst, unsigned N) const;
+  void addSpecialRegisterOperands(MCInst &Inst, unsigned N) const {};
 
 public:
   bool isToken() const override;
@@ -56,10 +57,11 @@ public:
   bool isGPRExpr() const;
   bool isJumpDest() const;
   bool isBranchDest() const;
-  bool isUImm8() const;
-  bool isUImm16() const;
-  bool isUImm24() const;
+  template <std::uint8_t W> bool isUImm() const {
+    return Kind == KindTy::Immediate && isUInt<W>(getImm());
+  }
   bool isRoundMode() const;
+  bool isBaseAddress() const { return true; }
   unsigned getReg() const override;
   SMLoc getStartLoc() const override;
   SMLoc getEndLoc() const override;

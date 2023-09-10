@@ -34,10 +34,21 @@ void MMIXMCCodeEmitter::encodeInstruction(const MCInst &Inst,
   }
   uint32_t Bits = getBinaryCodeForInstr(Inst, Fixups, STI);
   if (!Fixups.empty()) {
+    assert(Fixups.size() == 1 && "only one fixup per instruction");
     if (Fixups[0].getKind() == MCFixupKind::FK_Data_1) {
       Bits |= 1 << 24;
-      Fixups.pop_back();
+      Fixups.clear();
     }
+  }
+  switch (Inst.getFlags()) {
+  default:
+    break;
+  case MMIX::BASE_ADDRESS_ADJUST:
+    Bits &= ~(1 << 24);
+    break;
+  case MMIX::DONT_EMIT:
+    Bits = 0xC0000000;
+    break;
   }
   support::endian::write<uint32_t>(CB, Bits, support::big);
 }
@@ -48,14 +59,19 @@ MMIXMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
                                      const MCSubtargetInfo &STI) const {
   if (MO.isExpr()) {
     const auto *Expr = MO.getExpr();
-    int64_t Res;
+    int64_t Res = 0;
     bool Success = Expr->evaluateAsAbsolute(Res);
-    if (Res < 0) {
-      Res = -Res;
-      Fixups.emplace_back(MCFixup::create(0, MCConstantExpr::create(0, Ctx),
-                                          MCFixupKind::FK_Data_1));
+    if (Success) {
+      if (Res < 0) {
+        Fixups.emplace_back(MCFixup::create(0, MCConstantExpr::create(0, Ctx),
+                                            MCFixupKind::FK_Data_1));
+      }
+      return Res;
+    } else {
+      // Fixups.emplace_back(MCFixup::create(0, MCConstantExpr::create(Res, Ctx),
+      //                                     MCFixupKind(MMIX::FK_JMP)));
+      return 0;
     }
-    return Success ? Res : 0; // else it is a future reference
   }
   if (MO.isImm()) {
     return MO.getImm();

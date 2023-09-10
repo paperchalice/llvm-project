@@ -22,6 +22,9 @@ StringRef MMIXALOperand::getToken() const { return Content.Tok; }
 void MMIXALOperand::addRegOperands(MCInst &Inst, unsigned N) const {
   Inst.addOperand(MCOperand::createReg(getReg()));
 }
+void MMIXALOperand::addSpecialRegisterOperands(MCInst &Inst, unsigned N) const {
+  Inst.addOperand(MCOperand::createReg(getReg()));
+}
 void MMIXALOperand::addImmOperands(MCInst &Inst, unsigned N) const {
   assert(N == 1 && "Invalid number of operands!");
   Inst.addOperand(MCOperand::createImm(getImm()));
@@ -30,13 +33,9 @@ void MMIXALOperand::addExprOperands(MCInst &Inst, unsigned N) const {
   Inst.addOperand(MCOperand::createExpr(getExpr()));
 }
 bool MMIXALOperand::isToken() const { return Kind == KindTy::Token; }
-bool MMIXALOperand::isImm() const {
-  return (Kind == KindTy::Immediate && !isGPRExpr()) ||
-         (Kind == KindTy::Expr && !isGPRExpr());
-}
+bool MMIXALOperand::isImm() const { return Kind == KindTy::Immediate; }
 bool MMIXALOperand::isReg() const { return Kind == KindTy::Register; }
 bool MMIXALOperand::isMem() const { return Kind == KindTy::Memory; }
-bool MMIXALOperand::isGPRExpr() const { return Kind == KindTy::Register; }
 bool MMIXALOperand::isJumpDest() const {
   if (Kind == KindTy::Expr) {
     if (auto E = dyn_cast<MMIXMCExpr>(getExpr())) {
@@ -57,14 +56,9 @@ unsigned MMIXALOperand::getReg() const {
   assert(Kind == KindTy::Register && "not register");
   return Content.Reg;
 }
-bool MMIXALOperand::isUImm8() const { return Kind == KindTy::Immediate && isUInt<8>(getImm()); }
-bool MMIXALOperand::isUImm16() const { return Kind == KindTy::Immediate && isUInt<16>(getImm()); }
-bool MMIXALOperand::isUImm24() const { return Kind == KindTy::Immediate && isUInt<24>(getImm()); }
+
 bool MMIXALOperand::isRoundMode() const {
-  auto Expr = getExpr();
-  int64_t Res;
-  Expr->evaluateAsAbsolute(Res);
-  return isUInt<2>(Res) && !isGPRExpr();
+  return Kind == KindTy::Immediate && Content.Imm < 5 && Content.Imm >= 0;
 }
 int64_t MMIXALOperand::getImm() const {
   assert(Kind == KindTy::Immediate && "not immediate");
@@ -127,7 +121,7 @@ MMIXALOperand::createImm(const int64_t &Imm, SMLoc StartLoc, SMLoc EndLoc) {
   return std::make_unique<MMIXALOperand>(Imm, StartLoc, EndLoc);
 }
 std::unique_ptr<MMIXALOperand>
-MMIXALOperand::createGPR(const unsigned &RegNo, SMLoc StartLoc, SMLoc EndLoc) {
+MMIXALOperand::createReg(const unsigned &RegNo, SMLoc StartLoc, SMLoc EndLoc) {
   return std::make_unique<MMIXALOperand>(MCRegister(RegNo), StartLoc, EndLoc);
 }
 

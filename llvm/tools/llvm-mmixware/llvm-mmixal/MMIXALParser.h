@@ -38,7 +38,6 @@ private:
   std::string CurPrefix = ":";
   std::uint16_t SerialCnt = 1;
   StringRef CurrentFileName;
-  std::size_t CurrentLineNumber = 1;
   // indicate how many bytes have been wrote
   // we are only interested in the \mathbb{Z}/4\mathbb{Z}
   std::size_t DataCounter = 0;

@@ -24,6 +24,19 @@
 
 namespace llvm {
 
+const MCFixupKindInfo &
+llvm::MMIXAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
+  static MCFixupKindInfo Infos[] = {
+#define MMIX_FIXUP_X(A0, A1, A2, A3) {#A0, A1, A2, A3},
+#include "MMIXFixupX.def"
+  };
+  if (Kind >= MCFixupKind::FirstTargetFixupKind &&
+      (MMIX::Fixups)Kind < MMIX::LastTargetFixupKind) {
+    return Infos[Kind - MCFixupKind::FirstTargetFixupKind];
+  } else
+    return MCAsmBackend::getFixupKindInfo(Kind);
+}
+
 MMIXAsmBackend::MMIXAsmBackend(const MCSubtargetInfo &STI,
                                const MCRegisterInfo &MRI,
                                const MCTargetOptions &Options)
@@ -49,6 +62,10 @@ bool MMIXAsmBackend::fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
 
 bool MMIXAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count,
                                   const MCSubtargetInfo *STI) const {
+  char NOP[] = {'\xc0', '\x00', '\x00', '\x00'};
+  for (uint64_t I = 0; I != Count; ++I) {
+    OS.write(NOP, sizeof(NOP));
+  }
   return true;
 }
 

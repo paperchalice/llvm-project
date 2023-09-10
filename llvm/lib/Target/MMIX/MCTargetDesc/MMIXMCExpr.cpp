@@ -32,14 +32,10 @@ bool MMIXMCExpr::evaluateAsRelocatableImpl(MCValue &Res,
   case MMIXMCExpr::VK_MMIX_PC_REL_JMP: {
     int64_t Val;
     if (Expr->evaluateAsAbsolute(Val)) {
-      std::uint64_t UVal = static_cast<std::uint64_t>(Val);
-      Res = MCValue::get((UVal - PC) / 4);
+      Res = MCValue::get(static_cast<int64_t>(Val - PC) / 4);
       return true;
-    } else {
-      int64_t Zero = 0;
-      Res = MCValue::get(Zero);
-      return true;
-    }
+    } else
+      return false;
   }
   }
   return Expr->evaluateAsRelocatable(Res, Layout, Fixup);

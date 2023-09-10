@@ -74,8 +74,8 @@ bool MMIXAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
 
 bool MMIXAsmParser::parseRegister(MCRegister &RegNo, SMLoc &StartLoc,
                                   SMLoc &EndLoc) {
-  OperandMatchResultTy MatchResult = tryParseRegister(RegNo, StartLoc, EndLoc);
-  return MatchResult != OperandMatchResultTy::MatchOperand_Success;
+  ParseStatus MatchResult = tryParseRegister(RegNo, StartLoc, EndLoc);
+  return MatchResult.isFailure();
 }
 
 ParseStatus MMIXAsmParser::tryParseRegister(MCRegister &RegNo,
@@ -85,7 +85,7 @@ ParseStatus MMIXAsmParser::tryParseRegister(MCRegister &RegNo,
   auto RegTok = getTok();
   Lex();                                         // eat synthesis register token
   RegNo = MatchRegisterName(RegTok.getString()); // impossible to fail
-  return MatchOperand_Success;
+  return ParseStatus::Success;
 }
 
 bool MMIXAsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
@@ -125,14 +125,14 @@ bool MMIXAsmParser::parseOperand(OperandVector &Operands, StringRef Mnemonic) {
   return false;
 }
 
-OperandMatchResultTy MMIXAsmParser::tryParseJumpDestOperand(
+ParseStatus MMIXAsmParser::tryParseJumpDestOperand(
     OperandVector &Operands) {
-  return MatchOperand_Success;
+  return ParseStatus::Failure;
 }
 
-OperandMatchResultTy MMIXAsmParser::tryParseBranchDestOperand(
+ParseStatus MMIXAsmParser::tryParseBranchDestOperand(
     OperandVector &Operands) {
-  return MatchOperand_Success;
+  return ParseStatus::Failure;
 }
 
 void llvm::MMIXAsmParser::resolveBaseAddress(MCInst &Inst,
