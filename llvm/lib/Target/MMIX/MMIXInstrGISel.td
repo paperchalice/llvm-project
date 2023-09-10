@@ -6,8 +6,8 @@ class MMIXGenericInstruction : GenericInstruction {
 }
 
 def G_FOO : MMIXGenericInstruction {
-  let OutOperandList = (outs type0:$a);
-  let InOperandList = (ins type0:$b);
+  let OutOperandList = (outs type0 : $a);
+  let InOperandList = (ins type0 : $b);
 }
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXINSTRGISEL_TD

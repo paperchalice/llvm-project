@@ -20,24 +20,27 @@
 include "MMIXInstrFormats.td"
 
 // extend
-def sextloadi64 : PatFrag<(ops node:$ptr), (sextload node:$ptr)> {
+def sextloadi64 : PatFrag<(ops node : $ptr), (sextload node : $ptr)> {
   let IsLoad = true;
   let MemoryVT = i64;
 }
 
-def zextloadi64 : PatFrag<(ops node:$ptr), (zextload node:$ptr)> {
+def zextloadi64 : PatFrag<(ops node : $ptr), (zextload node : $ptr)> {
   let IsLoad = true;
   let MemoryVT = i64;
 }
 
 // a fake truncstore, it is just store i64
-def truncstorei64 : PatFrag<(ops node:$val, node:$ptr),
-                            (store node:$val, node:$ptr)> {
+def truncstorei64 : PatFrag<(ops node
+                             : $val, node
+                             : $ptr),
+                            (store node
+                             : $val, node
+                             : $ptr)> {
   let IsStore = true;
   let MemoryVT = i64;
   let IsTruncStore = false;
 }
-
 
 //===----------------------------------------------------------------------===//
 // Instruction Definition
@@ -54,9 +57,7 @@ def FCMP : Inst_r_rr<0x01, "FCMP"> {
 
 def FUN : Inst_r_rr<0x02, "FUN">;
 
-def FEQL   : Inst_r_rr<0x03, "FEQL"> {
-  let isCompare = true;
-}
+def FEQL : Inst_r_rr<0x03, "FEQL"> { let isCompare = true; }
 
 def FADD : Inst_r_rr<0x04, "FADD"> {
   let isAdd = true;
@@ -68,8 +69,9 @@ def FIX : Inst_r_roundz<0x05, "FIX"> {
   let mayRaiseFPException = true;
   let Defs = [rA];
 }
-let EmitPriority = 1 in
-  def : InstAlias<"FIX\t$X,$Z", (FIX GPR:$X, 0, GPR:$Z)>;
+let EmitPriority = 1 in def : InstAlias<"FIX\t$X,$Z", (FIX GPR
+                                                       : $X, 0, GPR
+                                                       : $Z)>;
 
 def FSUB : Inst_r_rr<0x06, "FSUB">;
 
@@ -96,11 +98,17 @@ def FDIV : Inst_r_rr<0x14, "FDIV"> {
   let Defs = [rA];
 }
 
-def FSQRT : Inst_X_Y_Z<0x15, (outs GPR:$X), (ins round_mode:$Y, GPR:$Z), "FSQRT"> {
+def FSQRT : Inst_X_Y_Z<0x15,
+                       (outs GPR
+                        : $X),
+                       (ins round_mode
+                        : $Y, GPR
+                        : $Z),
+                       "FSQRT"> {
   let mayRaiseFPException = true;
   let Defs = [rA];
 }
-def : InstAlias<"FSQRT\t$X,$Z", (FSQRT GPR:$X, 0, GPR:$Z)>;
+def : InstAlias<"FSQRT\t$X,$Z", (FSQRT GPR : $X, 0, GPR : $Z)>;
 
 def FREM : Inst_r_rr<0x16, "FREM"> {
   let mayRaiseFPException = true;
@@ -108,31 +116,23 @@ def FREM : Inst_r_rr<0x16, "FREM"> {
 }
 
 def FINT : Inst_r_roundz<0x17, "FINT">;
-def : InstAlias<"FINT\t$X,$Z", (FINT GPR:$X, 0, GPR:$Z)>;
+def : InstAlias<"FINT\t$X,$Z", (FINT GPR : $X, 0, GPR : $Z)>;
 
-let Defs = [rA] in
-  defm MUL : Inst_r_rri<0x18, "MUL">;
+let Defs = [rA] in defm MUL : Inst_r_rri<0x18, "MUL">;
 
-let Defs = [rH] in
-defm MULU : Inst_r_rri<0x1A, "MULU">;
+let Defs = [rH] in defm MULU : Inst_r_rri<0x1A, "MULU">;
 
-let Defs = [rA, rR] in
-  defm DIV : Inst_r_rri<0x1C, "DIV">;
+let Defs = [rA, rR] in defm DIV : Inst_r_rri<0x1C, "DIV">;
 
-let Defs = [rR], Uses = [rD] in
-  defm DIVU : Inst_r_rri<0x1E, "DIVU">;
+let Defs = [rR], Uses = [rD] in defm DIVU : Inst_r_rri<0x1E, "DIVU">;
 
-let isAdd = true, Defs = [rA] in
-  defm ADD : Inst_r_rri<0x20, "ADD">;
+let isAdd = true, Defs = [rA] in defm ADD : Inst_r_rri<0x20, "ADD">;
 
-let isAdd = true in
-  defm ADDU : Inst_r_rri<0x22, "ADDU">;
+let isAdd = true in defm ADDU : Inst_r_rri<0x22, "ADDU">;
 
-let isAsmParserOnly = true in
-  defm LDA: Inst_r_rri<0x22, "LDA", true>;
+let isAsmParserOnly = true in defm LDA : Inst_r_rri<0x22, "LDA", true>;
 
-let Defs = [rA] in
-  defm SUB : Inst_r_rri<0x24, "SUB">;
+let Defs = [rA] in defm SUB : Inst_r_rri<0x24, "SUB">;
 
 defm SUBU : Inst_r_rri<0x26, "ADDU">;
 
@@ -148,23 +148,19 @@ def : MnemonicAlias<"ADDU8", "ADD8U">;
 defm I16ADDU : Inst_r_rri<0x2E, "16ADDU">;
 def : MnemonicAlias<"ADDU16", "ADD16U">;
 
-let isCompare = true in
-  defm CMP : Inst_r_rri<0x30, "CMP">;
+let isCompare = true in defm CMP : Inst_r_rri<0x30, "CMP">;
 
-let isCompare = true in
-  defm CMPU : Inst_r_rri<0x32, "CMPU">;
+let isCompare = true in defm CMPU : Inst_r_rri<0x32, "CMPU">;
 
-let Defs = [rA] in
-  defm NEG : Inst_r_iri<0x34, "NEG">;
-def : InstAlias<"NEG\t$X,$Y", (NEG GPR:$X, 0, GPR:$Y)>;
-def : InstAlias<"NEG\t$X,$Y", (NEGI GPR:$X, 0, ui8imm:$Y)>;
+let Defs = [rA] in defm NEG : Inst_r_iri<0x34, "NEG">;
+def : InstAlias<"NEG\t$X,$Y", (NEG GPR : $X, 0, GPR : $Y)>;
+def : InstAlias<"NEG\t$X,$Y", (NEGI GPR : $X, 0, ui8imm : $Y)>;
 
 defm NEGU : Inst_r_iri<0x36, "NEGU">;
-def : InstAlias<"NEGU\t$X,$Y", (NEGU GPR:$X, 0, GPR:$Y)>;
-def : InstAlias<"NEGU\t$X,$Y", (NEGUI GPR:$X, 0, ui8imm:$Y)>;
+def : InstAlias<"NEGU\t$X,$Y", (NEGU GPR : $X, 0, GPR : $Y)>;
+def : InstAlias<"NEGU\t$X,$Y", (NEGUI GPR : $X, 0, ui8imm : $Y)>;
 
-let Defs = [rA] in
-  defm SL : Inst_r_rri<0x38, "SL">;
+let Defs = [rA] in defm SL : Inst_r_rri<0x38, "SL">;
 
 defm SLU : Inst_r_rri<0x3A, "SLU">;
 
@@ -250,8 +246,8 @@ let mayLoad = true in {
   defm LDHT : Inst_r_rri<0x92, "LDHT", true>;
 }
 
-let isCompare = true, Uses = [rP] in
-  defm CSWAP : Inst_r_rri<0x94, "CSWAP", true>;
+let isCompare = true,
+    Uses = [rP] in defm CSWAP : Inst_r_rri<0x94, "CSWAP", true>;
 
 let mayLoad = true in {
   defm LDUNC : Inst_r_rri<0x96, "LDUNC", true>;
@@ -260,8 +256,7 @@ let mayLoad = true in {
   defm PREGO : Inst_i_rri<0x9C, "PREGO", true>;
 }
 
-let isBranch = true in
-  defm GO : Inst_r_rri<0x9E, "GO", true>;
+let isBranch = true in defm GO : Inst_r_rri<0x9E, "GO", true>;
 
 let mayStore = true in {
   defm STB : Inst__rrri<0xA0, "STB", true>;
@@ -280,17 +275,16 @@ let mayStore = true in {
 
 defm SYNCD : Inst__irri<0xB8, "SYNCD", true>;
 
-let mayStore = true in
-  defm PREST : Inst__irri<0xBA, "PREST", true>;
+let mayStore = true in defm PREST : Inst__irri<0xBA, "PREST", true>;
 
 defm SYNCID : Inst__irri<0xBC, "SYNCID", true>;
 
-let isBranch = true in
-  defm PUSHGO : Inst__rrri<0xBE, "PUSHGO", true>;
+let isBranch = true in defm PUSHGO : Inst__rrri<0xBE, "PUSHGO", true>;
 
 defm OR : Inst_r_rri<0xC0, "OR">;
-let EmitPriority = 1 in
-  def : InstAlias<"SET\t$X,$Y", (ORI GPR:$X, GPR:$Y, 0)>;
+let EmitPriority = 1 in def : InstAlias<"SET\t$X,$Y", (ORI GPR
+                                                       : $X, GPR
+                                                       : $Y, 0)>;
 
 defm ORN : Inst_r_rri<0xC2, "ORN">;
 
@@ -356,21 +350,22 @@ def ANDNL : Inst_r_ui16imm<0xEF, "ANDNL">;
 
 defm JMP : Inst_jmpb<0xF0, "JMP">;
 
-let isCall = true in
-  defm PUSHJ : Inst__rbranch<0xF2, "PUSHJ">;
-let isAsmParserOnly = true in
-  defm : Inst__ibranch<0xF2, "PUSHJ">;
+let isCall = true in defm PUSHJ : Inst__rbranch<0xF2, "PUSHJ">;
+let isAsmParserOnly = true in defm : Inst__ibranch<0xF2, "PUSHJ">;
 
 defm GETA : Inst_r_branch<0xF4, "GETA">;
 
-def PUT : Inst_X__Z<0xF6, (outs), (ins SFR:$X, GPR:$Z), "PUT">;
-def PUTI : Inst_X__Z<0xF7, (outs), (ins SFR:$X, ui8imm:$Z), "PUT">;
+def PUT : Inst_X__Z<0xF6, (outs), (ins SFR : $X, GPR : $Z), "PUT">;
+def PUTI : Inst_X__Z<0xF7, (outs), (ins SFR : $X, ui8imm : $Z), "PUT">;
 
-let isReturn = true in
-  def POP : Inst_X_YZ<0xF8, (outs), (ins ui8imm:$X, ui16imm:$YZ), "POP">;
+let isReturn = true in def POP : Inst_X_YZ<0xF8, (outs),
+                                           (ins ui8imm
+                                            : $X, ui16imm
+                                            : $YZ),
+                                           "POP">;
 def : InstAlias<"POP", (POP 0, 0)>;
 
-def RESUME : MMIXInst<0xF9, (outs), (ins ui8imm:$Z), "RESUME", "$Z"> {
+def RESUME : MMIXInst<0xF9, (outs), (ins ui8imm : $Z), "RESUME", "$Z"> {
   bits<8> Z;
 
   let Inst{23...8} = 0;
@@ -378,32 +373,42 @@ def RESUME : MMIXInst<0xF9, (outs), (ins ui8imm:$Z), "RESUME", "$Z"> {
 }
 def : InstAlias<"RESUME", (RESUME 0)>;
 
-def SAVE : MMIXInst<0xFA,
-  (outs GPR:$X), (ins ui8imm:$Z), "SAVE", "$X,$Z"> {
+def SAVE : MMIXInst<0xFA, (outs GPR : $X), (ins ui8imm : $Z), "SAVE", "$X,$Z"> {
   bits<8> X;
 
   let Inst{23...16} = X;
   let Inst{15...0} = 0;
 }
 
-def UNSAVE : MMIXInst<0xFB,
-  (outs), (ins ui8imm:$X, GPR:$Z), "UNSAVE", "$X,$Z"> {
+def UNSAVE : MMIXInst<0xFB, (outs),
+                      (ins ui8imm
+                       : $X, GPR
+                       : $Z),
+                      "UNSAVE", "$X,$Z"> {
   bits<8> Z;
 
   let Inst{23...8} = 0;
   let Inst{7...0} = Z;
 }
-def : InstAlias<"UNSAVE\t$Z", (UNSAVE 0, GPR:$Z)>;
+def : InstAlias<"UNSAVE\t$Z", (UNSAVE 0, GPR : $Z)>;
 
-def SYNC : Inst_XYZ<0xFC, (outs), (ins ui24imm:$XYZ), "SYNC">;
+def SYNC : Inst_XYZ<0xFC, (outs), (ins ui24imm : $XYZ), "SYNC">;
 def : InstAlias<"SYNC", (SYNC 0)>;
 
-def SWYM : Inst_X_Y_Z<0xFD, (outs), (ins ui8imm:$X, ui8imm:$Y, ui8imm:$Z), "SWYM">;
+def SWYM : Inst_X_Y_Z<0xFD, (outs),
+                      (ins ui8imm
+                       : $X, ui8imm
+                       : $Y, ui8imm
+                       : $Z),
+                      "SWYM">;
 def : InstAlias<"SWYM", (SWYM 0, 0, 0)>;
-let isAsmParserOnly = true in
-  def : Inst_X_YZ<0xFD, (outs), (ins ui8imm:$X, ui16imm:$YZ), "SWYM">;
+let isAsmParserOnly = true in def : Inst_X_YZ<0xFD, (outs),
+                                              (ins ui8imm
+                                               : $X, ui16imm
+                                               : $YZ),
+                                              "SWYM">;
 
-def GET : Inst_X__Z<0xFE, (outs GPR:$X), (ins SFR:$Z), "GET">;
+def GET : Inst_X__Z<0xFE, (outs GPR : $X), (ins SFR : $Z), "GET">;
 
 defm TRIP : Inst_trip_trap<0xFF, "TRIP">;
 def : InstAlias<"TRIP", (TRIP 0)>;
@@ -417,51 +422,72 @@ def : InstAlias<"TRIP", (TRIP 0)>;
 // def :Pat<(zextloadi8 (add i64:$Y, i64:$Z)), (i64 (LDBU i64:$Y, i64:$Z))>;
 // def :Pat<(zextloadi8 (add i64:$Y, ui8imm:$Z)), (i64 (LDBUI i64:$Y, i64:$Z))>;
 
-def :Pat<(sextloadi16 (add i64:$Y, i64:$Z)), (i64 (LDW i64:$Y, i64:$Z))>;
-def :Pat<(sextloadi16 (add i64:$Y, ui8imm:$Z)), (i64 (LDWI i64:$Y, i64:$Z))>;
-def :Pat<(zextloadi16 (add i64:$Y, i64:$Z)), (i64 (LDWU i64:$Y, i64:$Z))>;
-def :Pat<(zextloadi16 (add i64:$Y, ui8imm:$Z)), (i64 (LDWUI i64:$Y, i64:$Z))>;
+def : Pat<(sextloadi16(add i64 : $Y, i64 : $Z)), (i64(LDW i64 : $Y, i64 : $Z))>;
+def : Pat<(sextloadi16(add i64
+                       : $Y, ui8imm
+                       : $Z)),
+          (i64(LDWI i64
+               : $Y, i64
+               : $Z))>;
+def : Pat<(zextloadi16(add i64
+                       : $Y, i64
+                       : $Z)),
+          (i64(LDWU i64
+               : $Y, i64
+               : $Z))>;
+def : Pat<(zextloadi16(add i64
+                       : $Y, ui8imm
+                       : $Z)),
+          (i64(LDWUI i64
+               : $Y, i64
+               : $Z))>;
 
 // def :Pat<(sextloadi32 (add i64:$Y, i64:$Z)), (i64 (LDT i64:$Y, i64:$Z))>;
 // def :Pat<(sextloadi32 (add i64:$Y, ui8imm:$Z)), (i64 (LDTI i64:$Y, i64:$Z))>;
 // def :Pat<(zextloadi32 (add i64:$Y, i64:$Z)), (i64 (LDTU i64:$Y, i64:$Z))>;
-// def :Pat<(zextloadi32 (add i64:$Y, ui8imm:$Z)), (i64 (LDTUI i64:$Y, i64:$Z))>;
+// def :Pat<(zextloadi32 (add i64:$Y, ui8imm:$Z)), (i64 (LDTUI i64:$Y,
+// i64:$Z))>;
 
 // def :Pat<(sextloadi64 (add i64:$Y, i64:$Z)), (i64 (LDO i64:$Y, i64:$Z))>;
 // def :Pat<(sextloadi64 (add i64:$Y, ui8imm:$Z)), (i64 (LDOI i64:$Y, i64:$Z))>;
 // def :Pat<(zextloadi64 (add i64:$Y, i64:$Z)), (i64 (LDOU i64:$Y, i64:$Z))>;
 // def :Pat<(zextloadi64 (add i64:$Y, ui8imm:$Z)), (i64 (LDOI i64:$Y, i64:$Z))>;
 
-// def :Pat<(shl (sextloadi32 (add i64:$Y, i64:$Z)), (i8 32)), (i64 (LDHT i64:$Y, i64:$Z))>;
-// def :Pat<(shl (sextloadi32 (add i64:$Y, ui8imm:$Z)), (i8 32)), (i64 (LDHTI i64:$Y, i64:$Z))>;
+// def :Pat<(shl (sextloadi32 (add i64:$Y, i64:$Z)), (i8 32)), (i64 (LDHT
+// i64:$Y, i64:$Z))>; def :Pat<(shl (sextloadi32 (add i64:$Y, ui8imm:$Z)), (i8
+// 32)), (i64 (LDHTI i64:$Y, i64:$Z))>;
 
+// def :Pat<(truncstorei8 i64:$X, (add i64:$Y, i64:$Z)), (STB i64:$X, i64:$Y,
+// i64:$Z)>; def :Pat<(truncstorei8 i64:$X, (add i64:$Y, ui8imm:$Z)), (STBI
+// i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei8 i64:$X, (add i64:$Y,
+// i64:$Z)), (STBU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei8 i64:$X, (add
+// i64:$Y, ui8imm:$Z)), (STBUI i64:$X, i64:$Y, i64:$Z)>;
 
-// def :Pat<(truncstorei8 i64:$X, (add i64:$Y, i64:$Z)), (STB i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei8 i64:$X, (add i64:$Y, ui8imm:$Z)), (STBI i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei8 i64:$X, (add i64:$Y, i64:$Z)), (STBU i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei8 i64:$X, (add i64:$Y, ui8imm:$Z)), (STBUI i64:$X, i64:$Y, i64:$Z)>;
+// def :Pat<(truncstorei16 i64:$X, (add i64:$Y, i64:$Z)), (STW i64:$X, i64:$Y,
+// i64:$Z)>; def :Pat<(truncstorei16 i64:$X, (add i64:$Y, ui8imm:$Z)), (STWI
+// i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei16 i64:$X, (add i64:$Y,
+// i64:$Z)), (STWU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei16 i64:$X,
+// (add i64:$Y, ui8imm:$Z)), (STWUI i64:$X, i64:$Y, i64:$Z)>;
 
-// def :Pat<(truncstorei16 i64:$X, (add i64:$Y, i64:$Z)), (STW i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei16 i64:$X, (add i64:$Y, ui8imm:$Z)), (STWI i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei16 i64:$X, (add i64:$Y, i64:$Z)), (STWU i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei16 i64:$X, (add i64:$Y, ui8imm:$Z)), (STWUI i64:$X, i64:$Y, i64:$Z)>;
+// def :Pat<(truncstorei32 i64:$X, (add i64:$Y, i64:$Z)), (STT i64:$X, i64:$Y,
+// i64:$Z)>; def :Pat<(truncstorei32 i64:$X, (add i64:$Y, ui8imm:$Z)), (STTI
+// i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei32 i64:$X, (add i64:$Y,
+// i64:$Z)), (STTU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei32 i64:$X,
+// (add i64:$Y, ui8imm:$Z)), (STTUI i64:$X, i64:$Y, i64:$Z)>;
 
-// def :Pat<(truncstorei32 i64:$X, (add i64:$Y, i64:$Z)), (STT i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei32 i64:$X, (add i64:$Y, ui8imm:$Z)), (STTI i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei32 i64:$X, (add i64:$Y, i64:$Z)), (STTU i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei32 i64:$X, (add i64:$Y, ui8imm:$Z)), (STTUI i64:$X, i64:$Y, i64:$Z)>;
+// def :Pat<(truncstorei64 i64:$X, (add i64:$Y, i64:$Z)), (STO i64:$X, i64:$Y,
+// i64:$Z)>; def :Pat<(truncstorei64 i64:$X, (add i64:$Y, ui8imm:$Z)), (STOI
+// i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei64 i64:$X, (add i64:$Y,
+// i64:$Z)), (STOU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei64 i64:$X,
+// (add i64:$Y, ui8imm:$Z)), (STOI i64:$X, i64:$Y, i64:$Z)>;
 
-// def :Pat<(truncstorei64 i64:$X, (add i64:$Y, i64:$Z)), (STO i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei64 i64:$X, (add i64:$Y, ui8imm:$Z)), (STOI i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei64 i64:$X, (add i64:$Y, i64:$Z)), (STOU i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei64 i64:$X, (add i64:$Y, ui8imm:$Z)), (STOI i64:$X, i64:$Y, i64:$Z)>;
+// def :Pat<(truncstorei64 ui8imm:$X, (add i64:$Y, i64:$Z)), (STCO ui8imm:$X,
+// i64:$Y, i64:$Z)>; def :Pat<(truncstorei64 ui8imm:$X, (add i64:$Y,
+// ui8imm:$Z)), (STCO ui8imm:$X, i64:$Y, ui8imm:$Z)>;
 
-// def :Pat<(truncstorei64 ui8imm:$X, (add i64:$Y, i64:$Z)), (STCO ui8imm:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei64 ui8imm:$X, (add i64:$Y, ui8imm:$Z)), (STCO ui8imm:$X, i64:$Y, ui8imm:$Z)>;
-
-// def :Pat<(truncstorei32 (srl i64:$X, (i8 32)), (add i64:$Y, i64:$Z)), (STHT i64:$X, i64:$Y, i64:$Z)>;
-// def :Pat<(truncstorei32 (srl i64:$X, (i8 32)), (add i64:$Y, ui8imm:$Z)), (STHT i64:$X, i64:$Y, ui8imm:$Z)>;
-
+// def :Pat<(truncstorei32 (srl i64:$X, (i8 32)), (add i64:$Y, i64:$Z)), (STHT
+// i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei32 (srl i64:$X, (i8 32)), (add
+// i64:$Y, ui8imm:$Z)), (STHT i64:$X, i64:$Y, ui8imm:$Z)>;
 
 // // add and sub
 // def :Pat<(add i64:$Y, i64:$Z), (ADD i64:$Y, i64:$Z)>;

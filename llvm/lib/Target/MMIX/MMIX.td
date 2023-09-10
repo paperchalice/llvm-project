@@ -35,18 +35,12 @@ def : ProcessorModel<"generic", NoSchedModel, []>;
 // Define the MMIX target.
 //===----------------------------------------------------------------------===//
 
-def MMIXInstrInfo : InstrInfo {
-  
-}
+def MMIXInstrInfo : InstrInfo {}
 
 #ifndef GEN_MMIXAL
-def MMIX : Target {
-  let InstructionSet = MMIXInstrInfo;
-}
+def MMIX : Target { let InstructionSet = MMIXInstrInfo; }
 #else
-def MMIXAL : Target {
-  let InstructionSet = MMIXInstrInfo;
-}
+def MMIXAL : Target { let InstructionSet = MMIXInstrInfo; }
 #endif
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIX_TD

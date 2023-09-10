@@ -3,8 +3,7 @@
 
 include "llvm/Target/GlobalISel/Combine.td"
 
-def MMIXCombiner: GICombiner<
-  "MMIXCombinerImpl", [all_combines]> {
+def MMIXCombiner : GICombiner<"MMIXCombinerImpl", [all_combines]> {
   let CombineAllMethodName = "tryCombineAllImpl";
 }
 
