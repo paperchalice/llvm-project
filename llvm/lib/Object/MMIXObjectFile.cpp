@@ -12,10 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Object/MMIXObjectFile.h"
-#include "llvm/TargetParser/SubtargetFeature.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/TargetParser/SubtargetFeature.h"
 
 #include <cstdint>
 #include <iomanip>
@@ -96,18 +96,28 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
   bool ReachPostamble = false;
   bool LastIsLOP = true;
   const std::uint8_t *BinRefStart = Iter;
+  std::uint64_t PC = 0;
   Error Err = Error::success();
   while (!ReachPostamble && Iter < DataEnd) {
     // handle LOP
     if (getInst(Iter) == MMO::MM) {
       if (!LastIsLOP && Iter != BinRefStart) {
-        Content.emplace_back(ArrayRef<std::uint8_t>(BinRefStart, Iter));
+        if(getX(Iter) == MMO::LOP_QUOTE) {
+          PC += 4;
+          Iter += 8;
+          continue;
+        }
+
+        MMOData D{PC, ArrayRef<std::uint8_t>(BinRefStart, Iter)};
+        D.StartAddress -= D.Data.size();
+        Content.emplace_back(D);
         LastIsLOP = true;
       }
       // handle lop_xxx
       switch (getX(Iter)) {
       case MMO::LOP_QUOTE:
-        Content.emplace_back(MMOQuote{{Iter, 8}, {Iter + 4, 4}});
+        LastIsLOP = false;
+        PC += 4;
         Iter += 8;
         break;
       case MMO::LOP_LOC: {
@@ -132,10 +142,12 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         }
         Loc.Offset = Offset;
         Loc.RawData = {LocBegin, Iter};
+        PC = ((std::uint64_t)Loc.HighByte << 54) | Offset;
         Content.emplace_back(Loc);
       } break;
       case MMO::LOP_SKIP:
         Content.emplace_back(MMOSkip{{Iter, 4}, getYZ(Iter)});
+        PC += getYZ(Iter);
         Iter += 4;
         break;
       case MMO::LOP_FIXO: {
@@ -192,7 +204,7 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
           Name =
               StringRef(reinterpret_cast<const char *>(Iter), 4 * TetraCount);
         }
-        F.Name = Name;
+        F.Name = Name.trim('\0');
         Iter += 4 * TetraCount;
         F.RawData = {FileBegin, Iter};
         Content.emplace_back(F);
@@ -203,10 +215,25 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         Content.emplace_back(MMOLine{{Iter, 4}, getYZ(Iter)});
         Iter += 4;
         break;
-      case MMO::LOP_SPEC:
-        Content.emplace_back(MMOSpec{{Iter, 4}, getYZ(Iter)});
+      case MMO::LOP_SPEC: {
+        ArrayRef<std::uint8_t> RawData(Iter, 4);
+        auto Type = getYZ(Iter);
         Iter += 4;
+        auto SpecialDataBegin = Iter;
+        while (Iter < DataEnd) {
+          if (getInst(Iter) == MMO::MM) {
+            if (getX(Iter) == MMO::LOP_QUOTE)
+              Iter += 4;
+            else
+              break;
+          }
+          Iter += 4;
+        }
+        MMOSpec SP = {RawData, Type, {SpecialDataBegin, Iter}};
+        Content.emplace_back(SP);
+        BinRefStart = Iter;
         break;
+      }
       case MMO::LOP_POST:
         ReachPostamble = true;
         break;
@@ -218,6 +245,8 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         BinRefStart = Iter;
         LastIsLOP = false;
       }
+
+      PC += 4;
       Iter += 4;
     }
   }
@@ -338,6 +367,7 @@ void MMIXObjectFile::decodeSymbolTable(const unsigned char *&Start,
         S.Serial += SN;
       }
       S.Serial -= 128;
+      S.Name = S.Name.substr(1); // drop start colon
       SymbTab.push_back(S);
     }
 

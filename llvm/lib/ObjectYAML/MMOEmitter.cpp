@@ -31,12 +31,7 @@ inline bool is64Bit(const yaml::Hex64 &H) {
 
 namespace llvm::MMOYAML {
 
-void Quote::writeAsBinary(raw_ostream &OS) const {
-  writeLop(OS, MMO::LOP_QUOTE);
-  OS.write(0);
-  OS.write(1);
-  Value.writeAsBinary(OS);
-}
+void RawData::writeAsBinary(raw_ostream &OS) const { Data.writeAsBinary(OS); }
 
 void Loc::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_LOC);
@@ -94,10 +89,13 @@ void File::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_FILE);
   OS << Number;
   if (Name) {
-    OS << static_cast<uint8_t>(Name->size() / 4);
+    auto AlignedSize = alignTo<4>(Name->size());
+    std::uint8_t TetraCount = AlignedSize / 4;
+    OS << TetraCount;
     OS << *Name;
+    OS.write_zeros(AlignedSize - Name->size());
   } else {
-    OS << 0;
+    OS << '\0';
   }
 }
 
@@ -111,6 +109,7 @@ void Spec::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_SPEC);
   support::endian::Writer Writer(OS, support::endianness::big);
   Writer.write<uint16_t>(Type);
+  Data.writeAsBinary(OS);
 }
 
 void Pre::writeAsBinary(raw_ostream &OS) const {
@@ -185,7 +184,7 @@ size_t MMOWriter::writeSymbolTable(raw_ostream &OS) {
   for (const auto &S : Obj.SymTab.Symbols) {
     MMO::Symbol Symb;
     Symb.Serial = S.Serial;
-    Symb.Name = S.Name.drop_front();
+    Symb.Name = S.Name;
     Symb.Equiv = S.Equiv;
     switch (S.Type) {
     case MMO::SymbolType::NORMAL:
@@ -206,6 +205,7 @@ size_t MMOWriter::writeSymbolTable(raw_ostream &OS) {
 Error MMOWriter::write(raw_ostream &OS) {
   support::endian::Writer Writer(OS, support::endianness::big);
   writePreamble(OS);
+  assert(OS.tell() % 4 == 0);
   writeContent(OS);
   writePostamble(OS);
   assert(OS.tell() % 4 == 0);

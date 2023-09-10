@@ -22,7 +22,8 @@ using namespace MMOYAML;
 Object::Object(const object::MMIXObjectFile &O)
     : Preamble(O.getMMOPreamble()), Postamble(O.getMMOPostamble()) {}
 
-Quote::Quote(const object::MMOQuote &Q) : Value(Q.Value) {}
+RawData::RawData(const llvm::object::MMOData &D)
+    : StartAddress(D.StartAddress), Data(D.Data) {}
 Loc::Loc(const object::MMOLoc &L) : HighByte(L.HighByte), Offset(L.Offset) {}
 Skip::Skip(const object::MMOSkip &S) : Delta(S.Delta) {}
 Fixo::Fixo(const object::MMOFixo &F) : HighByte(F.HighByte), Offset(F.Offset) {}
@@ -30,7 +31,7 @@ Fixr::Fixr(const object::MMOFixr &F) : Delta(F.Delta) {}
 Fixrx::Fixrx(const object::MMOFixrx &F) : FixType(F.FixType), Delta(F.Delta) {}
 File::File(const object::MMOFile &F) : Name(F.Name), Number(F.Number) {}
 Line::Line(const object::MMOLine &L) : Number(L.Number) {}
-Spec::Spec(const object::MMOSpec &S) : Type(S.Type) {}
+Spec::Spec(const object::MMOSpec &S) : Type(S.Type), Data(S.SpecialData) {}
 Pre::Pre(const object::MMOPre &P)
     : Version(P.Version), CreatedTime(P.CreatedTime) {
   if (P.ExtraData.has_value()) {
@@ -48,8 +49,9 @@ namespace llvm::yaml {
 
 // lops
 
-void MappingTraits<MMOYAML::Quote>::mapping(IO &IO, MMOYAML::Quote &Q) {
-  IO.mapRequired("Value", Q.Value);
+void MappingTraits<MMOYAML::RawData>::mapping(IO &IO, MMOYAML::RawData &RD) {
+  IO.mapRequired("StartAddress", RD.StartAddress);
+  IO.mapRequired("Data", RD.Data);
 }
 
 void MappingTraits<MMOYAML::Loc>::mapping(IO &IO, MMOYAML::Loc &L) {
@@ -86,6 +88,7 @@ void MappingTraits<MMOYAML::Line>::mapping(IO &IO, MMOYAML::Line &L) {
 
 void MappingTraits<MMOYAML::Spec>::mapping(IO &IO, MMOYAML::Spec &S) {
   IO.mapRequired("Type", S.Type);
+  IO.mapRequired("Data", S.Data);
 }
 
 void MappingTraits<MMOYAML::Pre>::mapping(IO &IO, MMOYAML::Pre &P) {
@@ -102,10 +105,10 @@ void MappingTraits<MMOYAML::Post>::mapping(IO &IO, MMOYAML::Post &P) {
 void CustomMappingTraits<MMOYAML::Segment>::inputOne(IO &IO, StringRef key,
                                                      MMOYAML::Segment &Seg) {
   using namespace MMOYAML;
-  if (key == "Bin") {
-    BinaryRef Bin;
-    IO.mapRequired("Bin", Bin);
-    Seg = Bin;
+  if (key == "StartAddress") {
+    RawData RD;
+    MappingTraits<RawData>::mapping(IO, RD);
+    Seg = RD;
   } else if (key == "OpCode") {
     MMOYAML::MMO_LOP_TYPE OpCode;
     IO.mapRequired("OpCode", OpCode);
@@ -117,7 +120,6 @@ void CustomMappingTraits<MMOYAML::Segment>::inputOne(IO &IO, StringRef key,
     Seg = Op;                                                                  \
   }                                                                            \
     return
-      ECase(QUOTE, Quote);
       ECase(LOC, Loc);
       ECase(SKIP, Skip);
       ECase(FIXO, Fixo);
@@ -212,12 +214,13 @@ template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 void CustomMappingTraits<MMOYAML::Segment>::output(IO &IO,
                                                    MMOYAML::Segment &Seg) {
   using namespace MMOYAML;
-  std::visit(overloaded{[&](BinaryRef &Bin) { IO.mapRequired("Bin", Bin); },
-                        [&](auto &Op) {
-                          using OpType = std::remove_reference_t<decltype(Op)>;
-                          IO.mapRequired("OpCode", OpType::OpCode);
-                          MappingTraits<OpType>::mapping(IO, Op);
-                        }},
-             Seg);
+  std::visit(
+      overloaded{[&](RawData &RD) { MappingTraits<RawData>::mapping(IO, RD); },
+                 [&](auto &Op) {
+                   using OpType = std::remove_reference_t<decltype(Op)>;
+                   IO.mapRequired("OpCode", OpType::OpCode);
+                   MappingTraits<OpType>::mapping(IO, Op);
+                 }},
+      Seg);
 }
 } // namespace llvm::yaml
