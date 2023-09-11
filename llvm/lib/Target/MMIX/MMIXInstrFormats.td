@@ -441,7 +441,7 @@ multiclass Inst__ibranch<bits<8> opcode, string opstr = NAME> {
   }
 }
 
-multiclass Inst_r_branch<bits<8> opcode, string opstr> {
+multiclass Inst_r_branch<bits<8> opcode, string opstr = NAME> {
   def "" : Inst_X_YZ<opcode, (outs GPR : $X), (ins branch_dest : $YZ), opstr>;
   def B : Inst_X_YZ<!or(opcode, 1),
                     (outs GPR

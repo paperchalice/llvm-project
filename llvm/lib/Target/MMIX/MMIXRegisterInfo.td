@@ -24,7 +24,7 @@ class MMIXGPR<bits<16> enc> : MMIXReg<enc, "" #enc> {
   let DwarfNumbers = [enc];
 }
 
-class MMIXSR<bits<16> enc, string n> : MMIXReg<enc, n> {
+class MMIXSR<bits<16> enc, string n = NAME> : MMIXReg<enc, n>{
   let DwarfNumbers = [!add(enc, 0x100)];
 }
 
@@ -34,38 +34,38 @@ foreach i = {0...255} in {
   def r #i : MMIXGPR<i>;
 }
 
-def rB : MMIXSR<0, "rB">;    // bootstrap register (trip)
-def rD : MMIXSR<1, "rD">;    // dividend register
-def rE : MMIXSR<2, "rE">;    // epsilon register
-def rH : MMIXSR<3, "rH">;    // himult register
-def rJ : MMIXSR<4, "rJ">;    // return-jump register
-def rM : MMIXSR<5, "rM">;    // multiplex mask register
-def rR : MMIXSR<6, "rR">;    // remainder register
-def rBB : MMIXSR<7, "rBB">;  // bootstrap register (trap)
-def rC : MMIXSR<8, "rC">;    // continuation register
-def rN : MMIXSR<9, "rN">;    // serial number
-def rO : MMIXSR<10, "rO">;   // register stack offset
-def rS : MMIXSR<11, "rS">;   // register stack pointer
-def rI : MMIXSR<12, "rI">;   // interval counter
-def rT : MMIXSR<13, "rT">;   // trap address register
-def rTT : MMIXSR<14, "rTT">; // dynamic trap address register
-def rK : MMIXSR<15, "rK">;   // interrupt mask register
-def rQ : MMIXSR<16, "rQ">;   // interrupt request register
-def rU : MMIXSR<17, "rU">;   // usage counter
-def rV : MMIXSR<18, "rV">;   // virtual translation register
-def rG : MMIXSR<19, "rG">;   // global threshold register
-def rL : MMIXSR<20, "rL">;   // local threshold register
-def rA : MMIXSR<21, "rA">;   // arithmetic status register
-def rF : MMIXSR<22, "rF">;   // failure location register
-def rP : MMIXSR<23, "rP">;   // prediction register
-def rW : MMIXSR<24, "rW">;   // where-interrupted register (trip)
-def rX : MMIXSR<25, "rX">;   // execution register (trip)
-def rY : MMIXSR<26, "rY">;   // Y operand (trip)
-def rZ : MMIXSR<27, "rZ">;   // Z operand (trip)
-def rWW : MMIXSR<28, "rWW">; // where-interrupted register (trap)
-def rXX : MMIXSR<29, "rXX">; // execution register (trap)
-def rYY : MMIXSR<30, "rYY">; // Y operand (trap)
-def rZZ : MMIXSR<31, "rZZ">; // Z operand (trap)
+def rB : MMIXSR<0>;    // bootstrap register (trip)
+def rD : MMIXSR<1>;    // dividend register
+def rE : MMIXSR<2>;    // epsilon register
+def rH : MMIXSR<3>;    // himult register
+def rJ : MMIXSR<4>;    // return-jump register
+def rM : MMIXSR<5>;    // multiplex mask register
+def rR : MMIXSR<6>;    // remainder register
+def rBB : MMIXSR<7>;  // bootstrap register (trap)
+def rC : MMIXSR<8>;    // continuation register
+def rN : MMIXSR<9>;    // serial number
+def rO : MMIXSR<10>;   // register stack offset
+def rS : MMIXSR<11>;   // register stack pointer
+def rI : MMIXSR<12>;   // interval counter
+def rT : MMIXSR<13>;   // trap address register
+def rTT : MMIXSR<14>; // dynamic trap address register
+def rK : MMIXSR<15>;   // interrupt mask register
+def rQ : MMIXSR<16>;   // interrupt request register
+def rU : MMIXSR<17>;   // usage counter
+def rV : MMIXSR<18>;   // virtual translation register
+def rG : MMIXSR<19>;   // global threshold register
+def rL : MMIXSR<20>;   // local threshold register
+def rA : MMIXSR<21>;   // arithmetic status register
+def rF : MMIXSR<22>;   // failure location register
+def rP : MMIXSR<23>;   // prediction register
+def rW : MMIXSR<24>;   // where-interrupted register (trip)
+def rX : MMIXSR<25>;   // execution register (trip)
+def rY : MMIXSR<26>;   // Y operand (trip)
+def rZ : MMIXSR<27>;   // Z operand (trip)
+def rWW : MMIXSR<28>; // where-interrupted register (trap)
+def rXX : MMIXSR<29>; // execution register (trap)
+def rYY : MMIXSR<30>; // Y operand (trap)
+def rZZ : MMIXSR<31>; // Z operand (trap)
 
 // example register class, here is gpr
 def GPR : RegisterClass<"MMIX", [v8i8, v4i16, v2i32, i64], 64,
