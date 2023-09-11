@@ -46,7 +46,15 @@ MCDisassembler::DecodeStatus
 MMIXDisassembler::getInstruction(MCInst &Instr, uint64_t &Size,
                                  ArrayRef<uint8_t> Bytes, uint64_t Address,
                                  raw_ostream &CStream) const {
-  uint32_t Insn = 0;
+  // Instruction size in byte, in MMIX, always 4 bytes
+  Size = 4;
+  // `Insn` is the encoded instruction value, e.g.
+  // `ADD $0,$1,$2`, then the bytes in `Bytes` are
+  // `0x20 0x00 0x01 0x02`, then read these bytes as
+  // `std::uint32_t` in big endian, we get the `Insn`
+  // then `decodeInstruction` will use these bits
+  // decode the information
+  std::uint32_t Insn = support::endian::read32be(Bytes.data());
   DecodeStatus Result =
       decodeInstruction(DecoderTable32, Instr, Insn, Address, this, STI);
   return Result;
@@ -79,6 +87,9 @@ DecodeStatus DecodeSPRRegisterClass(MCInst &Inst, uint64_t RegNo,
 template <std::size_t Width>
 DecodeStatus decodeUImmOperand(MCInst &Inst, uint64_t RegNo, uint64_t Address,
                                const void *Decoder) {
+  std::uint64_t Mask = (1UL << Width) - 1;
+  auto Val = Mask & RegNo;
+  Inst.addOperand(MCOperand::createImm(Val));
   return DecodeStatus::Success;
 }
 

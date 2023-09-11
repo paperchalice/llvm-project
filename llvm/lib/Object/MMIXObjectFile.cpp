@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
+#include <variant>
 
 using llvm::support::endian::read16be;
 using llvm::support::endian::read32be;
@@ -102,7 +103,7 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
     // handle LOP
     if (getInst(Iter) == MMO::MM) {
       if (!LastIsLOP && Iter != BinRefStart) {
-        if(getX(Iter) == MMO::LOP_QUOTE) {
+        if (getX(Iter) == MMO::LOP_QUOTE) {
           PC += 4;
           Iter += 8;
           continue;
@@ -390,9 +391,11 @@ MMIXObjectFile::MMIXObjectFile(MemoryBufferRef Object)
 
 // The number of bytes used to represent an address in this object
 // file format.
-uint8_t MMIXObjectFile::getBytesInAddress() const { return 8; }
+uint8_t MMIXObjectFile::getBytesInAddress() const { return 1; }
 
-StringRef MMIXObjectFile::getFileFormatName() const { return "MMO-mmix"; }
+StringRef MMIXObjectFile::getFileFormatName() const {
+  return "MMIX Object File";
+}
 
 Triple::ArchType MMIXObjectFile::getArch() const {
   return Triple::ArchType::mmix;
@@ -427,34 +430,52 @@ bool MMIXObjectFile::isRelocatableObject() const { return false; }
 bool MMIXObjectFile::is64Bit() const { return true; }
 
 void MMIXObjectFile::moveSymbolNext(DataRefImpl &Symb) const {
-  auto Next = reinterpret_cast<decltype(SymbTab.begin())>(Symb.p);
-  Symb.p = reinterpret_cast<uintptr_t>(Next + 1);
+  auto Next = reinterpret_cast<decltype(SymbTab)::value_type*>(Symb.p);
+  Symb.p = reinterpret_cast<std::uintptr_t>(Next + 1);
 }
 
 Expected<uint32_t> MMIXObjectFile::getSymbolFlags(DataRefImpl Symb) const {
-  return 0;
+  auto P = reinterpret_cast<decltype(SymbTab.data())>(Symb.p);
+  switch(P->Type) {
+  case MMO::NORMAL:
+    return SymbolRef::SF_Global | SymbolRef::SF_Absolute;
+  case MMO::REGISTER:
+    return SymbolRef::SF_Global | SymbolRef::SF_Common;// FIXME: no register...
+  default:
+    return createError("unknown flag");
+  }
 }
 
 basic_symbol_iterator MMIXObjectFile::symbol_begin() const {
   DataRefImpl DataRef;
-  DataRef.p = reinterpret_cast<uintptr_t>(SymbTab.begin());
+  DataRef.p = reinterpret_cast<uintptr_t>(SymbTab.data());
   BasicSymbolRef BSR(DataRef, this);
   return BSR;
 }
 basic_symbol_iterator MMIXObjectFile::symbol_end() const {
   DataRefImpl DataRef;
-  DataRef.p = reinterpret_cast<uintptr_t>(SymbTab.end());
+  DataRef.p = reinterpret_cast<uintptr_t>(SymbTab.data() + SymbTab.size());
   BasicSymbolRef BSR(DataRef, this);
   return BSR;
 }
 
 section_iterator MMIXObjectFile::section_begin() const {
-  SectionRef SR;
+  auto Iter = std::find_if(Content.begin(), Content.end(), [](const auto &S) {
+    return std::holds_alternative<MMOData>(S);
+  });
+  auto P = Content.data() + (Iter - Content.begin());
+  DataRefImpl DR;
+  DR.p = reinterpret_cast<std::uintptr_t>(P);
+  SectionRef SR(DR, this);
   section_iterator I(SR);
   return I;
 }
+
 section_iterator MMIXObjectFile::section_end() const {
-  SectionRef SR;
+  auto P = Content.data() + Content.size();
+  DataRefImpl DR;
+  DR.p = reinterpret_cast<std::uintptr_t>(P);
+  SectionRef SR(DR, this);
   section_iterator I(SR);
   return I;
 }
@@ -462,15 +483,15 @@ section_iterator MMIXObjectFile::section_end() const {
 // Interface from ObjectFile
 // SymbolRef
 Expected<StringRef> MMIXObjectFile::getSymbolName(DataRefImpl Symb) const {
-  auto S = reinterpret_cast<SymbItT>(Symb.p);
+  auto S = reinterpret_cast<decltype(SymbTab.data())>(Symb.p);
   return S->Name;
 }
 Expected<uint64_t> MMIXObjectFile::getSymbolAddress(DataRefImpl Symb) const {
-  auto S = reinterpret_cast<SymbItT>(Symb.p);
+  auto S = reinterpret_cast<decltype(SymbTab.data())>(Symb.p);
   return S->Equiv;
 }
 uint64_t MMIXObjectFile::getSymbolValueImpl(DataRefImpl Symb) const {
-  auto S = reinterpret_cast<SymbItT>(Symb.p);
+  auto S = reinterpret_cast<decltype(SymbTab.data())>(Symb.p);
   return S->Equiv;
 }
 uint64_t MMIXObjectFile::getCommonSymbolSizeImpl(DataRefImpl Symb) const {
@@ -482,48 +503,99 @@ MMIXObjectFile::getSymbolType(DataRefImpl Symb) const {
 }
 Expected<section_iterator>
 MMIXObjectFile::getSymbolSection(DataRefImpl Symb) const {
-  SectionRef SR;
+  DataRefImpl DR;
+  SectionRef SR(DR, this);
   section_iterator I(SR);
-  return I;
+  return section_begin();
 }
 
 // SectionRef
-void MMIXObjectFile::moveSectionNext(DataRefImpl &Sec) const {}
-Expected<StringRef> MMIXObjectFile::getSectionName(DataRefImpl Sec) const {
-  return StringRef("");
+void MMIXObjectFile::moveSectionNext(DataRefImpl &Sec) const {
+  auto P = reinterpret_cast<decltype(Content)::value_type *>(Sec.p);
+  std::ptrdiff_t Index = P - Content.data();
+  auto Start = Content.begin() + Index + 1;
+  auto Iter = std::find_if(Start, Content.end(), [](const auto &S) {
+    return std::holds_alternative<MMOData>(S);
+  });
+  auto Ptr = Content.data() + (Iter - Content.begin());
+  Sec.p = reinterpret_cast<std::uintptr_t>(Ptr);
 }
-uint64_t MMIXObjectFile::getSectionAddress(DataRefImpl Sec) const { return 0; }
+
+Expected<StringRef> MMIXObjectFile::getSectionName(DataRefImpl Sec) const {
+  auto P = reinterpret_cast<decltype(Content)::value_type *>(Sec.p);
+  auto DataP = std::get_if<MMOData>(P);
+  if (!DataP)
+    return createError("invalid section");
+
+  std::uint8_t FistByte = DataP->StartAddress >> 54;
+  switch (FistByte) {
+  case MMO::INSTRUCTION_SEGMENT:
+    return ".text";
+  case MMO::DATA_SEGMENT:
+    return ".data";
+  case MMO::POOL_SEGMENT:
+    return ".pool";
+  case MMO::STACK_SEGMENT:
+    return ".stack";
+  default:
+    return "UNKNOWN";
+  }
+}
+uint64_t MMIXObjectFile::getSectionAddress(DataRefImpl Sec) const {
+  auto P = reinterpret_cast<decltype(Content)::value_type *>(Sec.p);
+  return std::get<MMOData>(*P).StartAddress;
+}
 uint64_t MMIXObjectFile::getSectionIndex(DataRefImpl Sec) const { return 0; }
-uint64_t MMIXObjectFile::getSectionSize(DataRefImpl Sec) const { return 0; }
+uint64_t MMIXObjectFile::getSectionSize(DataRefImpl Sec) const {
+  auto P = reinterpret_cast<decltype(Content)::value_type *>(Sec.p);
+  return std::get<MMOData>(*P).Data.size();
+}
 Expected<ArrayRef<uint8_t>>
 MMIXObjectFile::getSectionContents(DataRefImpl Sec) const {
-  ArrayRef<uint8_t> AR;
-  return AR;
+  auto P = reinterpret_cast<decltype(Content)::value_type *>(Sec.p);
+  auto LastPtr = Content.data() + Content.size();
+  if (P >= LastPtr && P < Content.data())
+    return createError("invalid section iterator");
+  if (auto R = std::get_if<MMOData>(P))
+    return R->Data;
+  else
+    return createError("invalid section type");
 }
+
 uint64_t MMIXObjectFile::getSectionAlignment(DataRefImpl Sec) const {
   return 4;
 }
 bool MMIXObjectFile::isSectionCompressed(DataRefImpl Sec) const {
   return false;
 }
-bool MMIXObjectFile::isSectionText(DataRefImpl Sec) const { return false; }
-bool MMIXObjectFile::isSectionData(DataRefImpl Sec) const { return false; }
+
+bool MMIXObjectFile::isSectionText(DataRefImpl Sec) const {
+  auto P = reinterpret_cast<decltype(Content)::value_type *>(Sec.p);
+  return (std::get<MMOData>(*P).StartAddress >> 54) == 0;
+}
+
+bool MMIXObjectFile::isSectionData(DataRefImpl Sec) const {
+  auto P = reinterpret_cast<decltype(Content)::value_type *>(Sec.p);
+  return (std::get<MMOData>(*P).StartAddress >> 54) == 0x20;
+}
+
 bool MMIXObjectFile::isSectionBSS(DataRefImpl Sec) const {
   return false;
 } // no bss concept
+
 // A section is 'virtual' if its contents aren't present in the object image.
 bool MMIXObjectFile::isSectionVirtual(DataRefImpl Sec) const {
   return false;
 } // no virtual concept
 
 relocation_iterator MMIXObjectFile::section_rel_begin(DataRefImpl Sec) const {
-  RelocationRef RR;
-  relocation_iterator RI(RR);
+  RelocationRef RR(Sec, this);
+  auto RI = relocation_iterator(RR);
   return RI;
 }
 relocation_iterator MMIXObjectFile::section_rel_end(DataRefImpl Sec) const {
-  RelocationRef RR;
-  relocation_iterator RI(RR);
+  RelocationRef RR(Sec, this);
+  auto RI = relocation_iterator(RR);
   return RI;
 }
 
@@ -546,7 +618,7 @@ const MMIXObjectFile::ContentT &MMIXObjectFile::getMMOContent() const {
 }
 
 const MMO::Symbol &MMIXObjectFile::getMMOSymbol(const DataRefImpl &Symb) const {
-  auto S = reinterpret_cast<SymbItT>(Symb.p);
+  auto S = reinterpret_cast<decltype(SymbTab.data())>(Symb.p);
   return *S;
 }
 
