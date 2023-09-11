@@ -27,6 +27,7 @@ bool MMIXMCExpr::evaluateAsRelocatableImpl(MCValue &Res,
                                            const MCFixup *Fixup) const {
   switch (Kind) {
   case MMIXMCExpr::VK_MMIX_REG_EXPR:
+  case MMIXMCExpr::VK_ROUND_MODE:
     return Expr->evaluateAsRelocatable(Res, Layout, Fixup);
   case MMIXMCExpr::VK_MMIX_PC_REL_BR:
   case MMIXMCExpr::VK_MMIX_PC_REL_JMP: {
@@ -63,6 +64,21 @@ void MMIXMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
     OS << "@ + ";
     Expr->print(OS, MAI);
     return;
+  case MMIXMCExpr::VK_ROUND_MODE: {
+    std::int64_t Res = 0;
+    Expr->evaluateAsAbsolute(Res);
+    switch (Res) {
+    case 0:
+      OS << "ROUND_CURRENT";
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+      break;
+    default:
+      break;
+    }
+  }
   }
 }
 

@@ -3337,8 +3337,6 @@ static void parseObjdumpOptions(const llvm::opt::InputArgList &InputArgs) {
 
 int llvm_objdump_main(int argc, char **argv, const llvm::ToolContext &) {
   using namespace llvm;
-  DebugFlag = false;
-  setCurrentDebugType("mmix-disassembler");
   InitLLVM X(argc, argv);
 
   ToolName = argv[0];

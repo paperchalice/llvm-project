@@ -11,6 +11,7 @@ public:
     VK_MMIX_REG_EXPR,
     VK_MMIX_PC_REL_JMP,
     VK_MMIX_PC_REL_BR,
+    VK_ROUND_MODE,
   };
   static const MCExpr *create(const MCExpr *Expr, VariantKind Kind,
                               MCContext &Ctx);

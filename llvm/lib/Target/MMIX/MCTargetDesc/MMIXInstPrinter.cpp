@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXInstPrinter.h"
+#include "MCTargetDesc/MMIXMCExpr.h"
+
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrDesc.h"
@@ -33,13 +35,45 @@ void MMIXInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
                                    raw_ostream &O) {
   const auto Operand = MI->getOperand(OpNo);
   if (Operand.isReg()) {
-    O << '$' << getRegisterName(Operand.getReg());
+    auto RegName = getRegisterName(Operand.getReg());
+    if (std::isdigit(RegName[0]))
+      O << '$' << RegName;
+    else
+      O << RegName;
   }
   if (Operand.isImm()) {
     O << Operand.getImm();
   }
   if (Operand.isExpr()) {
-    O << Operand.getExpr();
+    if (auto E = dyn_cast<MMIXMCExpr>(Operand.getExpr())) {
+      std::int64_t Res = 0;
+      E->evaluateAsAbsolute(Res);
+      switch (E->getKind()) {
+      case MMIXMCExpr::VK_ROUND_MODE:
+        switch (Res) {
+        case 0:
+          O << "ROUND_Current";
+          break;
+        case 1:
+          O << "ROUND_OFF";
+          break;
+        case 2:
+          O << "ROUND_UP";
+          break;
+        case 3:
+          O << "ROUND_DOWN";
+          break;
+        case 4:
+          O << "ROUND_NEAR";
+          break;
+        default:
+          break;
+        }
+        break;
+      default:
+        break;
+      }
+    }
   }
 }
 

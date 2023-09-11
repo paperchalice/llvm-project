@@ -182,7 +182,8 @@ private:
                            MMOFile, MMOLine, MMOSpec>>
       Content;
   MMOPost Postamble;
-  SmallVector<llvm::MMO::Symbol, 32> SymbTab;
+  std::vector<llvm::MMO::Symbol> SymbTab;
+  std::vector<SectionRef> Sections;
   const unsigned char *DataEnd;
   using SymbItT = decltype(SymbTab.begin());
 
