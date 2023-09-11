@@ -159,7 +159,7 @@ class Inst_Z<bits<8> opcode, dag oops, dag iops, string opstr>
   let Inst{7...0} = Z;
 }
 
-class Inst_r_rr<bits<8> opcode, string opstr> : Inst_X_Y_Z<opcode,
+class Inst_r_rr<bits<8> opcode, string opstr = NAME> : Inst_X_Y_Z<opcode,
                                                            (outs GPR
                                                             : $X),
                                                            (ins GPR
@@ -205,7 +205,7 @@ class Inst__rri<bits<8> opcode, string opstr> : Inst_X_Y_Z<opcode, (outs),
                                                             : $Z),
                                                            opstr>;
 
-class Inst_r_roundz<bits<8> opcode, string opstr> : Inst_X_Y_Z<opcode,
+class Inst_r_roundz<bits<8> opcode, string opstr = NAME> : Inst_X_Y_Z<opcode,
                                                                (outs GPR
                                                                 : $X),
                                                                (ins round_mode
@@ -213,7 +213,7 @@ class Inst_r_roundz<bits<8> opcode, string opstr> : Inst_X_Y_Z<opcode,
                                                                 : $Z),
                                                                opstr>;
 
-multiclass Inst_r_roundzi<bits<8> opcode, string opstr> {
+multiclass Inst_r_roundzi<bits<8> opcode, string opstr = NAME> {
   let mayRaiseFPException = true, Defs = [rA] in {
     def "" : Inst_X_Y_Z<opcode,
                         (outs GPR
@@ -242,7 +242,7 @@ multiclass Inst_r_roundzi<bits<8> opcode, string opstr> {
   }
 }
 
-multiclass Inst_trip_trap<bits<8> opcode, string opstr> {
+multiclass Inst_trip_trap<bits<8> opcode, string opstr = NAME> {
   let isTrap = true in def "" : Inst_XYZ<opcode, (outs),
                                          (ins ui24imm
                                           : $XYZ),
@@ -290,7 +290,7 @@ def:
                              : $Z)>;
 }
 
-class Inst_r_ui16imm<bits<8> opcode, string opstr> : Inst_X_YZ<opcode,
+class Inst_r_ui16imm<bits<8> opcode, string opstr = NAME> : Inst_X_YZ<opcode,
                                                                (outs GPR
                                                                 : $X),
                                                                (ins GPR
@@ -307,7 +307,7 @@ class Inst_jump<bits<8> opcode, string opstr> : Inst_XYZ<opcode, (outs),
   let isBranch = true;
 }
 
-multiclass Inst_r_rri<bits<8> opcode, string opstr, bit base = false> {
+multiclass Inst_r_rri<bits<8> opcode, bit base = false, string opstr = NAME> {
   def "" : Inst_r_rr<opcode, opstr>;
   def I : Inst_r_ri<!or(opcode, 1), opstr>;
 
@@ -333,7 +333,7 @@ multiclass Inst_r_iri<bits<8> opcode, string opstr> {
   def I : Inst_r_ii<!or(opcode, 1), opstr>;
 }
 
-multiclass Inst_i_rri<bits<8> opcode, string opstr, bit base = false> {
+multiclass Inst_i_rri<bits<8> opcode, bit base = false, string opstr = NAME> {
   def "" : Inst_X_Y_Z<opcode,
                       (outs ui8imm
                        : $X),
@@ -365,7 +365,7 @@ multiclass Inst_i_rri<bits<8> opcode, string opstr, bit base = false> {
     }
 }
 
-multiclass Inst__rrri<bits<8> opcode, string opstr, bit base = false> {
+multiclass Inst__rrri<bits<8> opcode, bit base = false, string opstr = NAME> {
   def "" : Inst__rrr<opcode, opstr>;
   def I : Inst__rri<!or(opcode, 1), opstr>;
 
@@ -385,7 +385,7 @@ multiclass Inst__rrri<bits<8> opcode, string opstr, bit base = false> {
     }
 }
 
-multiclass Inst__irri<bits<8> opcode, string opstr, bit base = false> {
+multiclass Inst__irri<bits<8> opcode, bit base = false, string opstr = NAME> {
   def "" : Inst_X_Y_Z<opcode, (outs),
                       (ins ui8imm
                        : $X, GPR
@@ -411,7 +411,7 @@ multiclass Inst__irri<bits<8> opcode, string opstr, bit base = false> {
     }
 }
 
-multiclass Inst__rbranch<bits<8> opcode, string opstr> {
+multiclass Inst__rbranch<bits<8> opcode, string opstr = NAME> {
   let isBranch = true in {
     def "" : Inst_X_YZ<opcode, (outs),
                        (ins GPR
@@ -426,7 +426,7 @@ multiclass Inst__rbranch<bits<8> opcode, string opstr> {
   }
 }
 
-multiclass Inst__ibranch<bits<8> opcode, string opstr> {
+multiclass Inst__ibranch<bits<8> opcode, string opstr = NAME> {
   let isBranch = true in {
     def "" : Inst_X_YZ<opcode, (outs),
                        (ins ui8imm
@@ -451,7 +451,7 @@ multiclass Inst_r_branch<bits<8> opcode, string opstr> {
                     opstr #"B">;
 }
 
-multiclass Inst_jmpb<bits<8> opcode, string opstr> {
+multiclass Inst_jmpb<bits<8> opcode, string opstr = NAME> {
   def "" : Inst_jump<opcode, opstr>;
   def B : Inst_jump<!or(opcode, 1), opstr #"B">;
 }

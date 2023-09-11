@@ -46,20 +46,20 @@ def truncstorei64 : PatFrag<(ops node
 // Instruction Definition
 //===----------------------------------------------------------------------===//
 
-defm TRAP : Inst_trip_trap<0x00, "TRAP">;
+defm TRAP : Inst_trip_trap<0x00>;
 def : InstAlias<"TRAP", (TRAP 0)>;
 
-def FCMP : Inst_r_rr<0x01, "FCMP"> {
+def FCMP : Inst_r_rr<0x01> {
   let isCompare = true;
   let mayRaiseFPException = true;
   let Defs = [rA];
 }
 
-def FUN : Inst_r_rr<0x02, "FUN">;
+def FUN : Inst_r_rr<0x02>;
 
-def FEQL : Inst_r_rr<0x03, "FEQL"> { let isCompare = true; }
+def FEQL : Inst_r_rr<0x03> { let isCompare = true; }
 
-def FADD : Inst_r_rr<0x04, "FADD"> {
+def FADD : Inst_r_rr<0x04> {
   let isAdd = true;
   let mayRaiseFPException = true;
   let Defs = [rA];
@@ -73,27 +73,27 @@ let EmitPriority = 1 in def : InstAlias<"FIX\t$X,$Z", (FIX GPR
                                                        : $X, 0, GPR
                                                        : $Z)>;
 
-def FSUB : Inst_r_rr<0x06, "FSUB">;
+def FSUB : Inst_r_rr<0x06>;
 
-def FIXU : Inst_r_roundz<0x07, "FIXU">;
+def FIXU : Inst_r_roundz<0x07>;
 
-defm FLOT : Inst_r_roundzi<0x08, "FLOT">;
-defm FLOTU : Inst_r_roundzi<0x0A, "FLOTU">;
-defm SFLOT : Inst_r_roundzi<0x0C, "SFLOT">;
-defm SFLOTU : Inst_r_roundzi<0x0E, "SFLOTU">;
+defm FLOT : Inst_r_roundzi<0x08>;
+defm FLOTU : Inst_r_roundzi<0x0A>;
+defm SFLOT : Inst_r_roundzi<0x0C>;
+defm SFLOTU : Inst_r_roundzi<0x0E>;
 
-def FMUL : Inst_r_rr<0x10, "FMUL"> {
+def FMUL : Inst_r_rr<0x10> {
   let mayRaiseFPException = true;
   let Defs = [rA];
 }
 
 let Uses = [rE], Defs = [rA] in {
-  def FCMPE : Inst_r_rr<0x11, "FCMPE">;
-  def FUNE : Inst_r_rr<0x12, "FUNE"> { let Defs = []; }
-  def FEQLE : Inst_r_rr<0x13, "FEQLE">;
+  def FCMPE : Inst_r_rr<0x11>;
+  def FUNE : Inst_r_rr<0x12> { let Defs = []; }
+  def FEQLE : Inst_r_rr<0x13>;
 }
 
-def FDIV : Inst_r_rr<0x14, "FDIV"> {
+def FDIV : Inst_r_rr<0x14> {
   let mayRaiseFPException = true;
   let Defs = [rA];
 }
@@ -110,47 +110,47 @@ def FSQRT : Inst_X_Y_Z<0x15,
 }
 def : InstAlias<"FSQRT\t$X,$Z", (FSQRT GPR : $X, 0, GPR : $Z)>;
 
-def FREM : Inst_r_rr<0x16, "FREM"> {
+def FREM : Inst_r_rr<0x16> {
   let mayRaiseFPException = true;
   let Defs = [rA];
 }
 
-def FINT : Inst_r_roundz<0x17, "FINT">;
+def FINT : Inst_r_roundz<0x17>;
 def : InstAlias<"FINT\t$X,$Z", (FINT GPR : $X, 0, GPR : $Z)>;
 
-let Defs = [rA] in defm MUL : Inst_r_rri<0x18, "MUL">;
+let Defs = [rA] in defm MUL : Inst_r_rri<0x18>;
 
-let Defs = [rH] in defm MULU : Inst_r_rri<0x1A, "MULU">;
+let Defs = [rH] in defm MULU : Inst_r_rri<0x1A>;
 
-let Defs = [rA, rR] in defm DIV : Inst_r_rri<0x1C, "DIV">;
+let Defs = [rA, rR] in defm DIV : Inst_r_rri<0x1C>;
 
-let Defs = [rR], Uses = [rD] in defm DIVU : Inst_r_rri<0x1E, "DIVU">;
+let Defs = [rR], Uses = [rD] in defm DIVU : Inst_r_rri<0x1E>;
 
-let isAdd = true, Defs = [rA] in defm ADD : Inst_r_rri<0x20, "ADD">;
+let isAdd = true, Defs = [rA] in defm ADD : Inst_r_rri<0x20>;
 
-let isAdd = true in defm ADDU : Inst_r_rri<0x22, "ADDU">;
+let isAdd = true in defm ADDU : Inst_r_rri<0x22>;
 
-let isAsmParserOnly = true in defm LDA : Inst_r_rri<0x22, "LDA", true>;
+let isAsmParserOnly = true in defm LDA : Inst_r_rri<0x22, true>;
 
-let Defs = [rA] in defm SUB : Inst_r_rri<0x24, "SUB">;
+let Defs = [rA] in defm SUB : Inst_r_rri<0x24>;
 
-defm SUBU : Inst_r_rri<0x26, "ADDU">;
+defm SUBU : Inst_r_rri<0x26>;
 
-defm I2ADDU : Inst_r_rri<0x28, "2ADDU">;
+defm I2ADDU : Inst_r_rri<0x28>;
 def : MnemonicAlias<"ADD2U", "2ADDU">;
 
-defm I4ADDU : Inst_r_rri<0x2A, "4ADDU">;
+defm I4ADDU : Inst_r_rri<0x2A>;
 def : MnemonicAlias<"ADDU4", "ADD4U">;
 
-defm I8ADDU : Inst_r_rri<0x2C, "8ADDU">;
+defm I8ADDU : Inst_r_rri<0x2C>;
 def : MnemonicAlias<"ADDU8", "ADD8U">;
 
-defm I16ADDU : Inst_r_rri<0x2E, "16ADDU">;
+defm I16ADDU : Inst_r_rri<0x2E>;
 def : MnemonicAlias<"ADDU16", "ADD16U">;
 
-let isCompare = true in defm CMP : Inst_r_rri<0x30, "CMP">;
+let isCompare = true in defm CMP : Inst_r_rri<0x30>;
 
-let isCompare = true in defm CMPU : Inst_r_rri<0x32, "CMPU">;
+let isCompare = true in defm CMPU : Inst_r_rri<0x32>;
 
 let Defs = [rA] in defm NEG : Inst_r_iri<0x34, "NEG">;
 def : InstAlias<"NEG\t$X,$Y", (NEG GPR : $X, 0, GPR : $Y)>;
@@ -160,200 +160,200 @@ defm NEGU : Inst_r_iri<0x36, "NEGU">;
 def : InstAlias<"NEGU\t$X,$Y", (NEGU GPR : $X, 0, GPR : $Y)>;
 def : InstAlias<"NEGU\t$X,$Y", (NEGUI GPR : $X, 0, ui8imm : $Y)>;
 
-let Defs = [rA] in defm SL : Inst_r_rri<0x38, "SL">;
+let Defs = [rA] in defm SL : Inst_r_rri<0x38>;
 
-defm SLU : Inst_r_rri<0x3A, "SLU">;
+defm SLU : Inst_r_rri<0x3A>;
 
-defm SR : Inst_r_rri<0x3C, "SR">;
+defm SR : Inst_r_rri<0x3C>;
 
-defm SRU : Inst_r_rri<0x3E, "SRU">;
+defm SRU : Inst_r_rri<0x3E>;
 
-defm BN : Inst__rbranch<0x40, "BN">;
+defm BN : Inst__rbranch<0x40>;
 
-defm BZ : Inst__rbranch<0x42, "BZ">;
+defm BZ : Inst__rbranch<0x42>;
 
-defm BP : Inst__rbranch<0x44, "BP">;
+defm BP : Inst__rbranch<0x44>;
 
-defm BOD : Inst__rbranch<0x46, "BOD">;
+defm BOD : Inst__rbranch<0x46>;
 
-defm BNN : Inst__rbranch<0x48, "BNN">;
+defm BNN : Inst__rbranch<0x48>;
 
-defm BNZ : Inst__rbranch<0x4A, "BNZ">;
+defm BNZ : Inst__rbranch<0x4A>;
 
-defm BNP : Inst__rbranch<0x4C, "BNP">;
+defm BNP : Inst__rbranch<0x4C>;
 
-defm BEV : Inst__rbranch<0x4E, "BEV">;
+defm BEV : Inst__rbranch<0x4E>;
 
-defm PBN : Inst__rbranch<0x50, "PBN">;
+defm PBN : Inst__rbranch<0x50>;
 
-defm PBZ : Inst__rbranch<0x52, "PBZ">;
+defm PBZ : Inst__rbranch<0x52>;
 
-defm PBP : Inst__rbranch<0x54, "PBP">;
+defm PBP : Inst__rbranch<0x54>;
 
-defm PBOD : Inst__rbranch<0x56, "PBOD">;
+defm PBOD : Inst__rbranch<0x56>;
 
-defm PBNN : Inst__rbranch<0x58, "PBNN">;
+defm PBNN : Inst__rbranch<0x58>;
 
-defm PBNZ : Inst__rbranch<0x5A, "PBNZ">;
+defm PBNZ : Inst__rbranch<0x5A>;
 
-defm PBNP : Inst__rbranch<0x5C, "PBNP">;
+defm PBNP : Inst__rbranch<0x5C>;
 
-defm PBEV : Inst__rbranch<0x5E, "PBEV">;
+defm PBEV : Inst__rbranch<0x5E>;
 
-defm CSN : Inst_r_rri<0x60, "CSN">;
+defm CSN : Inst_r_rri<0x60>;
 
-defm CSZ : Inst_r_rri<0x62, "CSZ">;
+defm CSZ : Inst_r_rri<0x62>;
 
-defm CSP : Inst_r_rri<0x64, "CSP">;
+defm CSP : Inst_r_rri<0x64>;
 
-defm CSOD : Inst_r_rri<0x66, "CSOD">;
+defm CSOD : Inst_r_rri<0x66>;
 
-defm CSNN : Inst_r_rri<0x68, "CSNN">;
+defm CSNN : Inst_r_rri<0x68>;
 
-defm CSNZ : Inst_r_rri<0x6A, "CSNZ">;
+defm CSNZ : Inst_r_rri<0x6A>;
 
-defm CSNP : Inst_r_rri<0x6C, "CSNP">;
+defm CSNP : Inst_r_rri<0x6C>;
 
-defm CSEV : Inst_r_rri<0x6E, "CSEV">;
+defm CSEV : Inst_r_rri<0x6E>;
 
-defm ZSN : Inst_r_rri<0x70, "ZSN">;
+defm ZSN : Inst_r_rri<0x70>;
 
-defm ZSZ : Inst_r_rri<0x72, "ZSZ">;
+defm ZSZ : Inst_r_rri<0x72>;
 
-defm ZSP : Inst_r_rri<0x74, "ZSP">;
+defm ZSP : Inst_r_rri<0x74>;
 
-defm ZSOD : Inst_r_rri<0x76, "ZSOD">;
+defm ZSOD : Inst_r_rri<0x76>;
 
-defm ZSNN : Inst_r_rri<0x78, "ZSNN">;
+defm ZSNN : Inst_r_rri<0x78>;
 
-defm ZSNZ : Inst_r_rri<0x7A, "ZSNZ">;
+defm ZSNZ : Inst_r_rri<0x7A>;
 
-defm ZSNP : Inst_r_rri<0x7C, "ZSNP">;
+defm ZSNP : Inst_r_rri<0x7C>;
 
-defm ZSEV : Inst_r_rri<0x7E, "ZSEV">;
+defm ZSEV : Inst_r_rri<0x7E>;
 
 let mayLoad = true in {
-  defm LDB : Inst_r_rri<0x80, "LDB", true>;
-  defm LDBU : Inst_r_rri<0x82, "LDBU", true>;
-  defm LDW : Inst_r_rri<0x84, "LDW", true>;
-  defm LDWU : Inst_r_rri<0x86, "LDWU", true>;
-  defm LDT : Inst_r_rri<0x88, "LDT", true>;
-  defm LDTU : Inst_r_rri<0x8A, "LDTU", true>;
-  defm LDO : Inst_r_rri<0x8C, "LDO", true>;
-  defm LDOU : Inst_r_rri<0x8E, "LDOU", true>;
+  defm LDB : Inst_r_rri<0x80, true>;
+  defm LDBU : Inst_r_rri<0x82, true>;
+  defm LDW : Inst_r_rri<0x84, true>;
+  defm LDWU : Inst_r_rri<0x86, true>;
+  defm LDT : Inst_r_rri<0x88, true>;
+  defm LDTU : Inst_r_rri<0x8A, true>;
+  defm LDO : Inst_r_rri<0x8C, true>;
+  defm LDOU : Inst_r_rri<0x8E, true>;
 
-  defm LDSF : Inst_r_rri<0x90, "LDSF", true>;
-  defm LDHT : Inst_r_rri<0x92, "LDHT", true>;
+  defm LDSF : Inst_r_rri<0x90, true>;
+  defm LDHT : Inst_r_rri<0x92, true>;
 }
 
 let isCompare = true,
-    Uses = [rP] in defm CSWAP : Inst_r_rri<0x94, "CSWAP", true>;
+    Uses = [rP] in defm CSWAP : Inst_r_rri<0x94, true>;
 
 let mayLoad = true in {
-  defm LDUNC : Inst_r_rri<0x96, "LDUNC", true>;
-  defm LDVTS : Inst_r_rri<0x98, "LDVTS", true>;
-  defm PRELD : Inst_i_rri<0x9A, "PRELD", true>;
-  defm PREGO : Inst_i_rri<0x9C, "PREGO", true>;
+  defm LDUNC : Inst_r_rri<0x96, true>;
+  defm LDVTS : Inst_r_rri<0x98, true>;
+  defm PRELD : Inst_i_rri<0x9A, true>;
+  defm PREGO : Inst_i_rri<0x9C, true>;
 }
 
-let isBranch = true in defm GO : Inst_r_rri<0x9E, "GO", true>;
+let isBranch = true in defm GO : Inst_r_rri<0x9E, true>;
 
 let mayStore = true in {
-  defm STB : Inst__rrri<0xA0, "STB", true>;
-  defm STBU : Inst__rrri<0xA2, "STBU", true>;
-  defm STW : Inst__rrri<0xA4, "STW", true>;
-  defm STWU : Inst__rrri<0xA6, "STWU", true>;
-  defm STT : Inst__rrri<0xA8, "STT", true>;
-  defm STTU : Inst__rrri<0xAA, "STTU", true>;
-  defm STO : Inst__rrri<0xAC, "STO", true>;
-  defm STOU : Inst__rrri<0xAE, "STOU", true>;
-  defm STSF : Inst__rrri<0xB0, "STSF", true>;
-  defm STHT : Inst__rrri<0xB2, "STHT", true>;
-  defm STCO : Inst__irri<0xB4, "STCO", true>;
-  defm STUNC : Inst__rrri<0xB6, "STUNC", true>;
+  defm STB : Inst__rrri<0xA0, true>;
+  defm STBU : Inst__rrri<0xA2, true>;
+  defm STW : Inst__rrri<0xA4, true>;
+  defm STWU : Inst__rrri<0xA6, true>;
+  defm STT : Inst__rrri<0xA8, true>;
+  defm STTU : Inst__rrri<0xAA, true>;
+  defm STO : Inst__rrri<0xAC, true>;
+  defm STOU : Inst__rrri<0xAE, true>;
+  defm STSF : Inst__rrri<0xB0, true>;
+  defm STHT : Inst__rrri<0xB2, true>;
+  defm STCO : Inst__irri<0xB4, true>;
+  defm STUNC : Inst__rrri<0xB6, true>;
 }
 
-defm SYNCD : Inst__irri<0xB8, "SYNCD", true>;
+defm SYNCD : Inst__irri<0xB8, true>;
 
-let mayStore = true in defm PREST : Inst__irri<0xBA, "PREST", true>;
+let mayStore = true in defm PREST : Inst__irri<0xBA, true>;
 
-defm SYNCID : Inst__irri<0xBC, "SYNCID", true>;
+defm SYNCID : Inst__irri<0xBC, true>;
 
-let isBranch = true in defm PUSHGO : Inst__rrri<0xBE, "PUSHGO", true>;
+let isBranch = true in defm PUSHGO : Inst__rrri<0xBE, true>;
 
-defm OR : Inst_r_rri<0xC0, "OR">;
+defm OR : Inst_r_rri<0xC0>;
 let EmitPriority = 1 in def : InstAlias<"SET\t$X,$Y", (ORI GPR
                                                        : $X, GPR
                                                        : $Y, 0)>;
 
-defm ORN : Inst_r_rri<0xC2, "ORN">;
+defm ORN : Inst_r_rri<0xC2>;
 
-defm NOR : Inst_r_rri<0xC4, "NOR">;
+defm NOR : Inst_r_rri<0xC4>;
 
-defm XOR : Inst_r_rri<0xC6, "XOR">;
+defm XOR : Inst_r_rri<0xC6>;
 
-defm AND : Inst_r_rri<0xC8, "AND">;
+defm AND : Inst_r_rri<0xC8>;
 
-defm ANDN : Inst_r_rri<0xCA, "ANDN">;
+defm ANDN : Inst_r_rri<0xCA>;
 
-defm NAND : Inst_r_rri<0xCC, "NAND">;
+defm NAND : Inst_r_rri<0xCC>;
 
-defm NXOR : Inst_r_rri<0xCE, "NXOR">;
+defm NXOR : Inst_r_rri<0xCE>;
 
-defm BDIF : Inst_r_rri<0xD0, "BDIF">;
+defm BDIF : Inst_r_rri<0xD0>;
 
-defm WDIF : Inst_r_rri<0xD2, "WDIF">;
+defm WDIF : Inst_r_rri<0xD2>;
 
-defm TDIF : Inst_r_rri<0xD4, "TDIF">;
+defm TDIF : Inst_r_rri<0xD4>;
 
-defm ODIF : Inst_r_rri<0xD6, "ODIF">;
+defm ODIF : Inst_r_rri<0xD6>;
 
-defm MUX : Inst_r_rri<0xD8, "MUX">;
+defm MUX : Inst_r_rri<0xD8>;
 
-defm SADD : Inst_r_rri<0xDA, "SADD">;
+defm SADD : Inst_r_rri<0xDA>;
 
-defm MOR : Inst_r_rri<0xDC, "MOR">;
+defm MOR : Inst_r_rri<0xDC>;
 
-defm MXOR : Inst_r_rri<0xDE, "MXOR">;
+defm MXOR : Inst_r_rri<0xDE>;
 
-def SETH : Inst_r_ui16imm<0xE0, "SETH">;
+def SETH : Inst_r_ui16imm<0xE0>;
 
-def SETMH : Inst_r_ui16imm<0xE1, "SETMH">;
+def SETMH : Inst_r_ui16imm<0xE1>;
 
-def SETML : Inst_r_ui16imm<0xE2, "SETML">;
+def SETML : Inst_r_ui16imm<0xE2>;
 
-def SETL : Inst_r_ui16imm<0xE3, "SETL">;
+def SETL : Inst_r_ui16imm<0xE3>;
 
-def INCH : Inst_r_ui16imm<0xE4, "INCH">;
+def INCH : Inst_r_ui16imm<0xE4>;
 
-def INCMH : Inst_r_ui16imm<0xE5, "INCMH">;
+def INCMH : Inst_r_ui16imm<0xE5>;
 
-def INCML : Inst_r_ui16imm<0xE6, "INCML">;
+def INCML : Inst_r_ui16imm<0xE6>;
 
-def INCL : Inst_r_ui16imm<0xE7, "INCL">;
+def INCL : Inst_r_ui16imm<0xE7>;
 
-def ORH : Inst_r_ui16imm<0xE8, "ORH">;
+def ORH : Inst_r_ui16imm<0xE8>;
 
-def ORMH : Inst_r_ui16imm<0xE9, "ORMH">;
+def ORMH : Inst_r_ui16imm<0xE9>;
 
-def ORML : Inst_r_ui16imm<0xEA, "ORML">;
+def ORML : Inst_r_ui16imm<0xEA>;
 
-def ORL : Inst_r_ui16imm<0xEB, "ORL">;
+def ORL : Inst_r_ui16imm<0xEB>;
 
-def ANDNH : Inst_r_ui16imm<0xEC, "ANDNH">;
+def ANDNH : Inst_r_ui16imm<0xEC>;
 
-def ANDNMH : Inst_r_ui16imm<0xED, "ANDNMH">;
+def ANDNMH : Inst_r_ui16imm<0xED>;
 
-def ANDNML : Inst_r_ui16imm<0xEE, "ANDNML">;
+def ANDNML : Inst_r_ui16imm<0xEE>;
 
-def ANDNL : Inst_r_ui16imm<0xEF, "ANDNL">;
+def ANDNL : Inst_r_ui16imm<0xEF>;
 
-defm JMP : Inst_jmpb<0xF0, "JMP">;
+defm JMP : Inst_jmpb<0xF0>;
 
-let isCall = true in defm PUSHJ : Inst__rbranch<0xF2, "PUSHJ">;
-let isAsmParserOnly = true in defm : Inst__ibranch<0xF2, "PUSHJ">;
+let isCall = true in defm PUSHJ : Inst__rbranch<0xF2>;
+let isAsmParserOnly = true in defm : Inst__ibranch<0xF2>;
 
-defm GETA : Inst_r_branch<0xF4, "GETA">;
+defm GETA : Inst_r_branch<0xF4>;
 
 def PUT : Inst_X__Z<0xF6, (outs), (ins SFR : $X, GPR : $Z), "PUT">;
 def PUTI : Inst_X__Z<0xF7, (outs), (ins SFR : $X, ui8imm : $Z), "PUT">;
@@ -410,7 +410,7 @@ let isAsmParserOnly = true in def : Inst_X_YZ<0xFD, (outs),
 
 def GET : Inst_X__Z<0xFE, (outs GPR : $X), (ins SFR : $Z), "GET">;
 
-defm TRIP : Inst_trip_trap<0xFF, "TRIP">;
+defm TRIP : Inst_trip_trap<0xFF>;
 def : InstAlias<"TRIP", (TRIP 0)>;
 //===----------------------------------------------------------------------===//
 // Instruction Patterns
