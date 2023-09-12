@@ -1,0 +1,65 @@
+# RUN: yaml2obj %s | obj2yaml | FileCheck %s
+
+--- !MMO
+Preamble:
+  Version:         1
+  CreatedTime:     0
+Segments:
+  - OpCode:          FILE
+    Name:            quote_in_spec.mms
+    Number:          0
+  - OpCode:          LINE
+    Number:          1
+  - StartAddress:    0x0
+    Data:            '00000000'
+  - OpCode:          SPEC
+    Type:            0
+  - StartAddress:    0x4
+    Data:            '00000000'
+  - OpCode:          QUOTE
+    Value:           '98000000'
+  - OpCode:          QUOTE
+    Value:           '98000001'
+Postamble:
+  G:               255
+  Values:          [ 0x0 ]
+SymbolTable:
+  IsUTF16:         false
+  Symbol:
+    - Name:            Main
+      Serial:          1
+      Equiv:           0x0
+      Type:            NORMAL
+...
+
+# CHECK: --- !MMO
+# CHECK: Preamble:
+# CHECK:   Version:         1
+# CHECK:   CreatedTime:     0
+# CHECK: Segments:
+# CHECK:   - OpCode:          FILE
+# CHECK:     Name:            quote_in_spec.mms
+# CHECK:     Number:          0
+# CHECK:   - OpCode:          LINE
+# CHECK:     Number:          1
+# CHECK:   - StartAddress:    0x0
+# CHECK:     Data:            '00000000'
+# CHECK:   - OpCode:          SPEC
+# CHECK:     Type:            0
+# CHECK:   - StartAddress:    0x4
+# CHECK:     Data:            '00000000'
+# CHECK:   - OpCode:          QUOTE
+# CHECK:     Value:           '98000000'
+# CHECK:   - OpCode:          QUOTE
+# CHECK:     Value:           '98000001'
+# CHECK: Postamble:
+# CHECK:   G:               255
+# CHECK:   Values:          [ 0x0 ]
+# CHECK: SymbolTable:
+# CHECK:   IsUTF16:         false
+# CHECK:   Symbol:
+# CHECK:     - Name:            Main
+# CHECK:       Serial:          1
+# CHECK:       Equiv:           0x0
+# CHECK:       Type:            NORMAL
+# CHECK: ...
