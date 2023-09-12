@@ -24,14 +24,15 @@ Object::Object(const object::MMIXObjectFile &O)
 
 RawData::RawData(const llvm::object::MMOData &D)
     : StartAddress(D.StartAddress), Data(D.Data) {}
+Quote::Quote(const object::MMOQuote &Q) : Value(Q.Value) {}
 Loc::Loc(const object::MMOLoc &L) : HighByte(L.HighByte), Offset(L.Offset) {}
 Skip::Skip(const object::MMOSkip &S) : Delta(S.Delta) {}
-Fixo::Fixo(const object::MMOFixo &F) : HighByte(F.HighByte), Offset(F.Offset) {}
+Fixo::Fixo(const object::MMOFixo &F) : HighByte(F.HighByte), P(F.P) {}
 Fixr::Fixr(const object::MMOFixr &F) : Delta(F.Delta) {}
 Fixrx::Fixrx(const object::MMOFixrx &F) : FixType(F.FixType), Delta(F.Delta) {}
 File::File(const object::MMOFile &F) : Name(F.Name), Number(F.Number) {}
 Line::Line(const object::MMOLine &L) : Number(L.Number) {}
-Spec::Spec(const object::MMOSpec &S) : Type(S.Type), Data(S.SpecialData) {}
+Spec::Spec(const object::MMOSpec &S) : Type(S.Type) {}
 Pre::Pre(const object::MMOPre &P)
     : Version(P.Version), CreatedTime(P.CreatedTime) {
   if (P.ExtraData.has_value()) {
@@ -54,6 +55,10 @@ void MappingTraits<MMOYAML::RawData>::mapping(IO &IO, MMOYAML::RawData &RD) {
   IO.mapRequired("Data", RD.Data);
 }
 
+void MappingTraits<MMOYAML::Quote>::mapping(IO &IO, MMOYAML::Quote &Q) {
+  IO.mapRequired("Value", Q.Value);
+}
+
 void MappingTraits<MMOYAML::Loc>::mapping(IO &IO, MMOYAML::Loc &L) {
   IO.mapRequired("HighByte", L.HighByte);
   IO.mapRequired("Offset", L.Offset);
@@ -65,7 +70,7 @@ void MappingTraits<MMOYAML::Skip>::mapping(IO &IO, MMOYAML::Skip &S) {
 
 void MappingTraits<MMOYAML::Fixo>::mapping(IO &IO, MMOYAML::Fixo &F) {
   IO.mapRequired("HighByte", F.HighByte);
-  IO.mapRequired("Offset", F.Offset);
+  IO.mapRequired("Offset", F.P);
 }
 
 void MappingTraits<MMOYAML::Fixr>::mapping(IO &IO, MMOYAML::Fixr &F) {
@@ -88,7 +93,6 @@ void MappingTraits<MMOYAML::Line>::mapping(IO &IO, MMOYAML::Line &L) {
 
 void MappingTraits<MMOYAML::Spec>::mapping(IO &IO, MMOYAML::Spec &S) {
   IO.mapRequired("Type", S.Type);
-  IO.mapRequired("Data", S.Data);
 }
 
 void MappingTraits<MMOYAML::Pre>::mapping(IO &IO, MMOYAML::Pre &P) {
@@ -120,6 +124,7 @@ void CustomMappingTraits<MMOYAML::Segment>::inputOne(IO &IO, StringRef key,
     Seg = Op;                                                                  \
   }                                                                            \
     return
+      ECase(QUOTE, Quote);
       ECase(LOC, Loc);
       ECase(SKIP, Skip);
       ECase(FIXO, Fixo);

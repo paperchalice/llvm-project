@@ -33,6 +33,12 @@ namespace llvm::MMOYAML {
 
 void RawData::writeAsBinary(raw_ostream &OS) const { Data.writeAsBinary(OS); }
 
+void Quote::writeAsBinary(raw_ostream &OS) const {
+  writeLop(OS, MMO::LOP_QUOTE);
+  OS << '\x0' << '\x1';
+  Value.writeAsBinary(OS);
+}
+
 void Loc::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_LOC);
   support::endian::Writer Writer(OS, support::endianness::big);
@@ -55,12 +61,12 @@ void Fixo::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_FIXO);
   OS << HighByte;
   support::endian::Writer Writer(OS, support::endianness::big);
-  if (is64Bit(Offset)) {
+  if (is64Bit(P)) {
     OS << '\x2';
-    Writer.write<uint64_t>(Offset.value);
+    Writer.write<uint64_t>(P.value);
   } else {
     OS << '\x1';
-    Writer.write<uint32_t>(Offset.value);
+    Writer.write<uint32_t>(P.value);
   }
 }
 
@@ -109,7 +115,6 @@ void Spec::writeAsBinary(raw_ostream &OS) const {
   writeLop(OS, MMO::LOP_SPEC);
   support::endian::Writer Writer(OS, support::endianness::big);
   Writer.write<uint16_t>(Type);
-  Data.writeAsBinary(OS);
 }
 
 void Pre::writeAsBinary(raw_ostream &OS) const {

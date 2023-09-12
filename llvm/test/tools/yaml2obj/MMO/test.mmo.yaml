@@ -8,7 +8,7 @@ Segments:
   - OpCode:          LOC
     HighByte:        DATA
     Offset:          0x0
-  - StartAddress:    0x800000000000000
+  - StartAddress:    0x2000000000000000
     Data:            '000000000000000061620000'
   - OpCode:          LOC
     HighByte:        INSTRUCTION
@@ -50,12 +50,15 @@ Segments:
     Data:            F000000A
   - OpCode:          SPEC
     Type:            5
+  - StartAddress:    0x12345A76C
     Data:            0000020000FE0000
   - OpCode:          LOC
     HighByte:        DATA
     Offset:          0xA
-  - StartAddress:    0x800000000000006
-    Data:            '000063649800000198000000'
+  - StartAddress:    0x200000000000000A
+    Data:            '00006364'
+  - OpCode:          QUOTE
+    Value:           '98000000'
 Postamble:
   G:               254
   Values:          [ 0x2000000000000008, 0x12345678C ]
@@ -76,78 +79,81 @@ SymbolTable:
       Type:            NORMAL
 ...
 
-# CHECK:--- !MMO
-# CHECK:Preamble:
-# CHECK:  Version:         1
-# CHECK:  CreatedTime:     0
-# CHECK:Segments:
-# CHECK:  - OpCode:          LOC
-# CHECK:    HighByte:        DATA
-# CHECK:    Offset:          0x0
-# CHECK:  - StartAddress:    0x800000000000000
-# CHECK:    Data:            '000000000000000061620000'
-# CHECK:  - OpCode:          LOC
-# CHECK:    HighByte:        INSTRUCTION
-# CHECK:    Offset:          0x12345678C
-# CHECK:  - OpCode:          FILE
-# CHECK:    Name:            test.mms
-# CHECK:    Number:          0
-# CHECK:  - OpCode:          LINE
-# CHECK:    Number:          7
-# CHECK:  - StartAddress:    0x12345678C
-# CHECK:    Data:            F0000000
-# CHECK:  - OpCode:          SKIP
-# CHECK:    Delta:           0x4000
-# CHECK:  - OpCode:          LINE
-# CHECK:    Number:          9
-# CHECK:  - StartAddress:    0x12345A790
-# CHECK:    Data:            8103FE0142030000
-# CHECK:  - OpCode:          LINE
-# CHECK:    Number:          10
-# CHECK:  - StartAddress:    0x12345A798
-# CHECK:    Data:            '00000000'
-# CHECK:  - OpCode:          LOC
-# CHECK:    HighByte:        INSTRUCTION
-# CHECK:    Offset:          0x12345A768
-# CHECK:  - OpCode:          FIXRX
-# CHECK:    FixType:         OTHERWISE
-# CHECK:    Delta:           -11
-# CHECK:  - OpCode:          FIXR
-# CHECK:    Delta:           0xFF7
-# CHECK:  - OpCode:          FIXO
-# CHECK:    HighByte:        0x20
-# CHECK:    Offset:          0x0
-# CHECK:  - OpCode:          FILE
-# CHECK:    Name:            foo.mms
-# CHECK:    Number:          1
-# CHECK:  - OpCode:          LINE
-# CHECK:    Number:          4
-# CHECK:  - StartAddress:    0x12345A768
-# CHECK:    Data:            F000000A
-# CHECK:  - OpCode:          SPEC
-# CHECK:    Type:            5
-# CHECK:    Data:            0000020000FE0000
-# CHECK:  - OpCode:          LOC
-# CHECK:    HighByte:        DATA
-# CHECK:    Offset:          0xA
-# CHECK:  - StartAddress:    0x800000000000006
-# CHECK:    Data:            '000063649800000198000000'
-# CHECK:Postamble:
-# CHECK:  G:               254
-# CHECK:  Values:          [ 0x2000000000000008, 0x12345678C ]
-# CHECK:SymbolTable:
-# CHECK:  IsUTF16:         false
-# CHECK:  Symbol:
-# CHECK:    - Name:            Main
-# CHECK:      Serial:          1
-# CHECK:      Equiv:           0x12345678C
-# CHECK:      Type:            NORMAL
-# CHECK:    - Name:            a
-# CHECK:      Serial:          2
-# CHECK:      Equiv:           0xFE
-# CHECK:      Type:            REGISTER
-# CHECK:    - Name:            ABCD
-# CHECK:      Serial:          3
-# CHECK:      Equiv:           0x2000000000000008
-# CHECK:      Type:            NORMAL
-# CHECK:...
+# CHECK:  --- !MMO
+# CHECK:  Preamble:
+# CHECK:    Version:         1
+# CHECK:    CreatedTime:     0
+# CHECK:  Segments:
+# CHECK:    - OpCode:          LOC
+# CHECK:      HighByte:        DATA
+# CHECK:      Offset:          0x0
+# CHECK:    - StartAddress:    0x2000000000000000
+# CHECK:      Data:            '000000000000000061620000'
+# CHECK:    - OpCode:          LOC
+# CHECK:      HighByte:        INSTRUCTION
+# CHECK:      Offset:          0x12345678C
+# CHECK:    - OpCode:          FILE
+# CHECK:      Name:            test.mms
+# CHECK:      Number:          0
+# CHECK:    - OpCode:          LINE
+# CHECK:      Number:          7
+# CHECK:    - StartAddress:    0x12345678C
+# CHECK:      Data:            F0000000
+# CHECK:    - OpCode:          SKIP
+# CHECK:      Delta:           0x4000
+# CHECK:    - OpCode:          LINE
+# CHECK:      Number:          9
+# CHECK:    - StartAddress:    0x12345A790
+# CHECK:      Data:            8103FE0142030000
+# CHECK:    - OpCode:          LINE
+# CHECK:      Number:          10
+# CHECK:    - StartAddress:    0x12345A798
+# CHECK:      Data:            '00000000'
+# CHECK:    - OpCode:          LOC
+# CHECK:      HighByte:        INSTRUCTION
+# CHECK:      Offset:          0x12345A768
+# CHECK:    - OpCode:          FIXRX
+# CHECK:      FixType:         OTHERWISE
+# CHECK:      Delta:           -11
+# CHECK:    - OpCode:          FIXR
+# CHECK:      Delta:           0xFF7
+# CHECK:    - OpCode:          FIXO
+# CHECK:      HighByte:        0x20
+# CHECK:      Offset:          0x0
+# CHECK:    - OpCode:          FILE
+# CHECK:      Name:            foo.mms
+# CHECK:      Number:          1
+# CHECK:    - OpCode:          LINE
+# CHECK:      Number:          4
+# CHECK:    - StartAddress:    0x12345A768
+# CHECK:      Data:            F000000A
+# CHECK:    - OpCode:          SPEC
+# CHECK:      Type:            5
+# CHECK:    - StartAddress:    0x12345A76C
+# CHECK:      Data:            0000020000FE0000
+# CHECK:    - OpCode:          LOC
+# CHECK:      HighByte:        DATA
+# CHECK:      Offset:          0xA
+# CHECK:    - StartAddress:    0x200000000000000A
+# CHECK:      Data:            '00006364'
+# CHECK:    - OpCode:          QUOTE
+# CHECK:      Value:           '98000000'
+# CHECK:  Postamble:
+# CHECK:    G:               254
+# CHECK:    Values:          [ 0x2000000000000008, 0x12345678C ]
+# CHECK:  SymbolTable:
+# CHECK:    IsUTF16:         false
+# CHECK:    Symbol:
+# CHECK:      - Name:            Main
+# CHECK:        Serial:          1
+# CHECK:        Equiv:           0x12345678C
+# CHECK:        Type:            NORMAL
+# CHECK:      - Name:            a
+# CHECK:        Serial:          2
+# CHECK:        Equiv:           0xFE
+# CHECK:        Type:            REGISTER
+# CHECK:      - Name:            ABCD
+# CHECK:        Serial:          3
+# CHECK:        Equiv:           0x2000000000000008
+# CHECK:        Type:            NORMAL
+# CHECK:  ...

@@ -35,56 +35,44 @@ struct MMOData {
 };
 
 struct MMOQuote {
-  ArrayRef<std::uint8_t> RawData;
   ArrayRef<std::uint8_t> Value;
 };
 struct MMOLoc {
-  ArrayRef<std::uint8_t> RawData;
   std::uint8_t HighByte;
   std::uint64_t Offset;
 };
 struct MMOSkip {
-  ArrayRef<std::uint8_t> RawData;
   std::uint16_t Delta;
 };
 struct MMOFixo {
-  ArrayRef<std::uint8_t> RawData;
   std::uint8_t HighByte;
-  std::uint64_t Offset;
+  std::uint64_t P;
 };
 struct MMOFixr {
-  ArrayRef<std::uint8_t> RawData;
   std::uint16_t Delta;
 };
 struct MMOFixrx {
-  ArrayRef<std::uint8_t> RawData;
   std::uint8_t FixType;
   std::int32_t Delta;
 };
 struct MMOFile {
-  ArrayRef<std::uint8_t> RawData;
   std::uint8_t Number;
   std::optional<StringRef> Name;
 };
 struct MMOLine {
-  ArrayRef<std::uint8_t> RawData;
   std::uint16_t Number;
 };
 struct MMOSpec {
-  ArrayRef<std::uint8_t> RawData;
   std::uint16_t Type;
-  ArrayRef<std::uint8_t> SpecialData;
 };
 
 struct MMOPre {
-  ArrayRef<std::uint8_t> RawData;
   std::uint8_t Version = llvm::MMO::CurrentVersion;
   std::optional<std::time_t> CreatedTime;
   std::optional<ArrayRef<std::uint8_t>> ExtraData;
 };
 
 struct MMOPost {
-  ArrayRef<std::uint8_t> RawData;
   std::uint8_t G;
   std::vector<std::uint64_t> Values;
 };
@@ -178,7 +166,7 @@ protected:
 
 private:
   MMOPre Preamble;
-  std::vector<std::variant<MMOData, MMOLoc, MMOSkip, MMOFixo, MMOFixr, MMOFixrx,
+  std::vector<std::variant<MMOData, MMOQuote, MMOLoc, MMOSkip, MMOFixo, MMOFixr, MMOFixrx,
                            MMOFile, MMOLine, MMOSpec>>
       Content;
   MMOPost Postamble;

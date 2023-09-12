@@ -75,7 +75,6 @@ Error MMIXObjectFile::initMMIXObjectFile() {
 Error MMIXObjectFile::initPreamble(const unsigned char *&Iter) {
   assert(getInst(Iter) == MMO::MM && "Invalid MM");
   assert(getX(Iter) == MMO::LOP_PRE && "Invalid file header");
-  auto PreambleBegin = Iter;
   Preamble.Version = getY(Iter);
   std::int32_t TetraCount = getZ(Iter);
   Iter += 4;
@@ -89,13 +88,13 @@ Error MMIXObjectFile::initPreamble(const unsigned char *&Iter) {
     }
     Iter += 4 * TetraCount;
   }
-  Preamble.RawData = {PreambleBegin, Iter};
   return Error::success();
 }
 
 Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
   bool ReachPostamble = false;
   bool LastIsLOP = true;
+  bool LastIsSpec = false;
   const std::uint8_t *BinRefStart = Iter;
   std::uint64_t PC = 0;
   Error Err = Error::success();
@@ -103,28 +102,27 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
     // handle LOP
     if (getInst(Iter) == MMO::MM) {
       if (!LastIsLOP && Iter != BinRefStart) {
-        if (getX(Iter) == MMO::LOP_QUOTE) {
-          PC += 4;
-          Iter += 8;
-          continue;
-        }
-
         MMOData D{PC, ArrayRef<std::uint8_t>(BinRefStart, Iter)};
-        D.StartAddress -= D.Data.size();
+        if (!LastIsSpec)
+          D.StartAddress -= D.Data.size();
+        else if (getX(Iter) != MMO::LOP_QUOTE)
+          LastIsSpec = false;
         Content.emplace_back(D);
         LastIsLOP = true;
       }
+
       // handle lop_xxx
       switch (getX(Iter)) {
       case MMO::LOP_QUOTE:
-        LastIsLOP = false;
-        PC += 4;
-        Iter += 8;
+        if (!LastIsSpec)
+          PC += 4;
+        Iter += 4;
+        Content.emplace_back(MMOQuote{{Iter, 4}});
+        Iter += 4;
         break;
       case MMO::LOP_LOC: {
         auto TetraCount = getZ(Iter);
         MMOLoc Loc;
-        auto LocBegin = Iter;
         Loc.HighByte = getY(Iter);
         uint64_t Offset = 0;
         Iter += 4;
@@ -142,45 +140,41 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
                                    "Z field of lop_loc must be 1 or 2!");
         }
         Loc.Offset = Offset;
-        Loc.RawData = {LocBegin, Iter};
-        PC = ((std::uint64_t)Loc.HighByte << 54) | Offset;
+        PC = ((std::uint64_t)Loc.HighByte << 56) | Offset;
         Content.emplace_back(Loc);
       } break;
       case MMO::LOP_SKIP:
-        Content.emplace_back(MMOSkip{{Iter, 4}, getYZ(Iter)});
+        Content.emplace_back(MMOSkip{getYZ(Iter)});
         PC += getYZ(Iter);
         Iter += 4;
         break;
       case MMO::LOP_FIXO: {
         MMOFixo Fix;
-        auto FixoBegin = Iter;
         Fix.HighByte = getY(Iter);
         auto TetraCount = getZ(Iter);
         Iter += 4;
-        uint64_t Offset = 0;
+        uint64_t P = 0;
         switch (TetraCount) {
         case 1:
-          Offset = read32be(Iter);
+          P = read32be(Iter);
           Iter += 4;
           break;
         case 2:
-          Offset = read64be(Iter);
+          P = read64be(Iter);
           Iter += 8;
           break;
         default:
           return createStringError(std::errc::invalid_argument,
                                    "`Z` field of `lop_fixo` must be 1 or 2!");
         }
-        Fix.Offset = Offset;
-        Fix.RawData = {FixoBegin, Iter};
+        Fix.P = P;
         Content.emplace_back(Fix);
       } break;
       case MMO::LOP_FIXR:
-        Content.emplace_back(MMOFixr{{Iter, 4}, getYZ(Iter)});
+        Content.emplace_back(MMOFixr{getYZ(Iter)});
         Iter += 4;
         break;
       case MMO::LOP_FIXRX: {
-        auto FixrxBegin = Iter;
         MMOFixrx Fix;
         Fix.FixType = getZ(Iter);
         if (!(Fix.FixType == MMO::FIXRX_JMP ||
@@ -191,11 +185,9 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         std::uint32_t Tet = read32be(Iter) & 0x00FF'FFFF;
         Fix.Delta = Iter[0] ? (Tet - (1 << Fix.FixType)) : Tet;
         Iter += 4;
-        Fix.RawData = {FixrxBegin, Iter};
         Content.emplace_back(Fix);
       } break;
       case MMO::LOP_FILE: {
-        auto FileBegin = Iter;
         MMOFile F;
         F.Number = getY(Iter);
         auto TetraCount = Iter[3];
@@ -207,32 +199,19 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         }
         F.Name = Name.trim('\0');
         Iter += 4 * TetraCount;
-        F.RawData = {FileBegin, Iter};
         Content.emplace_back(F);
       }
 
       break;
       case MMO::LOP_LINE:
-        Content.emplace_back(MMOLine{{Iter, 4}, getYZ(Iter)});
+        Content.emplace_back(MMOLine{getYZ(Iter)});
         Iter += 4;
         break;
       case MMO::LOP_SPEC: {
-        ArrayRef<std::uint8_t> RawData(Iter, 4);
+        LastIsSpec = true;
         auto Type = getYZ(Iter);
         Iter += 4;
-        auto SpecialDataBegin = Iter;
-        while (Iter < DataEnd) {
-          if (getInst(Iter) == MMO::MM) {
-            if (getX(Iter) == MMO::LOP_QUOTE)
-              Iter += 4;
-            else
-              break;
-          }
-          Iter += 4;
-        }
-        MMOSpec SP = {RawData, Type, {SpecialDataBegin, Iter}};
-        Content.emplace_back(SP);
-        BinRefStart = Iter;
+        Content.emplace_back(MMOSpec{Type});
         break;
       }
       case MMO::LOP_POST:
@@ -247,7 +226,8 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         LastIsLOP = false;
       }
 
-      PC += 4;
+      if (!LastIsSpec)
+        PC += 4;
       Iter += 4;
     }
   }
@@ -269,7 +249,6 @@ Error MMIXObjectFile::initSymbolTable(const unsigned char *&Iter) {
 
 Error MMIXObjectFile::initPostamble(const unsigned char *&Iter) {
   assert(Iter[0] == MMO::MM && Iter[1] == MMO::LOP_POST);
-  auto PostBegin = Iter;
   if (getY(Iter) != 0)
     return createError("invalid postamble!");
   Postamble.G = getZ(Iter);
@@ -282,7 +261,6 @@ Error MMIXObjectFile::initPostamble(const unsigned char *&Iter) {
     Postamble.Values.push_back(RegVal);
     Iter += 8;
   }
-  Postamble.RawData = {PostBegin, Iter};
   return Error::success();
 }
 
@@ -430,17 +408,17 @@ bool MMIXObjectFile::isRelocatableObject() const { return false; }
 bool MMIXObjectFile::is64Bit() const { return true; }
 
 void MMIXObjectFile::moveSymbolNext(DataRefImpl &Symb) const {
-  auto Next = reinterpret_cast<decltype(SymbTab)::value_type*>(Symb.p);
+  auto Next = reinterpret_cast<decltype(SymbTab)::value_type *>(Symb.p);
   Symb.p = reinterpret_cast<std::uintptr_t>(Next + 1);
 }
 
 Expected<uint32_t> MMIXObjectFile::getSymbolFlags(DataRefImpl Symb) const {
   auto P = reinterpret_cast<decltype(SymbTab.data())>(Symb.p);
-  switch(P->Type) {
+  switch (P->Type) {
   case MMO::NORMAL:
     return SymbolRef::SF_Global | SymbolRef::SF_Absolute;
   case MMO::REGISTER:
-    return SymbolRef::SF_Global | SymbolRef::SF_Common;// FIXME: no register...
+    return SymbolRef::SF_Global | SymbolRef::SF_Common; // FIXME: no register...
   default:
     return createError("unknown flag");
   }

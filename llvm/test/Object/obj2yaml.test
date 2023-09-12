@@ -824,82 +824,6 @@ FileHeader:
 
 # RUN: obj2yaml %p/Inputs/test.mmo | FileCheck %s --check-prefix MMO
 
---- !MMO
-Preamble:
-  Version:         1
-  CreatedTime:     0
-Segments:
-  - OpCode:          LOC
-    HighByte:        DATA
-    Offset:          0x0
-  - StartAddress:    0x800000000000000
-    Data:            '000000000000000061620000'
-  - OpCode:          LOC
-    HighByte:        INSTRUCTION
-    Offset:          0x12345678C
-  - OpCode:          FILE
-    Name:            test.mms
-    Number:          0
-  - OpCode:          LINE
-    Number:          7
-  - StartAddress:    0x12345678C
-    Data:            F0000000
-  - OpCode:          SKIP
-    Delta:           0x4000
-  - OpCode:          LINE
-    Number:          9
-  - StartAddress:    0x12345A790
-    Data:            8103FE0142030000
-  - OpCode:          LINE
-    Number:          10
-  - StartAddress:    0x12345A798
-    Data:            '00000000'
-  - OpCode:          LOC
-    HighByte:        INSTRUCTION
-    Offset:          0x12345A768
-  - OpCode:          FIXRX
-    FixType:         OTHERWISE
-    Delta:           -11
-  - OpCode:          FIXR
-    Delta:           0xFF7
-  - OpCode:          FIXO
-    HighByte:        0x20
-    Offset:          0x0
-  - OpCode:          FILE
-    Name:            foo.mms
-    Number:          1
-  - OpCode:          LINE
-    Number:          4
-  - StartAddress:    0x12345A768
-    Data:            F000000A
-  - OpCode:          SPEC
-    Type:            5
-    Data:            0000020000FE0000
-  - OpCode:          LOC
-    HighByte:        DATA
-    Offset:          0xA
-  - StartAddress:    0x800000000000006
-    Data:            '000063649800000198000000'
-Postamble:
-  G:               254
-  Values:          [ 0x2000000000000008, 0x12345678C ]
-SymbolTable:
-  IsUTF16:         false
-  Symbol:
-    - Name:            Main
-      Serial:          1
-      Equiv:           0x12345678C
-      Type:            NORMAL
-    - Name:            a
-      Serial:          2
-      Equiv:           0xFE
-      Type:            REGISTER
-    - Name:            ABCD
-      Serial:          3
-      Equiv:           0x2000000000000008
-      Type:            NORMAL
-...
-
 # MMO: --- !MMO
 # MMO: Preamble:
 # MMO:   Version:         1
@@ -908,7 +832,7 @@ SymbolTable:
 # MMO:   - OpCode:          LOC
 # MMO:     HighByte:        DATA
 # MMO:     Offset:          0x0
-# MMO:   - StartAddress:    0x800000000000000
+# MMO:   - StartAddress:    0x2000000000000000
 # MMO:     Data:            '000000000000000061620000'
 # MMO:   - OpCode:          LOC
 # MMO:     HighByte:        INSTRUCTION
@@ -950,12 +874,15 @@ SymbolTable:
 # MMO:     Data:            F000000A
 # MMO:   - OpCode:          SPEC
 # MMO:     Type:            5
+# MMO:   - StartAddress:    0x12345A76C
 # MMO:     Data:            0000020000FE0000
 # MMO:   - OpCode:          LOC
 # MMO:     HighByte:        DATA
 # MMO:     Offset:          0xA
-# MMO:   - StartAddress:    0x800000000000006
-# MMO:     Data:            '000063649800000198000000'
+# MMO:   - StartAddress:    0x200000000000000A
+# MMO:     Data:            '00006364'
+# MMO:   - OpCode:          QUOTE
+# MMO:     Value:           '98000000'
 # MMO: Postamble:
 # MMO:   G:               254
 # MMO:   Values:          [ 0x2000000000000008, 0x12345678C ]
