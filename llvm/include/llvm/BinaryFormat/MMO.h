@@ -121,7 +121,7 @@ private:
 struct AsmSharedInfo {
   std::uint64_t PC = 0;
   std::uint64_t MMOLoc = 0;
-  std::uint16_t MMOLine = 1;
+  std::uint16_t MMOLine = 0;
   std::size_t CurrentLine = 1;
   std::forward_list<FixupInfo> FixupList = {};
   std::deque<std::uint64_t> GregList = {0};

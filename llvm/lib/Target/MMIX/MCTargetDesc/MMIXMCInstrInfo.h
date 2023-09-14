@@ -1,4 +1,5 @@
-//===-- MMIXMCInstrInfo.h - MMIX MC Instruction Information ------*- C++ -*-===//
+//===-- MMIXMCInstrInfo.h - MMIX MC Instruction Information ------*- C++
+//-*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,6 +17,10 @@
 #include "llvm/MC/MCInstrInfo.h"
 
 namespace llvm {
+
+namespace MMIX {
+enum { BASE_ADDRESS_ADJUST = 1, BACKWARD_BRANCH, DONT_EMIT };
+}
 
 MCInstrInfo *createMMIXMCInstrInfo();
 

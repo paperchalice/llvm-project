@@ -409,18 +409,11 @@ MMIXALParser::IdentifierKind MMIXALParser::getIdentifierKind(StringRef Name) {
 }
 
 void MMIXALParser::syncMMO() {
-  if (SharedInfo.PC & (0xEUL << 60)) {
-    return;
-  }
-
-  if (SpecialMode) {
-    return;
-  }
+  if (SharedInfo.PC & (0xEUL << 60) || SpecialMode) return;
 
   static StringRef LastFileName;
 
   if (CurrentFileName != LastFileName) {
-
     auto FindResult =
         std::find(FileNames.begin(), FileNames.end(), CurrentFileName);
     Out.emitBinaryData({"\x98\x06", 2});

@@ -10,6 +10,8 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MMIXREGISTERINFO_TD
 #define LLVM_LIB_TARGET_MMIX_MMIXREGISTERINFO_TD
 
+include "llvm/TableGen/SearchableTable.td"
+
 //===----------------------------------------------------------------------===//
 //  Declarations that describe the MMIX register file
 //===----------------------------------------------------------------------===//
@@ -24,7 +26,7 @@ class MMIXGPR<bits<16> enc> : MMIXReg<enc, "" #enc> {
   let DwarfNumbers = [enc];
 }
 
-class MMIXSR<bits<16> enc, string n = NAME> : MMIXReg<enc, n>{
+class MMIXSR<bits<16> enc, string n = NAME> : MMIXReg<enc, n> {
   let DwarfNumbers = [!add(enc, 0x100)];
 }
 

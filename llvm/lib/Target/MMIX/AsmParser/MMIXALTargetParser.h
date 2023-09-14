@@ -5,6 +5,7 @@
 #include "llvm/MC/MCParser/MCAsmLexer.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
+
 #include <forward_list>
 
 namespace llvm {
@@ -54,7 +55,6 @@ public:
 private:
   bool parseOperand(OperandVector &Operands, StringRef Mnemonic);
   ParseStatus tryParseJumpDestOperand(OperandVector &Operands);
-  ParseStatus tryParseBranchDestOperand(OperandVector &Operands);
   ParseStatus tryParseBaseAddressOperand(OperandVector &Operands);
   ParseStatus parseSFR(OperandVector &Operands);
   void resolveBaseAddress(MCInst &Inst, const OperandVector &Operands);

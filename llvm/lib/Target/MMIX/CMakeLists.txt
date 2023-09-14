@@ -15,7 +15,7 @@ tablegen(LLVM MMIXGenMCPseudoLowering.inc -gen-pseudo-lowering)
 tablegen(LLVM MMIXGenRegisterBank.inc -gen-register-bank)
 tablegen(LLVM MMIXGenRegisterInfo.inc -gen-register-info)
 tablegen(LLVM MMIXGenSubtargetInfo.inc -gen-subtarget)
-tablegen(LLVM MMIXGenSystemOperands.inc -gen-searchable-tables)
+tablegen(LLVM MMIXGenSearchableTables.inc -gen-searchable-tables)
 
 add_public_tablegen_target(MMIXCommonTableGen)
 

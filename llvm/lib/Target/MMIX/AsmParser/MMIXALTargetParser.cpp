@@ -1,5 +1,6 @@
 #include "MMIXALTargetParser.h"
 #include "MCTargetDesc/MMIXMCExpr.h"
+#include "MCTargetDesc/MMIXMCInstrInfo.h"
 #include "MMIXALOperand.h"
 #include "MMIXInstrInfo.h"
 #include "MMIXRegisterInfo.h"
@@ -188,7 +189,7 @@ bool MMIXALAsmParser::parseOperand(OperandVector &Operands,
   return false;
 }
 
-ParseStatus llvm::MMIXAL::MMIXALAsmParser::parseSFR(OperandVector &Operands) {
+ParseStatus MMIXALAsmParser::parseSFR(OperandVector &Operands) {
   // operand is always expression
   const MCExpr *Expr = nullptr;
   auto StartLoc = getTok().getLoc();
@@ -222,21 +223,37 @@ ParseStatus MMIXALAsmParser::tryParseJumpDestOperand(OperandVector &Operands) {
   auto StartLoc = getTok().getLoc();
   bool HasError = getParser().parseExpression(Expr);
   auto EndLoc = getTok().getLoc();
-  if (HasError) {
+  if (HasError)
     return ParseStatus::Failure;
+
+  // if we get a GPR operand, it is not a base address form
+  if (MMIXMCExpr::isGPRExpr(Expr)) {
+    int64_t Res;
+    bool Success = Expr->evaluateAsAbsolute(Res);
+    if (Success) {
+      auto RegNo = MMIX::r0 + Res;
+      Operands.emplace_back(
+          MMIXALOperand::createReg(RegNo, StartLoc, getLexer().getLoc()));
+      return parseToken(AsmToken::Comma) ? ParseStatus::Failure
+                                         : ParseStatus::NoMatch;
+    }
   }
+
   int64_t Res;
-  auto E = MMIXMCExpr::create(Expr, SharedInfo.PC,
-                              MMIXMCExpr::VK_MMIX_PC_REL_JMP, getContext());
-  bool Success = E->evaluateAsAbsolute(Res);
+  bool Success = Expr->evaluateAsAbsolute(Res);
   if (Success) {
-    Operands.emplace_back(MMIXALOperand::createExpression(E, StartLoc, EndLoc));
+    Operands.emplace_back(
+        MMIXALOperand::createMem(Res, SharedInfo.PC, StartLoc, EndLoc));
     return ParseStatus::Success;
   } else if (auto SE = dyn_cast<MCSymbolRefExpr>(Expr)) {
+    MMIXALOperand &Operand = (MMIXALOperand &)Operands[0];
+    auto FK = Operand.getToken() == "JMP"
+                  ? MMO::FixupInfo::FixupKind::FIXUP_JUMP
+                  : MMO::FixupInfo::FixupKind::FIXUP_WYDE;
     SharedInfo.FixupList.emplace_front(
-        MMO::FixupInfo{SharedInfo.PC, MMO::FixupInfo::FixupKind::FIXUP_JUMP,
-                       &SE->getSymbol()});
-    Operands.emplace_back(MMIXALOperand::createExpression(E, StartLoc, EndLoc));
+        MMO::FixupInfo{SharedInfo.PC, FK, &SE->getSymbol()});
+    Operands.emplace_back(
+        MMIXALOperand::createMem(SE, SharedInfo.PC, StartLoc, EndLoc));
     return ParseStatus::Success;
   } else {
     Error(StartLoc, "Invalid jump dest!");
@@ -245,33 +262,7 @@ ParseStatus MMIXALAsmParser::tryParseJumpDestOperand(OperandVector &Operands) {
 }
 
 ParseStatus
-MMIXALAsmParser::tryParseBranchDestOperand(OperandVector &Operands) {
-  const MCExpr *Expr = nullptr;
-  auto StartLoc = getTok().getLoc();
-  bool HasError = getParser().parseExpression(Expr);
-  auto EndLoc = getTok().getLoc();
-  if (HasError) {
-    Error(StartLoc, "parse fail!");
-    return ParseStatus::Failure;
-  }
-
-  if (MMIX::IsValidExpr(Expr, true)) {
-    auto E = MMIXMCExpr::create(Expr, SharedInfo.PC,
-                                MMIXMCExpr::VK_MMIX_PC_REL_BR, getContext());
-    Operands.emplace_back(MMIXALOperand::createExpression(E, StartLoc, EndLoc));
-    if (auto SE = dyn_cast<const MCSymbolRefExpr>(Expr)) {
-      SharedInfo.FixupList.emplace_front(
-          MMO::FixupInfo{SharedInfo.PC, MMO::FixupInfo::FixupKind::FIXUP_WYDE,
-                         &SE->getSymbol()});
-    }
-    return ParseStatus::Success;
-  } else {
-    return ParseStatus::Failure;
-  }
-}
-
-ParseStatus llvm::MMIXAL::MMIXALAsmParser::tryParseBaseAddressOperand(
-    OperandVector &Operands) {
+MMIXALAsmParser::tryParseBaseAddressOperand(OperandVector &Operands) {
   return ParseStatus::NoMatch;
 }
 
@@ -287,55 +278,81 @@ static auto FindClosestGREG(const std::deque<std::uint64_t> &Q,
   return Closest;
 }
 
-void llvm::MMIXAL::MMIXALAsmParser::emitSET(std::uint64_t Val) {
-  for (int i = 0; i != 4; ++i) {
-    std::uint16_t Part = Val >> (48 - i * 16) & 0xFFFF;
-    if (Part) {
-      char InstSet[4] = {static_cast<char>(0xE0 + i), '\xFF',
+#define GET_InstEnc_DECL
+#include "MMIXGenSearchableTables.inc"
+
+void MMIXALAsmParser::emitSET(std::uint64_t Val) {
+  for (int i = InstEnc::SETH; i <= InstEnc::ORL; ++i) {
+    std::uint16_t Part = 0;
+    switch (i & 0b0111) {
+    case 0:
+      Part = Val >> 48;
+      break;
+    case 1:
+      Part = Val >> 32;
+      break;
+    case 2:
+      Part = Val >> 16;
+      break;
+    case 3:
+      Part = Val;
+      break;
+    }
+    if (Part || i == InstEnc::SETL) {
+      char InstSet[4] = {static_cast<char>(i), '\xFF',
                          static_cast<char>(Part >> 8),
                          static_cast<char>(Part & 0xFF)};
       getStreamer().emitBinaryData(StringRef(InstSet, 4));
+
+      // emit line number
+      getStreamer().emitBinaryData(StringRef("\x98\x07", 2));
+      char Buf[2];
+      support::endian::write16be(
+          Buf, static_cast<std::uint16_t>(SharedInfo.CurrentLine));
+      getStreamer().emitBinaryData(StringRef(Buf, 2));
+
       SharedInfo.PC += 4;
       SharedInfo.MMOLoc += 4;
       ++SharedInfo.MMOLine;
+      i |= InstEnc::ORH;
     }
-  }
-  if (Val) {
-    getStreamer().emitBinaryData(StringRef("\x98\x07", 2));
-    char Buf[2];
-    support::endian::write16be(
-        Buf, static_cast<std::uint16_t>(SharedInfo.CurrentLine));
-    getStreamer().emitBinaryData(StringRef(Buf, 2));
   }
 }
 
-void llvm::MMIXAL::MMIXALAsmParser::resolveBaseAddress(
-    MCInst &Inst, const OperandVector &Operands) {
+void MMIXALAsmParser::resolveBaseAddress(MCInst &Inst,
+                                         const OperandVector &Operands) {
   assert(Operands.size() == 3 && "must 2 operands!");
-  auto &DestReg = static_cast<MMIXALOperand &>(*Operands[1]);
+
+  static_cast<MMIXALOperand &>(*Operands[1]).addRegOperands(Inst, 1);
   auto &DestOperand = static_cast<MMIXALOperand &>(*Operands[2]);
-  auto DestAddress = static_cast<std::uint64_t>(DestOperand.getImm());
+  auto DestAddress = DestOperand.getConcreteMem();
+
   auto End = SharedInfo.GregList.end() - 1;
-
-  Inst.addOperand(MCOperand::createReg(DestReg.getReg()));
   auto Closest = FindClosestGREG(SharedInfo.GregList, DestAddress);
-
   if (Closest != End) {
     std::uint64_t Diff = DestAddress - *Closest;
-    auto RegNum = 0xFF - (End - Closest);
-    std::uint16_t Imm = RegNum << 8;
-    if (DestAddress - *Closest < 0x100) {
-      Imm |= Diff;
-      Inst.addOperand(MCOperand::createImm(Imm));
+    unsigned Reg = MMIX::r0 + 0xFF - (End - Closest);
+    if (Diff < 0x100) {
+      Inst.addOperand(MCOperand::createReg(Reg));
+      Inst.addOperand(MCOperand::createImm(Diff));
+      return;
     } else if (SharedInfo.Expand) {
-      emitSET(Diff);
-      Imm |= 0xFF;
-      Inst.addOperand(MCOperand::createImm(Imm));
-      Inst.setFlags(MMIX::BASE_ADDRESS_ADJUST);
+      if (Diff < DestAddress) {
+        emitSET(Diff);
+        Inst.setOpcode(Inst.getOpcode() - 2); // HACK: use tablegen feature
+        Inst.addOperand(MCOperand::createReg(Reg));
+        Inst.addOperand(MCOperand::createReg(MMIX::r255));
+        return;
+      }
     }
-  } else if (SharedInfo.Expand) {
+  }
+
+  // if the diff is overflow or we can't find close enough
+  // global register
+  if (SharedInfo.Expand) {
     emitSET(DestAddress);
-    Inst.addOperand(MCOperand::createImm(0xFF << 8));
+    Inst.addOperand(MCOperand::createReg(MMIX::r255));
+    Inst.addOperand(MCOperand::createImm(0));
   }
 
   if (Inst.getNumOperands() == 1) {

@@ -16,39 +16,27 @@
 #include "llvm/MC/MCRegister.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/SMLoc.h"
+
 #include <variant>
 namespace llvm {
 
 class MMIXALOperand final : public MCParsedAsmOperand {
 private:
-  enum class KindTy {
-    Token,
-    Register,
-    Immediate,
-    Memory,
-    Expr,
-  } Kind;
-  const MCExpr *Expr;
   SMLoc StartLoc, EndLoc;
-  union ContentTy {
-    StringRef Tok;
-    std::int64_t Imm;
-    MCRegister Reg;
-    const MCExpr *Expr;
-    ContentTy(StringRef Token);
-    ContentTy(const MCExpr *Expr);
-    ContentTy(int64_t Imm);
-    explicit ContentTy(const MCRegister &Reg);
-  } Content;
+
+  struct Memory {
+    std::variant<std::uint64_t, const MCSymbolRefExpr *> DestinationAddress;
+    std::uint64_t CurrentAddress;
+  };
+  std::variant<StringRef, std::int64_t, MCRegister, Memory> Content;
 
 public:
   StringRef getToken() const;
   std::int64_t getImm() const;
-  const MCExpr *getExpr() const;
+  std::uint64_t getConcreteMem() const;
   void addRegOperands(MCInst &Inst, unsigned N) const;
-  void addSpecialRegisterOperands(MCInst &Inst, unsigned N) const;
   void addImmOperands(MCInst &Inst, unsigned N) const;
-  void addExprOperands(MCInst &Inst, unsigned N) const;
+  void addMemOperands(MCInst &Inst, unsigned N) const;
 
 public:
   bool isToken() const override;
@@ -56,9 +44,9 @@ public:
   bool isReg() const override;
   bool isMem() const override;
   bool isJumpDest() const;
-  bool isBranchDest() const;
-  template<std::uint8_t W>
-  bool isUImm() const { return Kind == KindTy::Immediate && isUInt<W>(getImm()); }
+  template <std::uint8_t W> bool isUImm() const {
+    return std::holds_alternative<std::int64_t>(Content) && isUInt<W>(getImm());
+  }
   bool isRoundMode() const;
   bool isBaseAddress() const { return true; }
   unsigned getReg() const override;
@@ -69,19 +57,25 @@ public:
 
 public:
   MMIXALOperand(StringRef Tok, SMLoc NameLoc, SMLoc EndLoc);
-  MMIXALOperand(const MCExpr *Expr, SMLoc StartLoc, SMLoc EndLoc);
-  MMIXALOperand(const std::int64_t &Imm, SMLoc StartLoc, SMLoc EndLoc);
-  MMIXALOperand(const MCRegister &Reg, SMLoc StartLoc, SMLoc EndLoc);
+  MMIXALOperand(std::int64_t Imm, SMLoc StartLoc, SMLoc EndLoc);
+  MMIXALOperand(MCRegister Reg, SMLoc StartLoc, SMLoc EndLoc);
+  MMIXALOperand(std::uint64_t Dest, std::uint64_t PC, SMLoc StartLoc,
+                SMLoc EndLoc);
+  MMIXALOperand(const MCSymbolRefExpr *SymbolRef, std::uint64_t PC, SMLoc StartLoc,
+                SMLoc EndLoc);
 
 public:
   static std::unique_ptr<MMIXALOperand> createMnemonic(StringRef Mnemonic,
                                                        SMLoc StartLoc);
+  static std::unique_ptr<MMIXALOperand> createImm(std::int64_t Imm,
+                                                  SMLoc StartLoc, SMLoc EndLoc);
+  static std::unique_ptr<MMIXALOperand> createReg(unsigned RegNo,
+                                                  SMLoc StartLoc, SMLoc EndLoc);
   static std::unique_ptr<MMIXALOperand>
-  createExpression(const MCExpr *Expr, SMLoc StartLoc, SMLoc EndLoc);
-  static std::unique_ptr<MMIXALOperand> createImm(const std::int64_t &Imm,
-                                                  SMLoc StartLoc, SMLoc EndLoc);
-  static std::unique_ptr<MMIXALOperand> createReg(const unsigned &RegNo,
-                                                  SMLoc StartLoc, SMLoc EndLoc);
+  createMem(std::uint64_t Dest, std::uint64_t PC, SMLoc StartLoc, SMLoc EndLoc);
+  static std::unique_ptr<MMIXALOperand>
+  createMem(const MCSymbolRefExpr *SymbolRef, std::uint64_t PC, SMLoc StartLoc,
+            SMLoc EndLoc);
 };
 
 } // namespace llvm

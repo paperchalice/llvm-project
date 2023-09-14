@@ -29,7 +29,11 @@ using DecodeStatus = MCDisassembler::DecodeStatus;
 
 namespace {
 
-std::array SPRDecodeTable = {
+struct SPREntry {
+  std::uint16_t Enc;
+};
+
+constexpr std::array SPRDecodeTable = {
     MMIX::rB,  MMIX::rD,  MMIX::rE,  MMIX::rH,  MMIX::rJ, MMIX::rM, MMIX::rR,
     MMIX::rBB, MMIX::rC,  MMIX::rN,  MMIX::rO,  MMIX::rS, MMIX::rI, MMIX::rT,
     MMIX::rTT, MMIX::rK,  MMIX::rQ,  MMIX::rU,  MMIX::rV, MMIX::rG, MMIX::rL,

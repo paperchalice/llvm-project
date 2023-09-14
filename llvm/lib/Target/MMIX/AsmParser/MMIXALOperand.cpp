@@ -9,100 +9,115 @@
 #include "MMIXALOperand.h"
 #include "MCTargetDesc/MMIXInstPrinter.h"
 #include "MCTargetDesc/MMIXMCExpr.h"
+#include "MCTargetDesc/MMIXMCInstrInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-namespace llvm {
 
-MMIXALOperand::ContentTy::ContentTy(StringRef Token) : Tok(Token) {}
-MMIXALOperand::ContentTy::ContentTy(const MCExpr *Expr) : Expr(Expr) {}
-MMIXALOperand::ContentTy::ContentTy(int64_t Imm) : Imm(Imm) {}
-MMIXALOperand::ContentTy::ContentTy(const MCRegister &Reg) : Reg(Reg) {}
+using namespace llvm;
 
-StringRef MMIXALOperand::getToken() const { return Content.Tok; }
-void MMIXALOperand::addRegOperands(MCInst &Inst, unsigned N) const {
-  Inst.addOperand(MCOperand::createReg(getReg()));
+namespace {
+template <class... Ts> struct overload : Ts... {
+  using Ts::operator()...;
+};
+template <class... Ts> overload(Ts...) -> overload<Ts...>;
+} // namespace
+
+StringRef MMIXALOperand::getToken() const {
+  return std::get<StringRef>(Content);
 }
-void MMIXALOperand::addSpecialRegisterOperands(MCInst &Inst, unsigned N) const {
+
+void MMIXALOperand::addRegOperands(MCInst &Inst, unsigned N) const {
   Inst.addOperand(MCOperand::createReg(getReg()));
 }
 void MMIXALOperand::addImmOperands(MCInst &Inst, unsigned N) const {
   assert(N == 1 && "Invalid number of operands!");
   Inst.addOperand(MCOperand::createImm(getImm()));
 }
-void MMIXALOperand::addExprOperands(MCInst &Inst, unsigned N) const {
-  Inst.addOperand(MCOperand::createExpr(getExpr()));
-}
-bool MMIXALOperand::isToken() const { return Kind == KindTy::Token; }
-bool MMIXALOperand::isImm() const { return Kind == KindTy::Immediate; }
-bool MMIXALOperand::isReg() const { return Kind == KindTy::Register; }
-bool MMIXALOperand::isMem() const { return Kind == KindTy::Memory; }
-bool MMIXALOperand::isJumpDest() const {
-  if (Kind == KindTy::Expr) {
-    if (auto E = dyn_cast<MMIXMCExpr>(getExpr())) {
-      return E->getKind() == MMIXMCExpr::VariantKind::VK_MMIX_PC_REL_JMP;
-    }
-  }
-  return false;
-}
-bool MMIXALOperand::isBranchDest() const {
-  if (Kind == KindTy::Expr) {
-    if (auto E = dyn_cast<MMIXMCExpr>(getExpr())) {
-      return E->getKind() == MMIXMCExpr::VariantKind::VK_MMIX_PC_REL_BR;
-    }
-  }
-  return false;
-}
-unsigned MMIXALOperand::getReg() const {
-  assert(Kind == KindTy::Register && "not register");
-  return Content.Reg;
+void MMIXALOperand::addMemOperands(MCInst &Inst, unsigned N) const {
+  auto Mem = std::get<Memory>(Content);
+  std::visit(overload{[&Inst, &Mem](std::uint64_t Dest) {
+                        std::int64_t Imm = (Dest - Mem.CurrentAddress) / 4;
+                        // thanks to tablegen, the B version is always +1
+                        Inst.setOpcode(Inst.getOpcode() + 1);
+                        Inst.addOperand(MCOperand::createImm(Imm));
+                      },
+                      [&Inst](const MCSymbolRefExpr *S) {
+                        Inst.addOperand(MCOperand::createExpr(S));
+                      }},
+             Mem.DestinationAddress);
 }
 
+bool MMIXALOperand::isToken() const {
+  return std::holds_alternative<StringRef>(Content);
+}
+bool MMIXALOperand::isImm() const {
+  return std::holds_alternative<std::int64_t>(Content);
+}
+bool MMIXALOperand::isReg() const {
+  return std::holds_alternative<MCRegister>(Content);
+}
+bool MMIXALOperand::isMem() const {
+  return std::holds_alternative<Memory>(Content);
+}
+bool MMIXALOperand::isJumpDest() const {
+  return std::holds_alternative<Memory>(Content);
+}
+
+unsigned MMIXALOperand::getReg() const { return std::get<MCRegister>(Content); }
+
 bool MMIXALOperand::isRoundMode() const {
-  return Kind == KindTy::Immediate && Content.Imm < 5 && Content.Imm >= 0;
+  if (auto Imm = std::get_if<std::int64_t>(&Content))
+    return *Imm >= 0 && *Imm < 5;
+  else
+    return false;
 }
-int64_t MMIXALOperand::getImm() const {
-  assert(Kind == KindTy::Immediate && "not immediate");
-  return Content.Imm;
+std::int64_t MMIXALOperand::getImm() const {
+  return std::get<std::int64_t>(Content);
 }
-const MCExpr *MMIXALOperand::getExpr() const {
-  assert(Kind == KindTy::Expr && "bad operand kind!");
-  return Content.Expr;
+std::uint64_t MMIXALOperand::getConcreteMem() const {
+  auto Mem = std::get<Memory>(Content);
+  return std::get<std::uint64_t>(Mem.DestinationAddress);
 }
+
 SMLoc MMIXALOperand::getStartLoc() const { return StartLoc; }
 SMLoc MMIXALOperand::getEndLoc() const { return EndLoc; }
 void MMIXALOperand::print(raw_ostream &OS) const {
-  switch (Kind) {
-  default:
-    break;
-  case KindTy::Token:
-    OS << getToken();
-    break;
-  case KindTy::Register:
-    OS << "$" << StringRef(MMIXInstPrinter::getRegisterName(getReg()));
-    break;
-  case KindTy::Immediate:
-    OS << getImm();
-    break;
-  case KindTy::Expr: {
-    auto Expr = getExpr();
-    Expr->print(OS, nullptr);
-  } break;
-  }
+  std::visit(overload{[&OS](StringRef Tok) { OS << Tok; },
+                      [&OS](std::int64_t Imm) { OS << Imm; },
+                      [&OS](MCRegister Reg) {
+                        auto RegName = MMIXInstPrinter::getRegisterName(Reg);
+                        if (isdigit(RegName[0]))
+                          OS << '$';
+                        OS << RegName;
+                      },
+                      [&OS](Memory Mem) {
+                        OS << '[';
+                        std::visit(
+                            overload{[&OS](std::uint64_t Addr) { OS << Addr; },
+                                     [&OS](const MCSymbolRefExpr *Symb) {
+                                       OS << Symb->getSymbol().getName();
+                                     }},
+                            Mem.DestinationAddress);
+                        OS << ']';
+                      }},
+             Content);
 }
 
 void MMIXALOperand::dump() const { print(dbgs()); }
 
 MMIXALOperand::MMIXALOperand(StringRef Token, SMLoc NameLoc, SMLoc EndLoc)
-    : Kind(KindTy::Token), StartLoc(NameLoc), EndLoc(EndLoc), Content(Token) {}
-MMIXALOperand::MMIXALOperand(const MCExpr *Expr, SMLoc StartLoc, SMLoc EndLoc)
-    : Kind(KindTy::Expr), StartLoc(StartLoc), EndLoc(EndLoc), Content(Expr) {}
-MMIXALOperand::MMIXALOperand(const int64_t &Imm, SMLoc StartLoc, SMLoc EndLoc)
-    : Kind(KindTy::Immediate), StartLoc(StartLoc), EndLoc(EndLoc),
-      Content(Imm) {}
-MMIXALOperand::MMIXALOperand(const MCRegister &Reg, SMLoc StartLoc,
-                             SMLoc EndLoc)
-    : Kind(KindTy::Register), StartLoc(StartLoc), EndLoc(EndLoc), Content(Reg) {
-}
+    : StartLoc(NameLoc), EndLoc(EndLoc), Content(Token) {}
+MMIXALOperand::MMIXALOperand(int64_t Imm, SMLoc StartLoc, SMLoc EndLoc)
+    : StartLoc(StartLoc), EndLoc(EndLoc), Content(Imm) {}
+MMIXALOperand::MMIXALOperand(MCRegister Reg, SMLoc StartLoc, SMLoc EndLoc)
+    : StartLoc(StartLoc), EndLoc(EndLoc), Content(Reg) {}
+llvm::MMIXALOperand::MMIXALOperand(std::uint64_t Dest, std::uint64_t PC,
+                                   SMLoc StartLoc, SMLoc EndLoc)
+    : StartLoc(StartLoc), EndLoc(EndLoc), Content(Memory{Dest, PC}) {}
+llvm::MMIXALOperand::MMIXALOperand(const MCSymbolRefExpr *SymbolRef,
+                                   std::uint64_t PC, SMLoc StartLoc,
+                                   SMLoc EndLoc)
+    : StartLoc(StartLoc), EndLoc(EndLoc), Content(Memory{SymbolRef, PC}) {}
 
 std::unique_ptr<MMIXALOperand> MMIXALOperand::createMnemonic(StringRef Mnemonic,
                                                              SMLoc StartLoc) {
@@ -111,18 +126,23 @@ std::unique_ptr<MMIXALOperand> MMIXALOperand::createMnemonic(StringRef Mnemonic,
 }
 
 std::unique_ptr<MMIXALOperand>
-MMIXALOperand::createExpression(const MCExpr *Expr, SMLoc StartLoc,
-                                SMLoc EndLoc) {
-  return std::make_unique<MMIXALOperand>(Expr, StartLoc, EndLoc);
+MMIXALOperand::createImm(std::int64_t Imm, SMLoc StartLoc, SMLoc EndLoc) {
+  return std::make_unique<MMIXALOperand>(Imm, StartLoc, EndLoc);
 }
 
 std::unique_ptr<MMIXALOperand>
-MMIXALOperand::createImm(const int64_t &Imm, SMLoc StartLoc, SMLoc EndLoc) {
-  return std::make_unique<MMIXALOperand>(Imm, StartLoc, EndLoc);
-}
-std::unique_ptr<MMIXALOperand>
-MMIXALOperand::createReg(const unsigned &RegNo, SMLoc StartLoc, SMLoc EndLoc) {
+MMIXALOperand::createReg(unsigned RegNo, SMLoc StartLoc, SMLoc EndLoc) {
   return std::make_unique<MMIXALOperand>(MCRegister(RegNo), StartLoc, EndLoc);
 }
 
-} // namespace llvm
+std::unique_ptr<MMIXALOperand>
+llvm::MMIXALOperand::createMem(std::uint64_t Dest, std::uint64_t PC,
+                               SMLoc StartLoc, SMLoc EndLoc) {
+  return std::make_unique<MMIXALOperand>(Dest, PC, StartLoc, EndLoc);
+}
+
+std::unique_ptr<MMIXALOperand>
+llvm::MMIXALOperand::createMem(const MCSymbolRefExpr *SymbolRef,
+                               std::uint64_t PC, SMLoc StartLoc, SMLoc EndLoc) {
+  return std::make_unique<MMIXALOperand>(SymbolRef, PC, StartLoc, EndLoc);
+}

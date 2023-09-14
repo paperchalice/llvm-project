@@ -147,5 +147,5 @@ bool MMIXAsmParser::ParseDirective(AsmToken DirectiveID) { return false; }
 
 /// Force static initialization.
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXAsmParser() {
-  RegisterMCAsmParser<MMIXAsmParser> AP1(getTheMMIXTarget());
+  RegisterMCAsmParser<MMIXAsmParser> TheAsmParser(getTheMMIXTarget());
 }

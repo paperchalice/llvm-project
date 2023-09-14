@@ -98,6 +98,9 @@ char MMIXCombiner::ID = 0;
 
 MMIXCombiner::MMIXCombiner() : MachineFunctionPass(ID) {
   initializeMMIXCombinerPass(*PassRegistry::getPassRegistry());
+
+  if (!RuleConfig.parseCommandLineOption())
+    report_fatal_error("Invalid rule identifier");
 }
 
 bool MMIXCombiner::runOnMachineFunction(MachineFunction &MF) {
@@ -140,4 +143,4 @@ INITIALIZE_PASS_DEPENDENCY(GISelKnownBitsAnalysis)
 INITIALIZE_PASS_END(MMIXCombiner, DEBUG_TYPE, "Combine MMIX machine instrs",
                     false, false)
 
-FunctionPass * ::llvm::createMMIXCombiner() { return nullptr; }
+FunctionPass * ::llvm::createMMIXCombiner() { return new MMIXCombiner(); }

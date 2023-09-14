@@ -10,13 +10,13 @@
 #define LLVM_LIB_TARGET_MMIX_MMIX_TD
 
 include "llvm/Target/Target.td"
+include "llvm/Target/GlobalISel/Combine.td"
 
 //===----------------------------------------------------------------------===//
 // Registers, calling conventions.
 //===----------------------------------------------------------------------===//
 include "MMIXRegisterInfo.td"
 include "GlobalISel/MMIXRegisterBanks.td"
-include "MMIXSystemOperands.td"
 include "MMIXCallingConv.td"
 
 //===----------------------------------------------------------------------===//

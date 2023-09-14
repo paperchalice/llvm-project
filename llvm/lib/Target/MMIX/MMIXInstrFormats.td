@@ -9,8 +9,19 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MMIXINSTRFORMATS_TD
 #define LLVM_LIB_TARGET_MMIX_MMIXINSTRFORMATS_TD
 
+def InstEnc : GenericEnum {
+  let FilterClass = "InstEncEnum";
+  let NameField = "Name";
+  let ValueField = "Encoding";
+}
+
+class InstEncEnum<bits<8> enc> {
+  string Name = NAME;
+  bits<8> Encoding = enc;
+}
+
 class MMIXInst<bits<8> opcode, dag oops, dag iops, string opstr, string argstr>
-    : Instruction {
+    : Instruction, InstEncEnum<opcode> {
   field bits<32> Inst; // Instruction encoding.
   // SoftFail is a field the disassembler can use to provide a way for
   // instructions to not match without killing the whole decode process. It is
@@ -38,18 +49,18 @@ def SFRAsmOperand : AsmOperandClass {
   let Name = "SpecialRegister";
   let ParserMethod = "parseSFR";
   let PredicateMethod = "isReg";
+  let RenderMethod = "addRegOperands";
 }
 
 def JumpDestAsmOperand : AsmOperandClass {
   let Name = "JumpDest";
+  let PredicateMethod = "isMem";
   let ParserMethod = "tryParseJumpDestOperand";
-  let RenderMethod = "addExprOperands";
-}
-
-def BranchDestAsmOperand : AsmOperandClass {
-  let Name = "BranchDest";
-  let ParserMethod = "tryParseBranchDestOperand";
-  let RenderMethod = "addExprOperands";
+  #ifdef GEN_MMIXAL
+  let RenderMethod = "addMemOperands";
+  #else
+  let RenderMethod = "addImmOperands";
+  #endif
 }
 
 #ifdef GEN_MMIXAL
@@ -73,13 +84,7 @@ def SFR : RegisterOperand<SPR> { let ParserMatchClass = SFRAsmOperand; }
 
 def jump_dest : Operand<OtherVT> { let ParserMatchClass = JumpDestAsmOperand; }
 
-def branch_dest : Operand<i16> { let ParserMatchClass = BranchDestAsmOperand; }
-
-def base_address : Operand<i16> {
-#ifdef GEN_MMIXAL
-  let ParserMatchClass = BaseAddressAsmOperand;
-#endif
-}
+def branch_dest : Operand<i16> { let ParserMatchClass = JumpDestAsmOperand; }
 
 class UImmAsmOperand<int width> : AsmOperandClass {
   let Name = "UImm" #width;
@@ -112,6 +117,11 @@ let OperandType = "OPERAND_IMMEDIATE" in {
     let ParserMatchClass = UImmAsmOperand<8>;
     let DecoderMethod = "decodeRoundMode";
   }
+}
+
+def base_address : Operand<iPTR> {
+  let MIOperandInfo = (ops GPR, ui8imm);
+  let ParserMatchClass = JumpDestAsmOperand;
 }
 
 class Inst_X_Y_Z<bits<8> opcode, dag oops, dag iops, string opstr>
@@ -212,6 +222,20 @@ class Inst_r_roundz<bits<8> opcode, string opstr = NAME> : Inst_X_Y_Z<opcode,
                                                                 : $Y, GPR
                                                                 : $Z),
                                                                opstr>;
+
+class Inst_J<bits<8> opcode, dag oops, dag iops, string opstr> : MMIXInst<opcode, oops, iops, opstr, "$X,$YZ"> {
+  let isAsmParserOnly = true;
+  bits<8> X;
+  bits<8> Y;
+  bits<8> Z;
+
+  let Inst{23...16} = X;
+  let Inst{15...8} = Y;
+  let Inst{7...0} = Z;
+#ifdef GEN_MMIXAL
+  let AsmMatchConverter = "resolveBaseAddress";
+#endif
+}
 
 multiclass Inst_r_roundzi<bits<8> opcode, string opstr = NAME> {
   let mayRaiseFPException = true, Defs = [rA] in {
@@ -314,17 +338,11 @@ multiclass Inst_r_rri<bits<8> opcode, bit base = false, string opstr = NAME> {
   if base
     then {
       // FIXME: tablegen behavior related
-      def _base : Inst_X_YZ<!or(opcode, 1),
+      def J : Inst_J<!or(opcode, 1),
                             (outs GPR
                              : $X),
-                            (ins base_address
-                             : $YZ),
-                            opstr> {
-        let isAsmParserOnly = true;
-#ifdef GEN_MMIXAL
-        let AsmMatchConverter = "resolveBaseAddress";
-#endif
-      }
+                            (ins (base_address $Y, $Z): $YZ),
+                            opstr>;
     }
 }
 
@@ -351,10 +369,10 @@ multiclass Inst_i_rri<bits<8> opcode, bit base = false, string opstr = NAME> {
 
   if base
     then {
-      def _base : Inst_X_YZ<!or(opcode, 1),
+      def J : Inst_J<!or(opcode, 1),
                             (outs GPR
                              : $X),
-                            (ins base_address
+                            (ins (base_address $Y, $Z)
                              : $YZ),
                             opstr> {
         let isAsmParserOnly = true;
@@ -371,10 +389,10 @@ multiclass Inst__rrri<bits<8> opcode, bit base = false, string opstr = NAME> {
 
   if base
     then {
-      def _base : Inst_X_YZ<!or(opcode, 1),
+      def J : Inst_J<!or(opcode, 1),
                             (outs GPR
                              : $X),
-                            (ins base_address
+                            (ins (base_address $Y, $Z)
                              : $YZ),
                             opstr> {
         let isAsmParserOnly = true;
@@ -401,9 +419,9 @@ multiclass Inst__irri<bits<8> opcode, bit base = false, string opstr = NAME> {
 
   if base
     then {
-      def _base : Inst_X_YZ<!or(opcode, 1), (outs),
+      def J : Inst_X_YZ<!or(opcode, 1), (outs),
                             (ins ui8imm
-                             : $X, base_address
+                             : $X, (base_address $Y, $Z)
                              : $YZ),
                             opstr> {
         let isAsmParserOnly = true;
