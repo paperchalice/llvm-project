@@ -27,7 +27,8 @@ Main JMP   1F            % another future reference
 # CHECK:   - OpCode:          LOC
 # CHECK:     HighByte:        DATA
 # CHECK:     Offset:          0x0
-# CHECK:   - Bin:             '000000000000000061620000'
+# CHECK:   - StartAddress:    0x2000000000000000
+# CHECK:     Data:            '000000000000000061620000'
 # CHECK:   - OpCode:          LOC
 # CHECK:     HighByte:        INSTRUCTION
 # CHECK:     Offset:          0x12345678C
@@ -36,15 +37,18 @@ Main JMP   1F            % another future reference
 # CHECK:     Number:          0
 # CHECK:   - OpCode:          LINE
 # CHECK:     Number:          8
-# CHECK:   - Bin:             F0000000
+# CHECK:   - StartAddress:    0x12345678C
+# CHECK:     Data:            F0000000
 # CHECK:   - OpCode:          SKIP
 # CHECK:     Delta:           0x4000
 # CHECK:   - OpCode:          LINE
 # CHECK:     Number:          10
-# CHECK:   - Bin:             8103FE0142030000
+# CHECK:   - StartAddress:    0x12345A790
+# CHECK:     Data:            8103FE0142030000
 # CHECK:   - OpCode:          LINE
 # CHECK:     Number:          11
-# CHECK:   - Bin:             '00000000'
+# CHECK:   - StartAddress:    0x12345A798
+# CHECK:     Data:            '00000000'
 # CHECK:   - OpCode:          LOC
 # CHECK:     HighByte:        INSTRUCTION
 # CHECK:     Offset:          0x12345A768
@@ -57,21 +61,21 @@ Main JMP   1F            % another future reference
 # CHECK:     HighByte:        0x20
 # CHECK:     Offset:          0x0
 # CHECK:   - OpCode:          FILE
-# CHECK:     Name:            "foo.mms\0"
+# CHECK:     Name:            foo.mms
 # CHECK:     Number:          1
 # CHECK:   - OpCode:          LINE
 # CHECK:     Number:          4
-# CHECK:   - Bin:             F000000A
+# CHECK:   - StartAddress:    0x12345A768
+# CHECK:     Data:            F000000A
 # CHECK:   - OpCode:          SPEC
 # CHECK:     Type:            5
-# CHECK:   - Bin:             0000020000FE0000
+# CHECK:   - StartAddress:    0x12345A76C
+# CHECK:     Data:            0000020000FE0000
 # CHECK:   - OpCode:          LOC
 # CHECK:     HighByte:        DATA
 # CHECK:     Offset:          0xA
-# CHECK:   - Bin:             '00006364'
-# CHECK:   - OpCode:          LOC
-# CHECK:     HighByte:        DATA
-# CHECK:     Offset:          0xC
+# CHECK:   - StartAddress:    0x200000000000000A
+# CHECK:     Data:            '00006364'
 # CHECK:   - OpCode:          QUOTE
 # CHECK:     Value:           '98000000'
 # CHECK: Postamble:
@@ -80,15 +84,15 @@ Main JMP   1F            % another future reference
 # CHECK: SymbolTable:
 # CHECK:   IsUTF16:         false
 # CHECK:   Symbol:
-# CHECK:     - Name:            ':Main'
+# CHECK:     - Name:            Main
 # CHECK:       Serial:          1
 # CHECK:       Equiv:           0x12345678C
 # CHECK:       Type:            NORMAL
-# CHECK:     - Name:            ':a'
+# CHECK:     - Name:            a
 # CHECK:       Serial:          2
 # CHECK:       Equiv:           0xFE
 # CHECK:       Type:            REGISTER
-# CHECK:     - Name:            ':ABCD'
+# CHECK:     - Name:            ABCD
 # CHECK:       Serial:          3
 # CHECK:       Equiv:           0x2000000000000008
 # CHECK:       Type:            NORMAL
