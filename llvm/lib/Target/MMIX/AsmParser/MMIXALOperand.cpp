@@ -35,16 +35,19 @@ void MMIXALOperand::addImmOperands(MCInst &Inst, unsigned N) const {
 }
 void MMIXALOperand::addMemOperands(MCInst &Inst, unsigned N) const {
   auto Mem = std::get<Memory>(Content);
-  std::visit(overload{[&Inst, &Mem](std::uint64_t Dest) {
-                        std::int64_t Imm = (Dest - Mem.CurrentAddress) / 4;
-                        // thanks to tablegen, the B version is always +1
-                        Inst.setOpcode(Inst.getOpcode() + 1);
-                        Inst.addOperand(MCOperand::createImm(Imm));
-                      },
-                      [&Inst](const MCSymbolRefExpr *S) {
-                        Inst.addOperand(MCOperand::createExpr(S));
-                      }},
-             Mem.DestinationAddress);
+  std::visit(
+      overload{[&Inst, &Mem](std::uint64_t Dest) {
+                 std::int64_t Imm =
+                     static_cast<std::int64_t>(Dest - Mem.CurrentAddress) / 4;
+                 // thanks to tablegen, the B version is always +1
+                 if (Imm < 0)
+                   Inst.setOpcode(Inst.getOpcode() + 1);
+                 Inst.addOperand(MCOperand::createImm(Imm));
+               },
+               [&Inst](const MCSymbolRefExpr *S) {
+                 Inst.addOperand(MCOperand::createExpr(S));
+               }},
+      Mem.DestinationAddress);
 }
 
 bool MMIXALOperand::isToken() const {

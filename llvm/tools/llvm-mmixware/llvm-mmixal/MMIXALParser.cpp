@@ -220,8 +220,9 @@ void MMIXALParser::resolveLabel(MCSymbol *Symbol) {
         }
         break;
       case MMO::FixupInfo::FixupKind::FIXUP_JUMP: {
-        auto Delta = (SharedInfo.PC - Fixup.Addr) / 4;
-        if (Delta < UINT16_MAX) {
+        std::int64_t Delta =
+            static_cast<std::int64_t>(SharedInfo.PC - Fixup.Addr) / 4;
+        if (Delta >= 0 && Delta <= UINT16_MAX) {
           Out.emitBinaryData(StringRef("\x98\x04", 2));
           char Data[2];
           support::endian::write16be(Data, static_cast<std::uint16_t>(Delta));
@@ -229,10 +230,9 @@ void MMIXALParser::resolveLabel(MCSymbol *Symbol) {
         } else {
           Out.emitBinaryData(StringRef("\x98\x05\x00\x18", 4));
           char Data[4];
-          support::endian::write32be(Data, Delta);
-          if (SharedInfo.PC < Fixup.Addr) {
+          support::endian::write32be(Data, Lo_32(Delta));
+          if (Delta < 0)
             Data[0] = 1;
-          }
           Out.emitBinaryData(StringRef(Data, 4));
         }
       }
@@ -409,7 +409,8 @@ MMIXALParser::IdentifierKind MMIXALParser::getIdentifierKind(StringRef Name) {
 }
 
 void MMIXALParser::syncMMO() {
-  if (SharedInfo.PC & (0xEUL << 60) || SpecialMode) return;
+  if (SharedInfo.PC & (0xEUL << 60) || SpecialMode)
+    return;
 
   static StringRef LastFileName;
 
