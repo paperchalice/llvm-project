@@ -444,7 +444,7 @@ multiclass Inst__rbranch<bits<8> opcode, string opstr = NAME> {
   }
 }
 
-multiclass Inst__ibranch<bits<8> opcode, string opstr = NAME> {
+multiclass Inst__ibranch<bits<8> opcode, string opstr = !substr(NAME, 0, 5)> {
   let isBranch = true in {
     def "" : Inst_X_YZ<opcode, (outs),
                        (ins ui8imm

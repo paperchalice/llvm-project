@@ -246,7 +246,8 @@ ParseStatus MMIXALAsmParser::tryParseJumpDestOperand(OperandVector &Operands) {
         MMIXALOperand::createMem(Res, SharedInfo.PC, StartLoc, EndLoc));
     return ParseStatus::Success;
   } else if (auto SE = dyn_cast<MCSymbolRefExpr>(Expr)) {
-    MMIXALOperand &Operand = (MMIXALOperand &)Operands[0];
+    assert(Operands[0]->isToken());
+    MMIXALOperand &Operand = (MMIXALOperand &)*Operands[0];
     auto FK = Operand.getToken() == "JMP"
                   ? MMO::FixupInfo::FixupKind::FIXUP_JUMP
                   : MMO::FixupInfo::FixupKind::FIXUP_WYDE;

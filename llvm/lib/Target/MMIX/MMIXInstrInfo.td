@@ -351,7 +351,7 @@ def ANDNL : Inst_r_ui16imm<0xEF>;
 defm JMP : Inst_jmpb<0xF0>;
 
 let isCall = true in defm PUSHJ : Inst__rbranch<0xF2>;
-let isAsmParserOnly = true in defm : Inst__ibranch<0xF2>;
+let isAsmParserOnly = true in defm PUSHJ_imm: Inst__ibranch<0xF2>;
 
 defm GETA : Inst_r_branch<0xF4>;
 
