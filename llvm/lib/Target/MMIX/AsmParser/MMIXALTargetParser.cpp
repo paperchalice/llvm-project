@@ -281,7 +281,7 @@ static auto FindClosestGREG(const std::deque<std::uint64_t> &Q,
 #define GET_InstEnc_DECL
 #include "MMIXGenSearchableTables.inc"
 
-void MMIXALAsmParser::emitSET(std::uint64_t Val) {
+void MMIXALAsmParser::emitSupplementaryData(std::uint64_t Val) {
   for (int i = InstEnc::SETH; i <= InstEnc::ORL; ++i) {
     std::uint16_t Part = 0;
     switch (i & 0b0111) {
@@ -338,7 +338,7 @@ void MMIXALAsmParser::resolveBaseAddress(MCInst &Inst,
       return;
     } else if (SharedInfo.Expand) {
       if (Diff < DestAddress) {
-        emitSET(Diff);
+        emitSupplementaryData(Diff);
         Inst.setOpcode(Inst.getOpcode() - 2); // HACK: use tablegen feature
         Inst.addOperand(MCOperand::createReg(Reg));
         Inst.addOperand(MCOperand::createReg(MMIX::r255));
@@ -350,7 +350,7 @@ void MMIXALAsmParser::resolveBaseAddress(MCInst &Inst,
   // if the diff is overflow or we can't find close enough
   // global register
   if (SharedInfo.Expand) {
-    emitSET(DestAddress);
+    emitSupplementaryData(DestAddress);
     Inst.addOperand(MCOperand::createReg(MMIX::r255));
     Inst.addOperand(MCOperand::createImm(0));
   }

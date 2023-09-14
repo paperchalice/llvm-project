@@ -58,7 +58,7 @@ private:
   ParseStatus tryParseBaseAddressOperand(OperandVector &Operands);
   ParseStatus parseSFR(OperandVector &Operands);
   void resolveBaseAddress(MCInst &Inst, const OperandVector &Operands);
-  void emitSET(std::uint64_t Val);
+  void emitSupplementaryData(std::uint64_t Val);
 };
 } // namespace MMIXAL
 
