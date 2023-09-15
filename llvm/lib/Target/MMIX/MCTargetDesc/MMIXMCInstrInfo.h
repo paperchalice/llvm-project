@@ -18,10 +18,6 @@
 
 namespace llvm {
 
-namespace MMIX {
-enum { BASE_ADDRESS_ADJUST = 1, BACKWARD_BRANCH, DONT_EMIT };
-}
-
 MCInstrInfo *createMMIXMCInstrInfo();
 
 } // namespace llvm

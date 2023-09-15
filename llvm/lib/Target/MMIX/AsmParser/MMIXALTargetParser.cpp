@@ -353,8 +353,9 @@ void MMIXALAsmParser::resolveBaseAddress(MCInst &Inst,
   if (Inst.getNumOperands() == 1) {
     Error(Operands[2]->getStartLoc(),
           "no base address is close enough to the address A!");
+    Inst.setOpcode(MMIX::ANDI);
+    Inst.getOperand(0).setReg(MMIX::r0);
     Inst.addOperand(MCOperand::createImm(0));
-    Inst.setFlags(MMIX::DONT_EMIT);
   }
 }
 
