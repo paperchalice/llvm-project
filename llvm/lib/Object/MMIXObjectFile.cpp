@@ -204,7 +204,7 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         FI.Value = PC;
         FI.Dest = PC - 4 * Fix.Delta;
         Content.emplace_back(Fix);
-        Content.emplace_back(FI);
+        Fixes.emplace_back(FI);
       } break;
       case MMO::LOP_FILE: {
         MMOFile F;
