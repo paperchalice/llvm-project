@@ -169,8 +169,19 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         }
         Fix.P = P;
         Content.emplace_back(Fix);
+        FixInfo FI;
+        FI.FK = FixKind::FIXO;
+        FI.Value = PC;
+        FI.Dest = (static_cast<std::uint64_t>(Fix.HighByte) << 56) + P;
+        Fixes.emplace_back(FI);
       } break;
-      case MMO::LOP_FIXR:
+      case MMO::LOP_FIXR: {
+        FixInfo FI;
+        FI.FK = FixKind::FIXR;
+        FI.Value = PC;
+        FI.Dest = PC - 4 * static_cast<std::uint64_t>(getYZ(Iter));
+        Fixes.emplace_back(FI);
+      }
         Content.emplace_back(MMOFixr{getYZ(Iter)});
         Iter += 4;
         break;
@@ -183,9 +194,17 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
                                    "Z field in lop_fixrx must be 16 or 24!");
         Iter += 4;
         std::uint32_t Tet = read32be(Iter) & 0x00FF'FFFF;
+
         Fix.Delta = Iter[0] ? (Tet - (1 << Fix.FixType)) : Tet;
         Iter += 4;
+
+        FixInfo FI;
+        FI.FK = Fix.FixType == MMO::FIXRX_JMP ? FixKind::FIXRX_JMP
+                                              : FixKind::FIXRX_OTHERWISE;
+        FI.Value = PC;
+        FI.Dest = PC - 4 * Fix.Delta;
         Content.emplace_back(Fix);
+        Content.emplace_back(FI);
       } break;
       case MMO::LOP_FILE: {
         MMOFile F;
@@ -359,6 +378,26 @@ void MMIXObjectFile::decodeSymbolTable(const unsigned char *&Start,
   if (M & 0x10) {
     decodeSymbolTable(Start, Name,
                       E); // traverse the right subtrie, if it is nonempty
+  }
+}
+
+void MMIXObjectFile::resolveFixes() {
+  auto FileStart = getMemoryBufferRef().getBuffer().bytes_begin();
+
+  for (auto &F : Fixes) {
+    auto Predicate = [&F](ContentT::value_type Seg) {
+      if (auto D = std::get_if<MMOData>(&Seg)) {
+        return D->StartAddress >= F.Dest &&
+               F.Dest <= D->StartAddress + D->Data.size();
+      }
+      return false;
+    };
+    auto Iter = std::find_if(Content.begin(), Content.end(), Predicate);
+    if (Iter != Content.end()) {
+      const auto &D = std::get<MMOData>(*Iter);
+      auto Offset = F.Dest - D.StartAddress;
+      F.FileOffset = D.Data.data() + Offset - FileStart;
+    }
   }
 }
 

@@ -78,6 +78,16 @@ struct MMOPost {
 };
 
 class MMIXObjectFile : public ObjectFile {
+private:
+  enum class FixKind {
+    FIXO, FIXR, FIXRX_JMP, FIXRX_OTHERWISE
+  };
+  struct FixInfo {
+    FixKind FK;
+    std::uint64_t Value;
+    std::uint64_t Dest;
+    std::uint64_t FileOffset;
+  };
 public:
   // constructor
   static Expected<std::unique_ptr<MMIXObjectFile>>
@@ -172,6 +182,7 @@ private:
   MMOPost Postamble;
   std::vector<llvm::MMO::Symbol> SymbTab;
   std::vector<SectionRef> Sections;
+  std::vector<FixInfo> Fixes;
   const unsigned char *DataEnd;
   using SymbItT = decltype(SymbTab.begin());
 
@@ -184,7 +195,7 @@ private:
   Error initPostamble(const unsigned char *&Iter);
   void decodeSymbolTable(const unsigned char *&Start,
                          SmallVector<UTF16, 32> &Name, Error &E);
-
+  void resolveFixes();
 public:
   Error decodeSymbolTable(const unsigned char *&Iter,
                           bool SortSymbolTable = true);
