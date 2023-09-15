@@ -54,8 +54,7 @@ public:
 
 private:
   bool parseOperand(OperandVector &Operands, StringRef Mnemonic);
-  ParseStatus tryParseJumpDestOperand(OperandVector &Operands);
-  ParseStatus tryParseBaseAddressOperand(OperandVector &Operands);
+  ParseStatus parseMemOperand(OperandVector &Operands);
   ParseStatus parseSFR(OperandVector &Operands);
   void resolveBaseAddress(MCInst &Inst, const OperandVector &Operands);
   void emitSupplementaryData(std::uint64_t Val);

@@ -29,18 +29,6 @@ using DecodeStatus = MCDisassembler::DecodeStatus;
 
 namespace {
 
-struct SPREntry {
-  std::uint16_t Enc;
-};
-
-constexpr std::array SPRDecodeTable = {
-    MMIX::rB,  MMIX::rD,  MMIX::rE,  MMIX::rH,  MMIX::rJ, MMIX::rM, MMIX::rR,
-    MMIX::rBB, MMIX::rC,  MMIX::rN,  MMIX::rO,  MMIX::rS, MMIX::rI, MMIX::rT,
-    MMIX::rTT, MMIX::rK,  MMIX::rQ,  MMIX::rU,  MMIX::rV, MMIX::rG, MMIX::rL,
-    MMIX::rA,  MMIX::rF,  MMIX::rP,  MMIX::rW,  MMIX::rX, MMIX::rY, MMIX::rZ,
-    MMIX::rWW, MMIX::rXX, MMIX::rYY, MMIX::rZZ,
-};
-
 DecodeStatus DecodeSPRRegisterClass(MCInst &Inst, uint64_t RegNo,
                                     uint64_t Address, const void *Decoder);
 DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
@@ -93,8 +81,8 @@ DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
 
 DecodeStatus DecodeSPRRegisterClass(MCInst &Inst, uint64_t RegNo,
                                     uint64_t Address, const void *Decoder) {
-  if (RegNo < SPRDecodeTable.size()) {
-    Inst.addOperand(MCOperand::createReg(SPRDecodeTable[RegNo]));
+  if (RegNo < MMIX::SPRDecodeTable.size()) {
+    Inst.addOperand(MCOperand::createReg(MMIX::SPRDecodeTable[RegNo]));
     return DecodeStatus::Success;
   }
   return DecodeStatus::Fail;

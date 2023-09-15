@@ -18,11 +18,11 @@ class MMIXAsmParser : public MCTargetAsmParser {
 #define GET_ASSEMBLER_HEADER
 #include "MMIXGenAsmMatcher.inc"
 public:
-enum MMIXMatchResultTy{
-  Match_Dummy = FIRST_TARGET_MATCH_RESULT_TY,
+  enum MMIXMatchResultTy {
+    Match_Dummy = FIRST_TARGET_MATCH_RESULT_TY,
 #define GET_OPERAND_DIAGNOSTIC_TYPES
 #include "MMIXGenAsmMatcher.inc"
-};
+  };
 public:
   MMIXAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
                 const MCInstrInfo &MII, const MCTargetOptions &Options);
@@ -36,7 +36,7 @@ public:
                                bool MatchingInlineAsm) override;
 
   ParseStatus tryParseRegister(MCRegister &RegNo, SMLoc &StartLoc,
-                                        SMLoc &EndLoc) override;
+                               SMLoc &EndLoc) override;
 
   bool ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
                         SMLoc NameLoc, OperandVector &Operands) override;
@@ -49,6 +49,9 @@ public:
 
 private:
   bool parseOperand(OperandVector &Operands, StringRef Mnemonic);
+  ParseStatus parseMemOperand(OperandVector &Operands) {
+    return ParseStatus::Failure;
+  };
   ParseStatus tryParseJumpDestOperand(OperandVector &Operands);
   ParseStatus tryParseBranchDestOperand(OperandVector &Operands);
   ParseStatus parseSFR(OperandVector &Operands) { return ParseStatus::Failure; }

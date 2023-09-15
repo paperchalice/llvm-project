@@ -26,6 +26,18 @@
 
 namespace llvm {
 
+namespace MMIX {
+
+constexpr std::array SPRDecodeTable = {
+    MMIX::rB,  MMIX::rD,  MMIX::rE,  MMIX::rH,  MMIX::rJ, MMIX::rM, MMIX::rR,
+    MMIX::rBB, MMIX::rC,  MMIX::rN,  MMIX::rO,  MMIX::rS, MMIX::rI, MMIX::rT,
+    MMIX::rTT, MMIX::rK,  MMIX::rQ,  MMIX::rU,  MMIX::rV, MMIX::rG, MMIX::rL,
+    MMIX::rA,  MMIX::rF,  MMIX::rP,  MMIX::rW,  MMIX::rX, MMIX::rY, MMIX::rZ,
+    MMIX::rWW, MMIX::rXX, MMIX::rYY, MMIX::rZZ,
+};
+
+}
+
 class MMIXRegisterInfo final : public MMIXGenRegisterInfo {
 public:
   MMIXRegisterInfo();
@@ -45,6 +57,7 @@ public:
                            RegScavenger *RS = nullptr) const override;
 
   Register getFrameRegister(const MachineFunction &MF) const override;
+
 private:
 };
 

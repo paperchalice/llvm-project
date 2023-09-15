@@ -40,14 +40,6 @@ using namespace MMIXAL;
 #define GET_MNEMONIC_CHECKER
 #include "MMIXALGenAsmMatcher.inc"
 
-static unsigned SFRDecodeTable[] = {
-    MMIX::rB,  MMIX::rD,  MMIX::rE,  MMIX::rH,  MMIX::rJ, MMIX::rM, MMIX::rR,
-    MMIX::rBB, MMIX::rC,  MMIX::rN,  MMIX::rO,  MMIX::rS, MMIX::rI, MMIX::rT,
-    MMIX::rTT, MMIX::rK,  MMIX::rQ,  MMIX::rU,  MMIX::rV, MMIX::rG, MMIX::rL,
-    MMIX::rA,  MMIX::rF,  MMIX::rP,  MMIX::rW,  MMIX::rX, MMIX::rY, MMIX::rZ,
-    MMIX::rWW, MMIX::rXX, MMIX::rYY, MMIX::rZZ,
-};
-
 MMIXALAsmParser::MMIXALAsmParser(const MCSubtargetInfo &STI,
                                  MCAsmParser &Parser, const MCInstrInfo &MII,
                                  const MCTargetOptions &Options,
@@ -68,16 +60,24 @@ bool MMIXALAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   unsigned MatchResult =
       MatchInstructionImpl(Operands, Inst, ErrorInfo, MatchingInlineAsm);
 
-  switch (MatchResult) {
-  default:
-    Error(IDLoc, "Unable to match Instruction");
-    return true;
-  case Match_Success:
+  if (MatchResult == Match_Success) {
     Inst.setLoc(IDLoc);
     Out.emitInstruction(Inst, getSTI());
     return false;
   }
-  return false;
+
+  auto &ErrorOperand = *Operands[ErrorInfo-1];
+  auto ErrorLoc = ErrorOperand.getStartLoc();
+  switch (MatchResult) {
+  default:
+    return Error(ErrorLoc, "Unable to match Instruction");
+  case Match_InvalidRoundMode:
+    return Error(ErrorLoc, "Invalid round mode");
+  case Match_InvalidUImm24:
+  case Match_InvalidUImm16:
+  case Match_InvalidUImm8:
+    return Error(ErrorLoc, "Invalid immediate number");
+  }
 }
 
 ParseStatus MMIXALAsmParser::tryParseRegister(MCRegister &RegNo,
@@ -102,16 +102,14 @@ bool MMIXALAsmParser::ParseInstruction(ParseInstructionInfo &Info,
 
   // eat the mnemonic
   Operands.push_back(MMIXALOperand::createMnemonic(Name, NameLoc));
+  LLVM_DEBUG(dbgs() << "get mnemonic: " << Name);
   auto CurTok = getTok();
 
   if (getTok().isNot(AsmToken::EndOfStatement)) {
-    if (parseOperand(Operands, Name)) {
-      // if parser doesn't consume any token, it is start of a comment
-      if (CurTok.getLoc() == getTok().getLoc()) {
-        return false;
-      }
-      return true;
-    }
+    // if parser doesn't consume any token, it is start of a comment
+    if (parseOperand(Operands, Name))
+      return CurTok.getLoc() != getTok().getLoc();
+
     while (getTok().isNot(AsmToken::EndOfStatement) &&
            getTok().isNot(AsmToken::Space)) {
       auto StartLoc = getTok().getLoc();
@@ -213,12 +211,12 @@ ParseStatus MMIXALAsmParser::parseSFR(OperandVector &Operands) {
     }
 
     Operands.emplace_back(MMIXALOperand::createReg(
-        SFRDecodeTable[Res], StartLoc, getLexer().getLoc()));
+        MMIX::SPRDecodeTable[Res], StartLoc, getLexer().getLoc()));
     return ParseStatus::Success;
   }
 }
 
-ParseStatus MMIXALAsmParser::tryParseJumpDestOperand(OperandVector &Operands) {
+ParseStatus MMIXALAsmParser::parseMemOperand(OperandVector &Operands) {
   const MCExpr *Expr = nullptr;
   auto StartLoc = getTok().getLoc();
   bool HasError = getParser().parseExpression(Expr);
@@ -228,6 +226,7 @@ ParseStatus MMIXALAsmParser::tryParseJumpDestOperand(OperandVector &Operands) {
 
   // if we get a GPR operand, it is not a base address form
   if (MMIXMCExpr::isGPRExpr(Expr)) {
+    LLVM_DEBUG(dbgs() << __func__ << ": get register, not base address form");
     int64_t Res;
     bool Success = Expr->evaluateAsAbsolute(Res);
     if (Success) {
@@ -260,11 +259,6 @@ ParseStatus MMIXALAsmParser::tryParseJumpDestOperand(OperandVector &Operands) {
     Error(StartLoc, "Invalid jump dest!");
     return ParseStatus::Failure;
   }
-}
-
-ParseStatus
-MMIXALAsmParser::tryParseBaseAddressOperand(OperandVector &Operands) {
-  return ParseStatus::NoMatch;
 }
 
 static auto FindClosestGREG(const std::deque<std::uint64_t> &Q,

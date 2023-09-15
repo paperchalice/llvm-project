@@ -52,10 +52,10 @@ def SFRAsmOperand : AsmOperandClass {
   let RenderMethod = "addRegOperands";
 }
 
-def JumpDestAsmOperand : AsmOperandClass {
+def MemAsmOperand : AsmOperandClass {
   let Name = "JumpDest";
   let PredicateMethod = "isMem";
-  let ParserMethod = "tryParseJumpDestOperand";
+  let ParserMethod = "parseMemOperand";
   #ifdef GEN_MMIXAL
   let RenderMethod = "addMemOperands";
   #else
@@ -63,28 +63,20 @@ def JumpDestAsmOperand : AsmOperandClass {
   #endif
 }
 
-#ifdef GEN_MMIXAL
-def BaseAddressAsmOperand : AsmOperandClass {
-  let Name = "BaseAddress";
-  let ParserMethod = "tryParseBaseAddressOperand";
-  let RenderMethod = "addImmOperands";
-}
-#endif
-
 def RoundModeAsmOperand : AsmOperandClass {
   let Name = "RoundMode";
-  let RenderMethod = "addExprOperands";
+  let RenderMethod = "addImmOperands";
   let DiagnosticType = "InvalidRoundMode";
-  let PredicateMethod = "isUImm<3>";
+  let PredicateMethod = "isRoundMode";
 }
 
 //
 
 def SFR : RegisterOperand<SPR> { let ParserMatchClass = SFRAsmOperand; }
 
-def jump_dest : Operand<OtherVT> { let ParserMatchClass = JumpDestAsmOperand; }
+def jump_dest : Operand<OtherVT> { let ParserMatchClass = MemAsmOperand; }
 
-def branch_dest : Operand<i16> { let ParserMatchClass = JumpDestAsmOperand; }
+def branch_dest : Operand<i16> { let ParserMatchClass = MemAsmOperand; }
 
 class UImmAsmOperand<int width> : AsmOperandClass {
   let Name = "UImm" #width;
@@ -114,14 +106,14 @@ let OperandType = "OPERAND_IMMEDIATE" in {
 
   def round_mode : Operand<i8>,
                    ImmLeaf<i64, [{ return 5 > Imm && Imm >= 0; }]> {
-    let ParserMatchClass = UImmAsmOperand<8>;
+    let ParserMatchClass = RoundModeAsmOperand;
     let DecoderMethod = "decodeRoundMode";
   }
 }
 
 def base_address : Operand<iPTR> {
   let MIOperandInfo = (ops GPR, ui8imm);
-  let ParserMatchClass = JumpDestAsmOperand;
+  let ParserMatchClass = MemAsmOperand;
 }
 
 class Inst_X_Y_Z<bits<8> opcode, dag oops, dag iops, string opstr>

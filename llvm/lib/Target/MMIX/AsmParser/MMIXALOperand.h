@@ -48,7 +48,6 @@ public:
     return std::holds_alternative<std::int64_t>(Content) && isUInt<W>(getImm());
   }
   bool isRoundMode() const;
-  bool isBaseAddress() const { return true; }
   unsigned getReg() const override;
   SMLoc getStartLoc() const override;
   SMLoc getEndLoc() const override;
@@ -61,8 +60,8 @@ public:
   MMIXALOperand(MCRegister Reg, SMLoc StartLoc, SMLoc EndLoc);
   MMIXALOperand(std::uint64_t Dest, std::uint64_t PC, SMLoc StartLoc,
                 SMLoc EndLoc);
-  MMIXALOperand(const MCSymbolRefExpr *SymbolRef, std::uint64_t PC, SMLoc StartLoc,
-                SMLoc EndLoc);
+  MMIXALOperand(const MCSymbolRefExpr *SymbolRef, std::uint64_t PC,
+                SMLoc StartLoc, SMLoc EndLoc);
 
 public:
   static std::unique_ptr<MMIXALOperand> createMnemonic(StringRef Mnemonic,
