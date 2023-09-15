@@ -34,16 +34,6 @@ void MMIXMCCodeEmitter::encodeInstruction(const MCInst &Inst,
     CB.append({'\x98', '\x00', '\x00', '\x01'});
   }
   uint32_t Bits = getBinaryCodeForInstr(Inst, Fixups, STI);
-  switch (Inst.getFlags()) {
-  default:
-    break;
-  case MMIX::BASE_ADDRESS_ADJUST:
-    Bits &= ~(1 << 24);
-    break;
-  case MMIX::DONT_EMIT:
-    Bits = 0xC0000000; // ADD $0,$0,0
-    break;
-  }
   support::endian::write<uint32_t>(CB, Bits, support::big);
 }
 
