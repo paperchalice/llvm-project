@@ -22,5 +22,5 @@ using namespace llvm;
 
 // Force static initialization.
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXAsmPrinter() {
-  RegisterAsmPrinter<MMIXAsmPrinter> AP0(getTheMMIXTarget());
+  RegisterAsmPrinter<MMIXAsmPrinter> TheMMIXAsmPrinter(getTheMMIXTarget());
 }

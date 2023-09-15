@@ -486,16 +486,14 @@ AsmToken MMIXALLexer::LexToken() {
     if (peekNextChar() == '/') {
       getNextChar();
       return AsmToken(AsmToken::Slash, StringRef(TokStart, 2));
-    } else {
+    } else
       return AsmToken(AsmToken::Slash, StringRef(TokStart, 1));
-    }
   case '<': {
     if (peekNextChar() == '<') {
       CurPtr++;
       return AsmToken(AsmToken::LessLess, StringRef(TokStart, 2));
-    } else {
+    } else
       return AsmToken(AsmToken::Error, StringRef());
-    }
   }
   case '>': {
     if (peekNextChar() == '>') {
