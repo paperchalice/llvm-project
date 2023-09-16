@@ -52,9 +52,11 @@ MMIXMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
                                      const MCSubtargetInfo &STI) const {
   if (MO.isExpr()) {
     const auto *E = dyn_cast<MMIXMCExpr>(MO.getExpr());
-    const bool IsJMP = MI.getNumOperands() == 1;
-    auto FK = IsJMP ? MMIX::fixup_MMIX_jump : MMIX::fixup_MMIX_branch;
-    Fixups.push_back(MCFixup::create(0, E, static_cast<MCFixupKind>(FK)));
+    if (E && E->shouldEmitFixup()) {
+      const bool IsJMP = MI.getNumOperands() == 1;
+      auto FK = IsJMP ? MMIX::fixup_MMIX_jump : MMIX::fixup_MMIX_branch;
+      Fixups.push_back(MCFixup::create(0, E, static_cast<MCFixupKind>(FK)));
+    }
     return 0;
   }
   if (MO.isImm())

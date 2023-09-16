@@ -174,7 +174,7 @@ std::string MMIXALParser::getQualifiedName(StringRef Name) {
 }
 
 void MMIXALParser::resolveLabel(MCSymbol *Symbol) {
-  if (!getTargetParser().getTargetOptions().MCRelaxAll)
+  if (getTargetParser().getTargetOptions().MCRelaxAll)
     return;
 
   for (auto Fixup : SharedInfo.FixupList) {
@@ -715,8 +715,10 @@ bool MMIXALParser::parseStatement() {
     Lex(); // skip hash directive
     SharedInfo.CurrentLine = getTok().getIntVal() - 1;
     Lex(); // skip line number
-    CurrentFileName = getTok().getStringContents();
-    Lex(); // eat line number
+    if(getTok().is(AsmToken::String)) {
+      CurrentFileName = getTok().getStringContents();
+      Lex(); // eat file name
+    }
     return handleEndOfStatement();
   }
 

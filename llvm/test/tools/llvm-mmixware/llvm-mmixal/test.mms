@@ -1,4 +1,7 @@
-% RUN: llvm-mmixal -strict-mode -o - %s | obj2yaml - | FileCheck %s
+% RUN: llvm-mmixal --strict-mode -o - %s | obj2yaml - | FileCheck %s
+% RUN llvm-mmixal --strict-mode --relax-all -o - %s | obj2yaml - | FileCheck %s
+
+# 1
 % A peculiar example of MMIXAL
      LOC   Data_Segment  % location #2000000000000000
      OCTA  1F            % a future reference
@@ -36,17 +39,17 @@ Main JMP   1F            % another future reference
 # CHECK:     Name:            {{.+}}
 # CHECK:     Number:          0
 # CHECK:   - OpCode:          LINE
-# CHECK:     Number:          8
+# CHECK:     Number:          7
 # CHECK:   - StartAddress:    0x12345678C
 # CHECK:     Data:            F0000000
 # CHECK:   - OpCode:          SKIP
 # CHECK:     Delta:           0x4000
 # CHECK:   - OpCode:          LINE
-# CHECK:     Number:          10
+# CHECK:     Number:          9
 # CHECK:   - StartAddress:    0x12345A790
 # CHECK:     Data:            8103FE0142030000
 # CHECK:   - OpCode:          LINE
-# CHECK:     Number:          11
+# CHECK:     Number:          10
 # CHECK:   - StartAddress:    0x12345A798
 # CHECK:     Data:            '00000000'
 # CHECK:   - OpCode:          LOC
@@ -97,3 +100,77 @@ Main JMP   1F            % another future reference
 # CHECK:       Equiv:           0x2000000000000008
 # CHECK:       Type:            NORMAL
 # CHECK: ...
+
+# RELAX: --- !MMO
+# RELAX: Preamble:
+# RELAX:   Version:         1
+# RELAX:   CreatedTime:     {{[0-9]+}}
+# RELAX: Segments:
+# RELAX:   - OpCode:          LOC
+# RELAX:     HighByte:        DATA
+# RELAX:     Offset:          0x0
+# RELAX:   - StartAddress:    0x2000000000000000
+# RELAX:     Data:            000000012345A76861620000
+# RELAX:   - OpCode:          LOC
+# RELAX:     HighByte:        INSTRUCTION
+# RELAX:     Offset:          0x12345678C
+# RELAX:   - OpCode:          FILE
+# RELAX:     Name:            {{.+}}
+# RELAX:     Number:          0
+# RELAX:   - OpCode:          LINE
+# RELAX:     Number:          10
+# RELAX:   - StartAddress:    0x12345678C
+# RELAX:     Data:            F0000FF7
+# RELAX:   - OpCode:          SKIP
+# RELAX:     Delta:           0x4000
+# RELAX:   - OpCode:          LINE
+# RELAX:     Number:          12
+# RELAX:   - StartAddress:    0x12345A790
+# RELAX:     Data:            8103FE014303FFF5
+# RELAX:   - OpCode:          LINE
+# RELAX:     Number:          13
+# RELAX:   - StartAddress:    0x12345A798
+# RELAX:     Data:            '00000000'
+# RELAX:   - OpCode:          LOC
+# RELAX:     HighByte:        INSTRUCTION
+# RELAX:     Offset:          0x12345A768
+# RELAX:   - OpCode:          FILE
+# RELAX:     Name:            foo.mms
+# RELAX:     Number:          1
+# RELAX:   - OpCode:          LINE
+# RELAX:     Number:          4
+# RELAX:   - StartAddress:    0x12345A768
+# RELAX:     Data:            F000000A
+# RELAX:   - OpCode:          SPEC
+# RELAX:     Type:            5
+# RELAX:   - StartAddress:    0x12345A76C
+# RELAX:     Data:            0000020000FE0000
+# RELAX:   - OpCode:          LOC
+# RELAX:     HighByte:        DATA
+# RELAX:     Offset:          0xA
+# RELAX:   - StartAddress:    0x200000000000000A
+# RELAX:     Data:            '00006364'
+# RELAX:   - OpCode:          LOC
+# RELAX:     HighByte:        DATA
+# RELAX:     Offset:          0xC
+# RELAX:   - OpCode:          QUOTE
+# RELAX:     Value:           '98000000'
+# RELAX: Postamble:
+# RELAX:   G:               254
+# RELAX:   Values:          [ 0x2000000000000008, 0x12345678C ]
+# RELAX: SymbolTable:
+# RELAX:   IsUTF16:         false
+# RELAX:   Symbol:
+# RELAX:     - Name:            Main
+# RELAX:       Serial:          1
+# RELAX:       Equiv:           0x12345678C
+# RELAX:       Type:            NORMAL
+# RELAX:     - Name:            a
+# RELAX:       Serial:          2
+# RELAX:       Equiv:           0xFE
+# RELAX:       Type:            REGISTER
+# RELAX:     - Name:            ABCD
+# RELAX:       Serial:          3
+# RELAX:       Equiv:           0x2000000000000008
+# RELAX:       Type:            NORMAL
+# RELAX: ...

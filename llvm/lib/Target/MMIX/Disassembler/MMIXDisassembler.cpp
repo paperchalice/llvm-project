@@ -106,7 +106,7 @@ DecodeStatus decodeRoundMode(MCInst &Inst, uint64_t Mode, uint64_t Address,
 
   auto &Ctx = static_cast<const MCDisassembler *>(Decoder)->getContext();
   auto E = MCConstantExpr::create(Mode, Ctx);
-  MMIXMCExpr::create(E, 0, MMIXMCExpr::VK_ROUND_MODE, Ctx);
+  MMIXMCExpr::create(E, 0, false, MMIXMCExpr::VK_ROUND_MODE, Ctx);
   Inst.addOperand(MCOperand::createExpr(E));
   return DecodeStatus::Success;
 }

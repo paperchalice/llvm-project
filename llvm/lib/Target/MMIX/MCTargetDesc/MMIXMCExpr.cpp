@@ -13,13 +13,14 @@ const MCExpr *MMIXMCExpr::create(const MCExpr *Expr,
 }
 
 const MCExpr *MMIXMCExpr::create(const MCExpr *Expr, std::uint64_t PC,
-                                 VariantKind Kind, MCContext &Ctx) {
-  return new (Ctx) MMIXMCExpr(Expr, PC, Kind);
+                                 bool EmitFixup, VariantKind Kind,
+                                 MCContext &Ctx) {
+  return new (Ctx) MMIXMCExpr(Expr, PC, EmitFixup, Kind);
 }
 
 MMIXMCExpr::MMIXMCExpr(const MCExpr *Expr, MMIXMCExpr::VariantKind Kind)
     : Expr(Expr), Kind(Kind) {}
-MMIXMCExpr::MMIXMCExpr(const MCExpr *Expr, uint64_t PC,
+MMIXMCExpr::MMIXMCExpr(const MCExpr *Expr, uint64_t PC, bool EmitFixup,
                        MMIXMCExpr::VariantKind Kind)
     : Expr(Expr), PC(PC), Kind(Kind) {}
 bool MMIXMCExpr::evaluateAsRelocatableImpl(MCValue &Res,
@@ -120,5 +121,7 @@ bool MMIXMCExpr::isGPRExpr(const MCExpr *Expr) {
 }
 
 MMIXMCExpr::VariantKind MMIXMCExpr::getKind() const { return Kind; }
+
+bool llvm::MMIXMCExpr::shouldEmitFixup() const { return EmitFixup; }
 
 } // namespace llvm

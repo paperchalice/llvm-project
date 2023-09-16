@@ -250,11 +250,13 @@ ParseStatus MMIXALAsmParser::parseMemOperand(OperandVector &Operands) {
     const bool IsJMP = Operand.getToken().upper() == "JMP";
     auto FK = IsJMP ? MMO::FixupInfo::FixupKind::FIXUP_JUMP
                     : MMO::FixupInfo::FixupKind::FIXUP_WYDE;
-    if (!getTargetOptions().MCRelaxAll)
+    bool EmitFixup = getTargetOptions().MCRelaxAll;
+    if (!EmitFixup)
       SharedInfo.FixupList.emplace_front(
           MMO::FixupInfo{SharedInfo.PC, FK, &SE->getSymbol()});
-    auto EK = IsJMP ? MMIXMCExpr::VK_MMIX_PC_REL_JMP : MMIXMCExpr::VK_MMIX_PC_REL_BR;
-    auto E = MMIXMCExpr::create(SE, SharedInfo.PC, EK, getContext());
+    auto EK =
+        IsJMP ? MMIXMCExpr::VK_MMIX_PC_REL_JMP : MMIXMCExpr::VK_MMIX_PC_REL_BR;
+    auto E = MMIXMCExpr::create(SE, SharedInfo.PC, EmitFixup, EK, getContext());
     Operands.emplace_back(
         MMIXALOperand::createMem(E, SharedInfo.PC, StartLoc, EndLoc));
     return ParseStatus::Success;

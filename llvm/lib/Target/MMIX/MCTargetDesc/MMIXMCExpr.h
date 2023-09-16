@@ -16,8 +16,8 @@ public:
   };
   static const MCExpr *create(const MCExpr *Expr, VariantKind Kind,
                               MCContext &Ctx);
-  static const MCExpr *create(const MCExpr *Expr, std::uint64_t PC, VariantKind Kind,
-                              MCContext &Ctx);
+  static const MCExpr *create(const MCExpr *Expr, std::uint64_t PC,
+                              bool EmitFixup, VariantKind Kind, MCContext &Ctx);
 
 public:
   void printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const override;
@@ -31,15 +31,17 @@ public:
 
 public:
   static bool isGPRExpr(const MCExpr *Expr);
+  bool shouldEmitFixup() const;
   VariantKind getKind() const;
 
 private:
   MMIXMCExpr(const MCExpr *Expr, VariantKind Kind);
-  MMIXMCExpr(const MCExpr *Expr, std::uint64_t PC, VariantKind Kind);
+  MMIXMCExpr(const MCExpr *Expr, std::uint64_t PC, bool EmitFixup, VariantKind Kind);
 
 private:
   const MCExpr *Expr;
   std::uint64_t PC = 0;
+  bool EmitFixup = false;
   const VariantKind Kind;
 };
 

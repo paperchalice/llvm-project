@@ -390,14 +390,14 @@ AsmToken MMIXALLexer::LexToken() {
       // hash directive and otherwise a line comment.
       AsmToken TokenBuf[2];
       MutableArrayRef<AsmToken> Buf(TokenBuf, 2);
-      size_t num = peekTokens(Buf, true);
+      peekTokens(Buf, true);
       // There cannot be a space preceding this
-      if (IsAtStartOfLine && num == 2 && TokenBuf[0].is(AsmToken::Integer) &&
-          TokenBuf[1].is(AsmToken::String)) {
+      if (IsAtStartOfLine && TokenBuf[0].is(AsmToken::Integer)) {
         CurPtr = TokStart; // reset curPtr;
         StringRef S = LexUntilEndOfLine();
-        UnLex(TokenBuf[1]); // file name
-        UnLex(TokenBuf[0]); // line number
+        if(TokenBuf[1].is(AsmToken::String))
+          UnLex(TokenBuf[1]); // file name
+        UnLex(TokenBuf[0]);   // line number
         return AsmToken(AsmToken::HashDirective, S);
       } else {
         // else it is line comment
