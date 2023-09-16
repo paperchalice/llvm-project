@@ -174,6 +174,9 @@ std::string MMIXALParser::getQualifiedName(StringRef Name) {
 }
 
 void MMIXALParser::resolveLabel(MCSymbol *Symbol) {
+  if (!getTargetParser().getTargetOptions().MCRelaxAll)
+    return;
+
   for (auto Fixup : SharedInfo.FixupList) {
     if (Symbol == Fixup.Symbol) {
       switch (Fixup.Kind) {

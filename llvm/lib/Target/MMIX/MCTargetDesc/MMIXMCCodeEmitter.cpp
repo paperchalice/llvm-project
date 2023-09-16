@@ -30,6 +30,15 @@ void MMIXMCCodeEmitter::encodeInstruction(const MCInst &Inst,
                                           SmallVectorImpl<char> &CB,
                                           SmallVectorImpl<MCFixup> &Fixups,
                                           const MCSubtargetInfo &STI) const {
+  if (Inst.getOpcode() == 0) {
+    assert(Inst.getNumOperands() == 1 &&
+           "this is a dummy instruction! for fixo!");
+    auto Expr = Inst.getOperand(0).getExpr();
+    MCFixup Fixup = MCFixup::create(0, Expr, FK_Data_8);
+    Fixups.emplace_back(Fixup);
+    return;
+  }
+
   if (Inst.getOpcode() == MMO::MM) {
     CB.append({'\x98', '\x00', '\x00', '\x01'});
   }
@@ -42,6 +51,10 @@ MMIXMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
                                      SmallVectorImpl<MCFixup> &Fixups,
                                      const MCSubtargetInfo &STI) const {
   if (MO.isExpr()) {
+    const auto *E = dyn_cast<MMIXMCExpr>(MO.getExpr());
+    const bool IsJMP = MI.getNumOperands() == 1;
+    auto FK = IsJMP ? MMIX::fixup_MMIX_jump : MMIX::fixup_MMIX_branch;
+    Fixups.push_back(MCFixup::create(0, E, static_cast<MCFixupKind>(FK)));
     return 0;
   }
   if (MO.isImm())

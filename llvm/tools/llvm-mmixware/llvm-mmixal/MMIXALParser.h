@@ -3,10 +3,13 @@
 
 #include "MMIXALLexer.h"
 #include "llvm/BinaryFormat/MMO.h"
+#include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCParser/MCAsmParser.h"
+#include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
+#include "llvm/MC/MCTargetOptions.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/SourceMgr.h"
 #include <forward_list>
@@ -142,10 +145,23 @@ private:
         } else {
           if (isa<MCSymbolRefExpr>(Res) && sizeof(T) == 8) {
             auto SRE = dyn_cast<MCSymbolRefExpr>(Res);
-            SharedInfo.FixupList.push_front(
-                {SharedInfo.PC, MMO::FixupInfo::FixupKind::FIXUP_OCTA,
-                 &SRE->getSymbol()});
-            emitData(static_cast<T>(0));
+            if (getTargetParser().getTargetOptions().MCRelaxAll) {
+              // emit a fake instruction to record fixup
+              MCInst I;
+              I.setOpcode(0);
+              I.addOperand(MCOperand::createExpr(SRE));
+              if (DataCounter % 4 == 0 && !SpecialMode) {
+                syncLOC();
+                syncMMO();
+              }
+              Out.emitInstruction(I, *Ctx.getSubtargetInfo());
+              emitData(static_cast<T>(0x98'00'00'00'98'00'00'00));
+            } else {
+              SharedInfo.FixupList.push_front(
+                  {SharedInfo.PC, MMO::FixupInfo::FixupKind::FIXUP_OCTA,
+                   &SRE->getSymbol()});
+              emitData(static_cast<T>(0));
+            }
             continue;
           }
           break;

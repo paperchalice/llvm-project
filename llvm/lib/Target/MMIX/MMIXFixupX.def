@@ -1,8 +1,5 @@
 #ifdef MMIX_FIXUP_X
-MMIX_FIXUP_X(fixup_MMIX_backward, 24, 1, 0)
-MMIX_FIXUP_X(fixup_MMIX_fixo, 24, 1, 0)
-MMIX_FIXUP_X(fixup_MMIX_fixr, 24, 1, 0)
-MMIX_FIXUP_X(fixup_MMIX_fixrx, 24, 1, 0)
-MMIX_FIXUP_X(fixup_MMIX_expand, 24, 1, 0)
+MMIX_FIXUP_X(fixup_MMIX_jump, 24, 1, 0)
+MMIX_FIXUP_X(fixup_MMIX_branch, 24, 1, 0)
 #undef MMIX_FIXUP_X
 #endif

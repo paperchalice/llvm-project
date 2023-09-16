@@ -21,11 +21,17 @@ MCMMOStreamer::MCMMOStreamer(MCContext &Context,
 void MCMMOStreamer::emitInstToData(const MCInst &Inst,
                                    const MCSubtargetInfo &STI) {
   MCDataFragment *DF = getOrCreateDataFragment();
+
   SmallVector<MCFixup, 4> Fixups;
   SmallString<256> Code;
+
   getAssembler().getEmitter().encodeInstruction(Inst, Code, Fixups, STI);
-  DF->getFixups().append(Fixups);
+  // Add the fixups and data, must after emitting instruction
+  for (MCFixup &Fixup : Fixups)
+    Fixup.setOffset(Fixup.getOffset() + DF->getContents().size_in_bytes());
+
   DF->getContents().append(Code.begin(), Code.end());
+  DF->getFixups().append(Fixups);
 }
 
 bool MCMMOStreamer::emitSymbolAttribute(MCSymbol *Symbol,

@@ -66,7 +66,7 @@ bool MMIXALAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
     return false;
   }
 
-  auto &ErrorOperand = *Operands[ErrorInfo-1];
+  auto &ErrorOperand = *Operands[ErrorInfo - 1];
   auto ErrorLoc = ErrorOperand.getStartLoc();
   switch (MatchResult) {
   default:
@@ -247,13 +247,16 @@ ParseStatus MMIXALAsmParser::parseMemOperand(OperandVector &Operands) {
   } else if (auto SE = dyn_cast<MCSymbolRefExpr>(Expr)) {
     assert(Operands[0]->isToken());
     MMIXALOperand &Operand = (MMIXALOperand &)*Operands[0];
-    auto FK = Operand.getToken().upper() == "JMP"
-                  ? MMO::FixupInfo::FixupKind::FIXUP_JUMP
-                  : MMO::FixupInfo::FixupKind::FIXUP_WYDE;
-    SharedInfo.FixupList.emplace_front(
-        MMO::FixupInfo{SharedInfo.PC, FK, &SE->getSymbol()});
+    const bool IsJMP = Operand.getToken().upper() == "JMP";
+    auto FK = IsJMP ? MMO::FixupInfo::FixupKind::FIXUP_JUMP
+                    : MMO::FixupInfo::FixupKind::FIXUP_WYDE;
+    if (!getTargetOptions().MCRelaxAll)
+      SharedInfo.FixupList.emplace_front(
+          MMO::FixupInfo{SharedInfo.PC, FK, &SE->getSymbol()});
+    auto EK = IsJMP ? MMIXMCExpr::VK_MMIX_PC_REL_JMP : MMIXMCExpr::VK_MMIX_PC_REL_BR;
+    auto E = MMIXMCExpr::create(SE, SharedInfo.PC, EK, getContext());
     Operands.emplace_back(
-        MMIXALOperand::createMem(SE, SharedInfo.PC, StartLoc, EndLoc));
+        MMIXALOperand::createMem(E, SharedInfo.PC, StartLoc, EndLoc));
     return ParseStatus::Success;
   } else {
     Error(StartLoc, "Invalid jump dest!");

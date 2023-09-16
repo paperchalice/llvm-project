@@ -44,7 +44,7 @@ void MMIXALOperand::addMemOperands(MCInst &Inst, unsigned N) const {
                    Inst.setOpcode(Inst.getOpcode() + 1);
                  Inst.addOperand(MCOperand::createImm(Imm));
                },
-               [&Inst](const MCSymbolRefExpr *S) {
+               [&Inst](const MCExpr *S) {
                  Inst.addOperand(MCOperand::createExpr(S));
                }},
       Mem.DestinationAddress);
@@ -97,8 +97,8 @@ void MMIXALOperand::print(raw_ostream &OS) const {
                         OS << '[';
                         std::visit(
                             overload{[&OS](std::uint64_t Addr) { OS << Addr; },
-                                     [&OS](const MCSymbolRefExpr *Symb) {
-                                       OS << Symb->getSymbol().getName();
+                                     [&OS](const MCExpr *E) {
+                                       E->print(OS, nullptr);
                                      }},
                             Mem.DestinationAddress);
                         OS << ']';
@@ -117,10 +117,9 @@ MMIXALOperand::MMIXALOperand(MCRegister Reg, SMLoc StartLoc, SMLoc EndLoc)
 llvm::MMIXALOperand::MMIXALOperand(std::uint64_t Dest, std::uint64_t PC,
                                    SMLoc StartLoc, SMLoc EndLoc)
     : StartLoc(StartLoc), EndLoc(EndLoc), Content(Memory{Dest, PC}) {}
-llvm::MMIXALOperand::MMIXALOperand(const MCSymbolRefExpr *SymbolRef,
-                                   std::uint64_t PC, SMLoc StartLoc,
-                                   SMLoc EndLoc)
-    : StartLoc(StartLoc), EndLoc(EndLoc), Content(Memory{SymbolRef, PC}) {}
+llvm::MMIXALOperand::MMIXALOperand(const MCExpr *E, std::uint64_t PC,
+                                   SMLoc StartLoc, SMLoc EndLoc)
+    : StartLoc(StartLoc), EndLoc(EndLoc), Content(Memory{E, PC}) {}
 
 std::unique_ptr<MMIXALOperand> MMIXALOperand::createMnemonic(StringRef Mnemonic,
                                                              SMLoc StartLoc) {
@@ -145,7 +144,7 @@ llvm::MMIXALOperand::createMem(std::uint64_t Dest, std::uint64_t PC,
 }
 
 std::unique_ptr<MMIXALOperand>
-llvm::MMIXALOperand::createMem(const MCSymbolRefExpr *SymbolRef,
-                               std::uint64_t PC, SMLoc StartLoc, SMLoc EndLoc) {
+llvm::MMIXALOperand::createMem(const MCExpr *SymbolRef, std::uint64_t PC,
+                               SMLoc StartLoc, SMLoc EndLoc) {
   return std::make_unique<MMIXALOperand>(SymbolRef, PC, StartLoc, EndLoc);
 }

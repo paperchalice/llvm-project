@@ -6,6 +6,7 @@
 namespace llvm {
 
 class MMIXMCExpr : public MCTargetExpr {
+  // may used by disassembler
 public:
   enum VariantKind {
     VK_MMIX_REG_EXPR,
@@ -27,8 +28,6 @@ public:
   void fixELFSymbolsInTLSFixups(MCAssembler &) const override;
 
   static bool classof(const MCExpr *E);
-
-  static bool classof(const MMIXMCExpr *);
 
 public:
   static bool isGPRExpr(const MCExpr *Expr);

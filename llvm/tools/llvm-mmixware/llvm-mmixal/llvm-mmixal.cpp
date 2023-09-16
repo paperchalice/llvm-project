@@ -57,14 +57,15 @@ cl::opt<std::string>
                          "output to a text file called <listingname>."),
                 cl::value_desc("listingname"), cl::cat(MMIXALCategory));
 cl::opt<std::size_t> BufferSize(
-    "b", cl::desc("Allow up to <buffersize> characters per line of input."),
-    cl::value_desc("buffersize"), cl::cat(MMIXALCategory));
+    "b", cl::desc("Allow up to <buffersize> characters per line of input. (This option has no effect)"),
+    cl::value_desc("buffersize"), cl::Hidden, cl::cat(MMIXALCategory));
 cl::opt<std::string> InputFilename(cl::Positional, cl::desc("<input file>"),
                                    cl::Required, cl::desc("sourcefilename"),
                                    cl::cat(MMIXALCategory));
 cl::opt<std::string> ObjectFileName(
     "o", cl::desc("Send the output to a binary file called <objectfilename>."),
     cl::value_desc("objectfilename"), cl::cat(MMIXALCategory));
+cl::opt<bool> RelaxAll("relax-all", cl::desc("Relax all instructions and no fixup lops will be emitted"));
 
 cl::OptionCategory LLVMMMIXALExtraCategory("LLVM MMIXAL extra options");
 cl::opt<bool> StrictMode("strict-mode", cl::desc("Mimic MMIXAL"),
@@ -199,6 +200,7 @@ int main(int argc, char *argv[]) {
 
   MCTargetOptions MCOptions;
   MCOptions.AssemblyLanguage = "mmixal";
+  MCOptions.MCRelaxAll = RelaxAll;
 
   std::unique_ptr<MMIXMCAsmInfoMMIXAL> MAI(
       createMMIXMCAsmInfoMMIXAL(MCOptions));

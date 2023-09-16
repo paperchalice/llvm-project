@@ -86,8 +86,6 @@ bool MMIXMCExpr::classof(const MCExpr *E) {
   return E->getKind() == MCExpr::Target;
 }
 
-bool MMIXMCExpr::classof(const MMIXMCExpr *) { return true; }
-
 bool MMIXMCExpr::isGPRExpr(const MCExpr *Expr) {
   if (auto E = dyn_cast<MMIXMCExpr>(Expr)) {
     return E->Kind == MMIXMCExpr::VK_MMIX_REG_EXPR;

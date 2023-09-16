@@ -25,7 +25,7 @@ private:
   SMLoc StartLoc, EndLoc;
 
   struct Memory {
-    std::variant<std::uint64_t, const MCSymbolRefExpr *> DestinationAddress;
+    std::variant<std::uint64_t, const MCExpr *> DestinationAddress;
     std::uint64_t CurrentAddress;
   };
   std::variant<StringRef, std::int64_t, MCRegister, Memory> Content;
@@ -60,7 +60,7 @@ public:
   MMIXALOperand(MCRegister Reg, SMLoc StartLoc, SMLoc EndLoc);
   MMIXALOperand(std::uint64_t Dest, std::uint64_t PC, SMLoc StartLoc,
                 SMLoc EndLoc);
-  MMIXALOperand(const MCSymbolRefExpr *SymbolRef, std::uint64_t PC,
+  MMIXALOperand(const MCExpr *E, std::uint64_t PC,
                 SMLoc StartLoc, SMLoc EndLoc);
 
 public:
@@ -73,8 +73,7 @@ public:
   static std::unique_ptr<MMIXALOperand>
   createMem(std::uint64_t Dest, std::uint64_t PC, SMLoc StartLoc, SMLoc EndLoc);
   static std::unique_ptr<MMIXALOperand>
-  createMem(const MCSymbolRefExpr *SymbolRef, std::uint64_t PC, SMLoc StartLoc,
-            SMLoc EndLoc);
+  createMem(const MCExpr *E, std::uint64_t PC, SMLoc StartLoc, SMLoc EndLoc);
 };
 
 } // namespace llvm
