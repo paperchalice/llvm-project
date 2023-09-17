@@ -62,7 +62,6 @@ void MMIXAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
     Dest[0] += 1;
   switch (static_cast<unsigned>(Fixup.getKind())) {
   case FK_Data_8: {
-
   }
     support::endian::write64be(Dest, Value);
     break;
@@ -98,6 +97,7 @@ void MMIXAsmBackend::finishLayout(MCAssembler const &Asm,
   auto &Sections = Layout.getSectionOrder();
   for (auto *Sec : Sections) {
     auto &Fragments = Sec->getFragmentList();
+    bool ShouldInvalidate = false;
     for (auto &F : Fragments) {
       if (auto *DF = dyn_cast<MCDataFragment>(&F)) {
         for (auto Fixup : DF->getFixups()) {
@@ -107,16 +107,20 @@ void MMIXAsmBackend::finishLayout(MCAssembler const &Asm,
             Expr->evaluateAsAbsolute(Res);
             auto &Content = DF->getContents();
             auto Start = Content.begin() + Fixup.getOffset();
-            assert(Start + 16 < Content.end() && "there must be 16 bytes here!");
+            assert(Start + 16 < Content.end() &&
+                   "there must be 16 bytes here!");
             if (Hi_32(Res) >> 24 != MMO::MM) {
               Start = Content.erase(Start, Start + 4) + 4;
             }
             if (Lo_32(Res) >> 24 != MMO::MM) {
               Content.erase(Start, Start + 4);
             }
+            ShouldInvalidate = true;
           }
         }
       }
+      if (ShouldInvalidate)
+        Layout.invalidateFragmentsFrom(&F);
     }
   }
   return;
