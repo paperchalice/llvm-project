@@ -4,13 +4,14 @@
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCFragment.h"
-#include "llvm/MC/MCMMIXObjectWriter.h"
+#include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCSymbolMMO.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/Object/MMIXObjectFile.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/EndianStream.h"
 #include <ctime>
 
 namespace {
@@ -20,16 +21,11 @@ using namespace llvm;
 class MMIXObjectWriter : public MCObjectWriter {
   ::support::endian::Writer W;
 
-  /// The target specific MMO writer instance.
-  std::unique_ptr<MCMMIXObjectTargetWriter> TargetObjectWriter;
-
 private:
   MMO::MMOTrie SymbolTrie;
 
 public:
-  MMIXObjectWriter(std::unique_ptr<MCMMIXObjectTargetWriter> MOTW,
-                   raw_pwrite_stream &OS)
-      : W(OS, support::big), TargetObjectWriter(std::move(MOTW)) {}
+  MMIXObjectWriter(raw_pwrite_stream &OS) : W(OS, support::endianness::big) {}
   ~MMIXObjectWriter() override {}
 
 public:
@@ -86,9 +82,7 @@ void MMIXObjectWriter::writeSymbolTable(MCAssembler &Asm) {
 
 namespace llvm {
 
-std::unique_ptr<MCObjectWriter>
-createMMIXObjectWriter(std::unique_ptr<MCMMIXObjectTargetWriter> MOTW,
-                       raw_pwrite_stream &OS) {
-  return std::make_unique<MMIXObjectWriter>(std::move(MOTW), OS);
+std::unique_ptr<MCObjectWriter> createMMIXObjectWriter(raw_pwrite_stream &OS) {
+  return std::make_unique<MMIXObjectWriter>(OS);
 }
 } // namespace llvm

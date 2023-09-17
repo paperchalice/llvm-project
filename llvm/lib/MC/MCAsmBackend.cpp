@@ -11,7 +11,6 @@
 #include "llvm/MC/MCELFObjectWriter.h"
 #include "llvm/MC/MCFixupKindInfo.h"
 #include "llvm/MC/MCGOFFObjectWriter.h"
-#include "llvm/MC/MCMMIXObjectWriter.h"
 #include "llvm/MC/MCMachObjectWriter.h"
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCSPIRVObjectWriter.h"
@@ -40,8 +39,7 @@ MCAsmBackend::createObjectWriter(raw_pwrite_stream &OS) const {
     return createMachObjectWriter(cast<MCMachObjectTargetWriter>(std::move(TW)),
                                   OS, Endian == llvm::endianness::little);
   case Triple::MMO:
-    return createMMIXObjectWriter(cast<MCMMIXObjectTargetWriter>(std::move(TW)),
-                                  OS);
+    return nullptr;
   case Triple::COFF:
     return createWinCOFFObjectWriter(
         cast<MCWinCOFFObjectTargetWriter>(std::move(TW)), OS);

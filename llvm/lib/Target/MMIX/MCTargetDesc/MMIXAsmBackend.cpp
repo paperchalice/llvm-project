@@ -61,8 +61,7 @@ void MMIXAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
   if (Res < 0)
     Dest[0] += 1;
   switch (static_cast<unsigned>(Fixup.getKind())) {
-  case FK_Data_8: {
-  }
+  case FK_Data_8:
     support::endian::write64be(Dest, Value);
     break;
   case MMIX::fixup_MMIX_jump:
@@ -123,16 +122,12 @@ void MMIXAsmBackend::finishLayout(MCAssembler const &Asm,
         Layout.invalidateFragmentsFrom(&F);
     }
   }
-  return;
 }
 
 std::unique_ptr<MCObjectTargetWriter>
 MMIXAsmBackend::createObjectTargetWriter() const {
   auto Format = STI.getTargetTriple().getObjectFormat();
   switch (Format) {
-
-  case Triple::ObjectFormatType::MMO:
-    return createMMIXMMOWriter();
   case Triple::ObjectFormatType::ELF:
     return createMMIXELFObjectWriter(true, 0);
 
