@@ -1,12 +1,12 @@
 #include "llvm/BinaryFormat/MMO.h"
+#include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmLayout.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCFragment.h"
 #include "llvm/MC/MCMMIXObjectWriter.h"
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCSymbolMMO.h"
-#include "llvm/MC/MCFragment.h"
-#include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/Object/MMIXObjectFile.h"
 #include "llvm/Support/Alignment.h"
@@ -54,13 +54,8 @@ uint64_t MMIXObjectWriter::writeObject(MCAssembler &Asm,
   W.write<uint32_t>(static_cast<uint32_t>(time(nullptr)));
   Cnt += 4;
 
-  for (const MCSection &Sec : Asm) {
-    // FIXME: Shoud be below
+  for (const MCSection &Sec : Asm)
     Asm.writeSectionData(W.OS, &Sec, Layout);
-    // but it would trigger assertion when fix lop_fixo
-    // for(const auto &F : Sec.getFragmentList())
-    //   writeFragment(W.OS, Asm, Layout, F);
-  }
 
   writeSymbolTable(Asm);
   return Cnt;
