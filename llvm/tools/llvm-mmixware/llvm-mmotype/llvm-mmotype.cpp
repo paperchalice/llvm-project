@@ -109,11 +109,9 @@ class MMOType {
         outTetra();
       }
       if (S.Type == MMO::REGISTER) {
-        outs() << formatv("    {0} = ${1} ({2})\n",
-                          StringRef(S.Name).drop_front(), S.Equiv, S.Serial);
+        outs() << formatv("    {0} = ${1} ({2})\n", S.Name, S.Equiv, S.Serial);
       } else {
-        outs() << formatv("    {0} = #{1} ({2})\n",
-                          StringRef(S.Name).drop_front(),
+        outs() << formatv("    {0} = #{1} ({2})\n", S.Name,
                           format_hex_no_prefix(S.Equiv, 1), S.Serial);
       }
     }
