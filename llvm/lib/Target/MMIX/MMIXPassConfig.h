@@ -23,6 +23,9 @@ public:
   bool addLegalizeMachineIR() override;
   bool addRegBankSelect() override;
   bool addGlobalInstructionSelect() override;
+
+  // Register Allocation
+  FunctionPass *createTargetRegisterAllocator(bool Optimized) override;
 };
 
 } // namespace llvm
