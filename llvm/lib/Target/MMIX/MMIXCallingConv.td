@@ -48,6 +48,26 @@ let Entry = 1 in def RetCC_MMIX : CallingConv<[
   CCIfType<[i64], CCAssignToReg<[r0]>>,
 ]>;
 
+let Entry = 1 in def CC_MMIX_GNU : CallingConv<[
+  CCIfType<[iPTR], CCBitConvertToType<i64>>,
+  CCIfType<[i1, i8, i16, i32], CCPromoteToType<i64>>,
+  CCIfType<[i64], CCAssignToReg<[
+             r231, r232, r233, r234, r235, r236, r237, r238, r239, r240, r241, r242, r243, r244, r245, r246
+           ]>>,
+
+  // stack
+  CCIfType<[i8], CCAssignToStack<1, 1>>,
+  CCIfType<[i16], CCAssignToStack<2, 2>>,
+  CCIfType<[i32], CCAssignToStack<4, 4>>,
+  CCIfType<[i64], CCAssignToStack<8, 8>>,
+]>;
+
+let Entry = 1 in def RetCC_MMIX_GNU : CallingConv<[
+  CCIfType<[iPTR], CCBitConvertToType<i64>>,
+  CCIfType<[i1, i8, i16, i32], CCPromoteToType<i64>>,
+  CCIfType<[i64], CCAssignToReg<[r231]>>,
+]>;
+
 //===----------------------------------------------------------------------===//
 // Callee-saved Registers.
 //===----------------------------------------------------------------------===//
