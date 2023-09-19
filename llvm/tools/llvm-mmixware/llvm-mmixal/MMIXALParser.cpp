@@ -12,95 +12,14 @@
 namespace llvm {
 
 static StringRef QUOTE("\x98\x00\00\01", 4);
-static struct {
+
+struct MMIXALPredefsEntry {
   StringRef Name;
-  uint64_t Value;
-} Predefs[] = {
-    // ROUND
-    {"ROUND_CURRENT", 0},
-    {"ROUND_OFF", 1},
-    {"ROUND_UP", 2},
-    {"ROUND_DOWN", 3},
-    {"ROUND_NEAR", 4},
-    // constant
-    {"Inf", 0x7FFUL << 52},
-    // segment
-    {"Data_Segment", 2UL << 60},
-    {"Pool_Segment", 4UL << 60},
-    {"Stack_Segment", 6UL << 60},
-    // BIT
-    {"D_BIT", 1 << 7},
-    {"V_BIT", 1 << 6},
-    {"W_BIT", 1 << 5},
-    {"I_BIT", 1 << 4},
-    {"O_BIT", 1 << 3},
-    {"U_BIT", 1 << 2},
-    {"Z_BIT", 1 << 1},
-    {"X_BIT", 1 << 0},
-    // Handler
-    {"D_Handler", 0x10},
-    {"V_Handler", 0x20},
-    {"W_Handler", 0x30},
-    {"I_Handler", 0x40},
-    {"O_Handler", 0x50},
-    {"U_Handler", 0x60},
-    {"Z_Handler", 0x70},
-    {"X_Handler", 0x80},
-    // IO
-    {"StdIn", 0},
-    {"StdOut", 1},
-    {"StdErr", 2},
-    // IO mode
-    {"TextRead", 0},
-    {"TextWrite", 1},
-    {"BinaryRead", 2},
-    {"BinaryWrite", 3},
-    {"BinaryReadWrite", 4},
-    // special function
-    {"Halt", 0},
-    {"Fopen", 1},
-    {"Fclose", 2},
-    {"Fread", 3},
-    {"Fgets", 4},
-    {"Fgetws", 5},
-    {"Fwrite", 6},
-    {"Fputs", 7},
-    {"Fputws", 8},
-    {"Fseek", 9},
-    {"Ftell", 10},
-    // special register
-    {"rB", 0},
-    {"rD", 1},
-    {"rE", 2},
-    {"rH", 3},
-    {"rJ", 4},
-    {"rM", 5},
-    {"rR", 6},
-    {"rBB", 7},
-    {"rC", 8},
-    {"rN", 9},
-    {"rO", 10},
-    {"rS", 11},
-    {"rI", 12},
-    {"rT", 13},
-    {"rTT", 14},
-    {"rK", 15},
-    {"rQ", 16},
-    {"rU", 17},
-    {"rV", 18},
-    {"rG", 19},
-    {"rL", 20},
-    {"rA", 21},
-    {"rF", 22},
-    {"rP", 23},
-    {"rW", 24},
-    {"rX", 25},
-    {"rY", 26},
-    {"rZ", 27},
-    {"rWW", 28},
-    {"rXX", 29},
-    {"rYY", 30},
-    {"rZZ", 31}};
+  std::uint64_t Value;
+};
+#define GET_MMIXALPredefsTable_IMPL
+#include "MMIXALSearchableTable.inc"
+
 
 static bool isGPRExpr(const MCExpr *Expr) {
   if (dyn_cast<MCTargetExpr>(Expr)) {
@@ -381,7 +300,7 @@ std::uint8_t MMIXALParser::getCurGreg() {
 }
 
 void MMIXALParser::initInternalSymbols() {
-  for (auto &Predef : Predefs) {
+  for (auto &Predef : MMIXALPredefsTable) {
     auto Symbol = getContext().getOrCreateSymbol(":" + Predef.Name);
     auto MMOSymbol = cast<MCSymbolMMO>(Symbol);
     MMOSymbol->setVariableValue(
