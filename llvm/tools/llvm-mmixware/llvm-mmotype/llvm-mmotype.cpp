@@ -59,14 +59,14 @@ class MMOType {
 
   void outExtra() {
     if (!Lst) {
-      if (CurLine == 0)
+      if (CurLine == 0) {
         outs() << "\n";
-      else if (CurLoc & (0xEUL << 60))
+      } else if (CurLoc & (0xEUL << 60)) {
         outs() << "\n";
-      else {
-        if (CurFile == ListedFile)
+      } else {
+        if (CurFile == ListedFile) {
           outs() << formatv(" (line {0})\n", CurLine);
-        else {
+        } else {
           outs() << formatv(" (\"{0}\", line {1})\n", FileNames[CurFile],
                             CurLine);
           ListedFile = CurFile;
@@ -91,31 +91,36 @@ class MMOType {
         outs() << "File was created " << Ss.str() << '\n';
       }
     }
-    for (int I = 1; I < Z; ++I)
+    for (int I = 1; I < Z; ++I) {
       outTetra();
+    }
   }
 
   void listStab() {
     const unsigned char *SymTabIter = Iter;
     auto E = Obj.decodeSymbolTable(SymTabIter, /*SortSymbolTable=*/false);
-    if (E)
+    if (E) {
       outs() << "broken symbol table! \n";
+    }
     outs() << formatv("Symbol table (beginning at tetra {0}):\n", TetraCnt);
     auto STabVec = Obj.getSTab();
     for (const auto &S : STabVec) {
-      while (Iter < S.PrintPos)
+      while (Iter < S.PrintPos) {
         outTetra();
-      if (S.Type == MMO::REGISTER)
+      }
+      if (S.Type == MMO::REGISTER) {
         outs() << formatv("    {0} = ${1} ({2})\n", S.Name, S.Equiv, S.Serial);
-      else
+      } else {
         outs() << formatv("    {0} = #{1} ({2})\n", S.Name,
                           format_hex_no_prefix(S.Equiv, 1), S.Serial);
+      }
     }
     assert(getInst(Iter) == MMO::MM && getX(Iter) == MMO::LOP_END);
     outTetra();
-    if (Verbose)
+    if (Verbose) {
       outs() << "Symbol table ends at tetra " << TetraCnt << ".\n";
     }
+  }
 
   void listContent() {
     auto End = Obj.getData().bytes_end() - Obj.getData().size() % 4;
@@ -207,9 +212,9 @@ class MMOType {
                               format_hex_no_prefix(CurLoc, 16));
             if (!CurLine)
               outs() << "\n";
-            else if (CurFile == ListedFile)
+            else if (CurFile == ListedFile) {
               outs() << formatv(" (line {0})\n", CurLine);
-            else {
+            } else {
               outs() << formatv("(\"{0}\", line {1})", FileNames[CurFile],
                                 CurLine);
               ListedFile = CurFile;
