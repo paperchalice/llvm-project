@@ -36,6 +36,14 @@ static std::uint16_t getYZ(const unsigned char *A) { return read16be(A + 2); }
 
 bool MMIXObjectFile::classof(Binary const *v) { return v->isMMO(); }
 
+std::uint64_t MMOFixo::getDest() const {
+  return (static_cast<std::uint64_t>(HighByte) << 56) | P;
+}
+
+std::uint64_t MMOFixr::getDest() const { return Location - 4 * Delta; }
+
+std::uint64_t MMOFixrx::getDest() const { return Location - 4 * Delta; }
+
 // constructor
 Expected<std::unique_ptr<MMIXObjectFile>>
 MMIXObjectFile::create(MemoryBufferRef Object, bool InitContent) {
@@ -168,23 +176,29 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
                                    "`Z` field of `lop_fixo` must be 1 or 2!");
         }
         Fix.P = P;
-        Content.emplace_back(Fix);
+        Fix.Location = PC;
+
         FixInfo FI;
         FI.FK = FixKind::FIXO;
         FI.Value = PC;
-        FI.Dest = (static_cast<std::uint64_t>(Fix.HighByte) << 56) + P;
+        FI.Dest = Fix.getDest();
+        Content.emplace_back(Fix);
         Fixes.emplace_back(FI);
       } break;
       case MMO::LOP_FIXR: {
+        MMOFixr Fix;
+        Fix.Location = PC;
+        Fix.Delta = getYZ(Iter);
+
         FixInfo FI;
         FI.FK = FixKind::FIXR;
         FI.Value = PC;
-        FI.Dest = PC - 4 * static_cast<std::uint64_t>(getYZ(Iter));
+        FI.Dest = Fix.getDest();
+
         Fixes.emplace_back(FI);
-      }
-        Content.emplace_back(MMOFixr{getYZ(Iter)});
+        Content.emplace_back(Fix);
         Iter += 4;
-        break;
+      } break;
       case MMO::LOP_FIXRX: {
         MMOFixrx Fix;
         Fix.FixType = getZ(Iter);
@@ -196,13 +210,14 @@ Error MMIXObjectFile::initContent(const unsigned char *&Iter) {
         std::uint32_t Tet = read32be(Iter) & 0x00FF'FFFF;
 
         Fix.Delta = Iter[0] ? (Tet - (1 << Fix.FixType)) : Tet;
+        Fix.Location = PC;
         Iter += 4;
 
         FixInfo FI;
         FI.FK = Fix.FixType == MMO::FIXRX_JMP ? FixKind::FIXRX_JMP
                                               : FixKind::FIXRX_OTHERWISE;
         FI.Value = PC;
-        FI.Dest = PC - 4 * Fix.Delta;
+        FI.Dest = Fix.getDest();
         Content.emplace_back(Fix);
         Fixes.emplace_back(FI);
       } break;

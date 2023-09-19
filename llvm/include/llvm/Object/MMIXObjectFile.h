@@ -47,13 +47,19 @@ struct MMOSkip {
 struct MMOFixo {
   std::uint8_t HighByte;
   std::uint64_t P;
+  std::uint64_t Location;
+  std::uint64_t getDest() const;
 };
 struct MMOFixr {
   std::uint16_t Delta;
+  std::uint64_t Location;
+  std::uint64_t getDest() const;
 };
 struct MMOFixrx {
   std::uint8_t FixType;
   std::int32_t Delta;
+  std::uint64_t Location;
+  std::uint64_t getDest() const;
 };
 struct MMOFile {
   std::uint8_t Number;
