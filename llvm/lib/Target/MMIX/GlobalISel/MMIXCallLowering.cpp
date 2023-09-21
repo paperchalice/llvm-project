@@ -44,20 +44,30 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
 
   MMIXOutgoingValueHandler Handler(MIRBuilder, MRI);
   OutgoingValueAssigner Assigner(CC_MMIX_GNU);
+
   bool Success = determineAndHandleAssignments(
       Handler, Assigner, OutArgs, MIRBuilder, Info.CallConv, Info.IsVarArg);
-  if (!Success) {
+  if (!Success)
     return false;
-  }
 
   if (Info.Callee.isReg()) {
-    Info.Callee.getReg();
     MIRBuilder.buildInstr(MMIX::PUSHGOI)
         .addReg(MMIX::r15)
         .addReg(Info.Callee.getReg())
         .addImm(0);
   } else
     MIRBuilder.buildInstr(MMIX::PUSHJ).addReg(MMIX::r15).add(Info.Callee);
+
+  // if it has return value, get them from r231
+  if (!Info.OrigRet.Ty->isVoidTy()) {
+    SmallVector<ArgInfo, 8> InArgs;
+    splitToValueTypes(Info.OrigRet, InArgs, DL, Info.CallConv);
+    MMIXIncomingValueHandler RetHandler(MIRBuilder, MRI);
+    IncomingValueAssigner RetAssigner(RetCC_MMIX_GNU);
+    determineAndHandleAssignments(RetHandler, RetAssigner, InArgs, MIRBuilder,
+                                  Info.CallConv, Info.IsVarArg);
+    MF.dump();
+  }
   return true;
 }
 
@@ -81,7 +91,7 @@ bool MMIXCallLowering::lowerFormalArguments(MachineIRBuilder &MIRBuilder,
   }
 
   MMIXIncomingValueHandler Handler(MIRBuilder, MRI);
-  IncomingValueAssigner Assigner(CC_MMIX_Callee);
+  IncomingValueAssigner Assigner(CC_MMIX_GNU);
   return determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
                                        F.getCallingConv(), F.isVarArg());
 }
@@ -122,10 +132,7 @@ bool MMIXCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   Success =
       determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
                                     F.getCallingConv(), F.isVarArg());
-
-  auto ImplicitR0 =
-      MachineOperand::CreateReg(MMIX::r0, /*isDef=*/false, /*isImp=*/true);
-  MIRBuilder.buildInstr(MMIX::POP).addImm(1).addImm(0).add(ImplicitR0);
+  MIRBuilder.buildInstr(MMIX::POP).addImm(1).addImm(0);
   return Success;
 }
 

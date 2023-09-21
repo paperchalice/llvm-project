@@ -39,8 +39,9 @@ public:
                    GISelCSEInfo *CSEInfo,
                    const MMIXCombinerImplRuleConfig &RuleConfig,
                    const MMIXSubtarget &STI);
-    bool tryCombineAllImpl(MachineInstr &I) const;
-    static const char *getName();
+  bool tryCombineAllImpl(MachineInstr &I) const;
+  static const char *getName();
+
 public:
   bool tryCombineAll(MachineInstr &I) const override;
 
@@ -67,10 +68,7 @@ MMIXCombinerImpl::MMIXCombinerImpl(MachineFunction &MF, CombinerInfo &CInfo,
 {
 }
 
-const char * MMIXCombinerImpl::getName()
-{
-return "MMIXCombiner";
-}
+const char *MMIXCombinerImpl::getName() { return "MMIXCombiner"; }
 
 bool MMIXCombinerImpl::tryCombineAll(MachineInstr &I) const {
   return tryCombineAllImpl(I);
