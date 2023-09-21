@@ -43,7 +43,7 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   }
 
   MMIXOutgoingValueHandler Handler(MIRBuilder, MRI);
-  OutgoingValueAssigner Assigner(CC_MMIX_Caller);
+  OutgoingValueAssigner Assigner(CC_MMIX_GNU);
   bool Success = determineAndHandleAssignments(
       Handler, Assigner, OutArgs, MIRBuilder, Info.CallConv, Info.IsVarArg);
   if (!Success) {
@@ -52,10 +52,12 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
 
   if (Info.Callee.isReg()) {
     Info.Callee.getReg();
-    MIRBuilder.buildInstr(MMIX::PUSHGOI).addReg(Info.Callee.getReg()).addImm(0);
-  } else {
-    MIRBuilder.buildInstr(MMIX::PUSHJ).addReg(MMIX::r0).add(Info.Callee);
-  }
+    MIRBuilder.buildInstr(MMIX::PUSHGOI)
+        .addReg(MMIX::r15)
+        .addReg(Info.Callee.getReg())
+        .addImm(0);
+  } else
+    MIRBuilder.buildInstr(MMIX::PUSHJ).addReg(MMIX::r15).add(Info.Callee);
   return true;
 }
 
@@ -116,7 +118,7 @@ bool MMIXCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
 
   bool Success = true;
   MMIXOutgoingValueHandler Handler(MIRBuilder, MRI);
-  OutgoingValueAssigner Assigner(RetCC_MMIX);
+  OutgoingValueAssigner Assigner(RetCC_MMIX_GNU);
   Success =
       determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
                                     F.getCallingConv(), F.isVarArg());

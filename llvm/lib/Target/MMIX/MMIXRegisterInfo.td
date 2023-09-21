@@ -16,6 +16,18 @@ include "llvm/TableGen/SearchableTable.td"
 //  Declarations that describe the MMIX register file
 //===----------------------------------------------------------------------===//
 
+
+def SFREnc : GenericEnum {
+  let FilterClass = "SFREncEnum";
+  let NameField = "Name";
+  let ValueField = "Encoding";
+}
+
+class SFREncEnum<bits<16> enc> {
+  string Name = NAME;
+  bits<16> Encoding = enc;
+}
+
 class MMIXReg<bits<16> enc, string n, list<string> alt = []>
     : Register<n, alt> {
   let Namespace = "MMIX";
@@ -26,7 +38,7 @@ class MMIXGPR<bits<16> enc> : MMIXReg<enc, "" #enc> {
   let DwarfNumbers = [enc];
 }
 
-class MMIXSR<bits<16> enc, string n = NAME> : MMIXReg<enc, n> {
+class MMIXSR<bits<16> enc, string n = NAME> : MMIXReg<enc, n>, SFREncEnum<enc> {
   let DwarfNumbers = [!add(enc, 0x100)];
 }
 

@@ -436,6 +436,19 @@ multiclass Inst__rbranch<bits<8> opcode, string opstr = NAME> {
   }
 }
 
+multiclass Inst__push<bits<8> opcode, string opstr = NAME> {
+  let isBranch = true in {
+    def "" : Inst_X_YZ<opcode, (outs GPR:$X),
+                       (ins branch_dest
+                        : $YZ),
+                       opstr>;
+    def B : Inst_X_YZ<!or(opcode, 1), (outs GPR:$X),
+                      (ins branch_dest
+                       : $YZ),
+                      opstr #"B">;
+  }
+}
+
 multiclass Inst__ibranch<bits<8> opcode, string opstr = !substr(NAME, 0, 5)> {
   let isBranch = true in {
     def "" : Inst_X_YZ<opcode, (outs),

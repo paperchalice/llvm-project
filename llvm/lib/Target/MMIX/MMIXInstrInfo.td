@@ -350,15 +350,15 @@ def ANDNL : Inst_r_ui16imm<0xEF>;
 
 defm JMP : Inst_jmpb<0xF0>;
 
-let isCall = true in defm PUSHJ : Inst__rbranch<0xF2>;
-let isAsmParserOnly = true in defm PUSHJ_imm: Inst__ibranch<0xF2>;
+let isCall = true, Defs=[rJ] in defm PUSHJ : Inst__push<0xF2>;
+let isAsmParserOnly = true in defm PUSHJ_imm: Inst__push<0xF2>;
 
 defm GETA : Inst_r_branch<0xF4>;
 
 def PUT : Inst_X__Z<0xF6, (outs), (ins SFR : $X, GPR : $Z), "PUT">;
 def PUTI : Inst_X__Z<0xF7, (outs), (ins SFR : $X, ui8imm : $Z), "PUT">;
 
-let isReturn = true in def POP : Inst_X_YZ<0xF8, (outs),
+let isReturn = true, Uses=[rJ] in def POP : Inst_X_YZ<0xF8, (outs),
                                            (ins ui8imm
                                             : $X, ui16imm
                                             : $YZ),
@@ -417,10 +417,10 @@ def : InstAlias<"TRIP", (TRIP 0)>;
 //===----------------------------------------------------------------------===//
 
 // load and store
-// def :Pat<(sextloadi8 (add i64:$Y, i64:$Z)), (LDB i64:$Y, i64:$Z)>;
-// def :Pat<(sextloadi8 (add i64:$Y, ui8imm:$Z)), (i64 (LDBI i64:$Y, i64:$Z))>;
-// def :Pat<(zextloadi8 (add i64:$Y, i64:$Z)), (i64 (LDBU i64:$Y, i64:$Z))>;
-// def :Pat<(zextloadi8 (add i64:$Y, ui8imm:$Z)), (i64 (LDBUI i64:$Y, i64:$Z))>;
+def :Pat<(i64 (sextloadi8 (add i64:$Y, i64:$Z))), (LDB i64:$Y, i64:$Z)>;
+def :Pat<(i64 (sextloadi8 (add i64:$Y, ui8imm:$Z))), (i64 (LDBI i64:$Y, i64:$Z))>;
+def :Pat<(i64 (zextloadi8 (add i64:$Y, i64:$Z))), (i64 (LDBU i64:$Y, i64:$Z))>;
+def :Pat<(i64 (zextloadi8 (add i64:$Y, ui8imm:$Z))), (i64 (LDBUI i64:$Y, i64:$Z))>;
 
 def : Pat<(sextloadi16(add i64 : $Y, i64 : $Z)), (i64(LDW i64 : $Y, i64 : $Z))>;
 def : Pat<(sextloadi16(add i64
@@ -442,99 +442,99 @@ def : Pat<(zextloadi16(add i64
                : $Y, i64
                : $Z))>;
 
-// def :Pat<(sextloadi32 (add i64:$Y, i64:$Z)), (i64 (LDT i64:$Y, i64:$Z))>;
-// def :Pat<(sextloadi32 (add i64:$Y, ui8imm:$Z)), (i64 (LDTI i64:$Y, i64:$Z))>;
-// def :Pat<(zextloadi32 (add i64:$Y, i64:$Z)), (i64 (LDTU i64:$Y, i64:$Z))>;
-// def :Pat<(zextloadi32 (add i64:$Y, ui8imm:$Z)), (i64 (LDTUI i64:$Y,
-// i64:$Z))>;
+def :Pat<(sextloadi32 (add i64:$Y, i64:$Z)), (i64 (LDT i64:$Y, i64:$Z))>;
+def :Pat<(sextloadi32 (add i64:$Y, ui8imm:$Z)), (i64 (LDTI i64:$Y, i64:$Z))>;
+def :Pat<(zextloadi32 (add i64:$Y, i64:$Z)), (i64 (LDTU i64:$Y, i64:$Z))>;
+def :Pat<(zextloadi32 (add i64:$Y, ui8imm:$Z)), (i64 (LDTUI i64:$Y,
+i64:$Z))>;
 
-// def :Pat<(sextloadi64 (add i64:$Y, i64:$Z)), (i64 (LDO i64:$Y, i64:$Z))>;
-// def :Pat<(sextloadi64 (add i64:$Y, ui8imm:$Z)), (i64 (LDOI i64:$Y, i64:$Z))>;
-// def :Pat<(zextloadi64 (add i64:$Y, i64:$Z)), (i64 (LDOU i64:$Y, i64:$Z))>;
-// def :Pat<(zextloadi64 (add i64:$Y, ui8imm:$Z)), (i64 (LDOI i64:$Y, i64:$Z))>;
+def :Pat<(sextloadi64 (add i64:$Y, i64:$Z)), (i64 (LDO i64:$Y, i64:$Z))>;
+def :Pat<(sextloadi64 (add i64:$Y, ui8imm:$Z)), (i64 (LDOI i64:$Y, i64:$Z))>;
+def :Pat<(zextloadi64 (add i64:$Y, i64:$Z)), (i64 (LDOU i64:$Y, i64:$Z))>;
+def :Pat<(zextloadi64 (add i64:$Y, ui8imm:$Z)), (i64 (LDOI i64:$Y, i64:$Z))>;
 
-// def :Pat<(shl (sextloadi32 (add i64:$Y, i64:$Z)), (i8 32)), (i64 (LDHT
-// i64:$Y, i64:$Z))>; def :Pat<(shl (sextloadi32 (add i64:$Y, ui8imm:$Z)), (i8
-// 32)), (i64 (LDHTI i64:$Y, i64:$Z))>;
+def :Pat<(shl (sextloadi32 (add i64:$Y, i64:$Z)), (i8 32)), (i64 (LDHT
+i64:$Y, i64:$Z))>; def :Pat<(shl (sextloadi32 (add i64:$Y, ui8imm:$Z)), (i8
+32)), (i64 (LDHTI i64:$Y, i64:$Z))>;
 
-// def :Pat<(truncstorei8 i64:$X, (add i64:$Y, i64:$Z)), (STB i64:$X, i64:$Y,
-// i64:$Z)>; def :Pat<(truncstorei8 i64:$X, (add i64:$Y, ui8imm:$Z)), (STBI
-// i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei8 i64:$X, (add i64:$Y,
-// i64:$Z)), (STBU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei8 i64:$X, (add
-// i64:$Y, ui8imm:$Z)), (STBUI i64:$X, i64:$Y, i64:$Z)>;
+def :Pat<(truncstorei8 i64:$X, (add i64:$Y, i64:$Z)), (STB i64:$X, i64:$Y,
+i64:$Z)>; def :Pat<(truncstorei8 i64:$X, (add i64:$Y, ui8imm:$Z)), (STBI
+i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei8 i64:$X, (add i64:$Y,
+i64:$Z)), (STBU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei8 i64:$X, (add
+i64:$Y, ui8imm:$Z)), (STBUI i64:$X, i64:$Y, i64:$Z)>;
 
-// def :Pat<(truncstorei16 i64:$X, (add i64:$Y, i64:$Z)), (STW i64:$X, i64:$Y,
-// i64:$Z)>; def :Pat<(truncstorei16 i64:$X, (add i64:$Y, ui8imm:$Z)), (STWI
-// i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei16 i64:$X, (add i64:$Y,
-// i64:$Z)), (STWU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei16 i64:$X,
-// (add i64:$Y, ui8imm:$Z)), (STWUI i64:$X, i64:$Y, i64:$Z)>;
+def :Pat<(truncstorei16 i64:$X, (add i64:$Y, i64:$Z)), (STW i64:$X, i64:$Y,
+i64:$Z)>; def :Pat<(truncstorei16 i64:$X, (add i64:$Y, ui8imm:$Z)), (STWI
+i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei16 i64:$X, (add i64:$Y,
+i64:$Z)), (STWU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei16 i64:$X,
+(add i64:$Y, ui8imm:$Z)), (STWUI i64:$X, i64:$Y, i64:$Z)>;
 
-// def :Pat<(truncstorei32 i64:$X, (add i64:$Y, i64:$Z)), (STT i64:$X, i64:$Y,
-// i64:$Z)>; def :Pat<(truncstorei32 i64:$X, (add i64:$Y, ui8imm:$Z)), (STTI
-// i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei32 i64:$X, (add i64:$Y,
-// i64:$Z)), (STTU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei32 i64:$X,
-// (add i64:$Y, ui8imm:$Z)), (STTUI i64:$X, i64:$Y, i64:$Z)>;
+def :Pat<(truncstorei32 i64:$X, (add i64:$Y, i64:$Z)), (STT i64:$X, i64:$Y,
+i64:$Z)>; def :Pat<(truncstorei32 i64:$X, (add i64:$Y, ui8imm:$Z)), (STTI
+i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei32 i64:$X, (add i64:$Y,
+i64:$Z)), (STTU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei32 i64:$X,
+(add i64:$Y, ui8imm:$Z)), (STTUI i64:$X, i64:$Y, i64:$Z)>;
 
-// def :Pat<(truncstorei64 i64:$X, (add i64:$Y, i64:$Z)), (STO i64:$X, i64:$Y,
-// i64:$Z)>; def :Pat<(truncstorei64 i64:$X, (add i64:$Y, ui8imm:$Z)), (STOI
-// i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei64 i64:$X, (add i64:$Y,
-// i64:$Z)), (STOU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei64 i64:$X,
-// (add i64:$Y, ui8imm:$Z)), (STOI i64:$X, i64:$Y, i64:$Z)>;
+def :Pat<(truncstorei64 i64:$X, (add i64:$Y, i64:$Z)), (STO i64:$X, i64:$Y,
+i64:$Z)>; def :Pat<(truncstorei64 i64:$X, (add i64:$Y, ui8imm:$Z)), (STOI
+i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei64 i64:$X, (add i64:$Y,
+i64:$Z)), (STOU i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei64 i64:$X,
+(add i64:$Y, ui8imm:$Z)), (STOI i64:$X, i64:$Y, i64:$Z)>;
 
-// def :Pat<(truncstorei64 ui8imm:$X, (add i64:$Y, i64:$Z)), (STCO ui8imm:$X,
-// i64:$Y, i64:$Z)>; def :Pat<(truncstorei64 ui8imm:$X, (add i64:$Y,
-// ui8imm:$Z)), (STCO ui8imm:$X, i64:$Y, ui8imm:$Z)>;
+def :Pat<(truncstorei64 ui8imm:$X, (add i64:$Y, i64:$Z)), (STCO ui8imm:$X,
+i64:$Y, i64:$Z)>; def :Pat<(truncstorei64 ui8imm:$X, (add i64:$Y,
+ui8imm:$Z)), (STCO ui8imm:$X, i64:$Y, ui8imm:$Z)>;
 
-// def :Pat<(truncstorei32 (srl i64:$X, (i8 32)), (add i64:$Y, i64:$Z)), (STHT
-// i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei32 (srl i64:$X, (i8 32)), (add
-// i64:$Y, ui8imm:$Z)), (STHT i64:$X, i64:$Y, ui8imm:$Z)>;
+def :Pat<(truncstorei32 (srl i64:$X, (i8 32)), (add i64:$Y, i64:$Z)), (STHT
+i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei32 (srl i64:$X, (i8 32)), (add
+i64:$Y, ui8imm:$Z)), (STHT i64:$X, i64:$Y, ui8imm:$Z)>;
 
-// // add and sub
-// def :Pat<(add i64:$Y, i64:$Z), (ADD i64:$Y, i64:$Z)>;
-// def :Pat<(add i64:$Y, ui8imm:$Z), (ADDI i64:$Y, ui8imm:$Z)>;
-// def :Pat<(add i64:$Y, i64:$Z), (ADDU i64:$Y, i64:$Z)>;
-// def :Pat<(add i64:$Y, ui8imm:$Z), (ADDUI i64:$Y, ui8imm:$Z)>;
-// def :Pat<(add (mul i64:$Y, 2), i64:$Z), (I_2ADDU i64:$Y, i64:$Z)>;
-// def :Pat<(add (mul i64:$Y, 4), i64:$Z), (I_4ADDU i64:$Y, i64:$Z)>;
-// def :Pat<(add (mul i64:$Y, 8), i64:$Z), (I_8ADDU i64:$Y, i64:$Z)>;
-// def :Pat<(add (mul i64:$Y, 16), i64:$Z), (I_16ADDU i64:$Y, i64:$Z)>;
+// add and sub
+def :Pat<(add i64:$Y, i64:$Z), (ADD i64:$Y, i64:$Z)>;
+def :Pat<(add i64:$Y, ui8imm:$Z), (ADDI i64:$Y, ui8imm:$Z)>;
+def :Pat<(add i64:$Y, i64:$Z), (ADDU i64:$Y, i64:$Z)>;
+def :Pat<(add i64:$Y, ui8imm:$Z), (ADDUI i64:$Y, ui8imm:$Z)>;
+def :Pat<(add (mul i64:$Y, 2), i64:$Z), (I2ADDU i64:$Y, i64:$Z)>;
+def :Pat<(add (mul i64:$Y, 4), i64:$Z), (I4ADDU i64:$Y, i64:$Z)>;
+def :Pat<(add (mul i64:$Y, 8), i64:$Z), (I8ADDU i64:$Y, i64:$Z)>;
+def :Pat<(add (mul i64:$Y, 16), i64:$Z), (I16ADDU i64:$Y, i64:$Z)>;
 
-// def :Pat<(sub i64:$Y, i64:$Z), (SUB i64:$Y, i64:$Z)>;
-// def :Pat<(sub i64:$Y, ui8imm:$Z), (SUBI i64:$Y, ui8imm:$Z)>;
-// def :Pat<(sub i64:$Y, i64:$Z), (SUB i64:$Y, i64:$Z)>;
-// def :Pat<(sub i64:$Y, ui8imm:$Z), (SUBI i64:$Y, ui8imm:$Z)>;
-// def :Pat<(sub i64:$Y, i64:$Z), (SUBU i64:$Y, i64:$Z)>;
-// def :Pat<(sub i64:$Y, ui8imm:$Z), (SUBUI i64:$Y, ui8imm:$Z)>;
+def :Pat<(sub i64:$Y, i64:$Z), (SUB i64:$Y, i64:$Z)>;
+def :Pat<(sub i64:$Y, ui8imm:$Z), (SUBI i64:$Y, ui8imm:$Z)>;
+def :Pat<(sub i64:$Y, i64:$Z), (SUB i64:$Y, i64:$Z)>;
+def :Pat<(sub i64:$Y, ui8imm:$Z), (SUBI i64:$Y, ui8imm:$Z)>;
+def :Pat<(sub i64:$Y, i64:$Z), (SUBU i64:$Y, i64:$Z)>;
+def :Pat<(sub i64:$Y, ui8imm:$Z), (SUBUI i64:$Y, ui8imm:$Z)>;
 
-// def :Pat<(sub ui8imm:$Y, i64:$Z), (NEG ui8imm:$Y, i64:$Z)>;
-// def :Pat<(sub ui8imm:$Y, ui8imm:$Z), (NEGI ui8imm:$Y, ui8imm:$Z)>;
-// def :Pat<(sub ui8imm:$Y, i64:$Z), (NEGU ui8imm:$Y, i64:$Z)>;
-// def :Pat<(sub ui8imm:$Y, ui8imm:$Z), (NEGUI ui8imm:$Y, ui8imm:$Z)>;
+def :Pat<(sub ui8imm:$Y, i64:$Z), (NEG ui8imm:$Y, i64:$Z)>;
+def :Pat<(sub ui8imm:$Y, ui8imm:$Z), (NEGI ui8imm:$Y, ui8imm:$Z)>;
+def :Pat<(sub ui8imm:$Y, i64:$Z), (NEGU ui8imm:$Y, i64:$Z)>;
+def :Pat<(sub ui8imm:$Y, ui8imm:$Z), (NEGUI ui8imm:$Y, ui8imm:$Z)>;
 
-// // bit fiddling
-// def :Pat<(and i64:$Y, i64:$Z), (AND i64:$Y, i64:$Z)>;
-// def :Pat<(and i64:$Y, ui8imm:$Z), (ANDI i64:$Y, i64:$Z)>;
+// bit fiddling
+def :Pat<(and i64:$Y, i64:$Z), (AND i64:$Y, i64:$Z)>;
+def :Pat<(and i64:$Y, ui8imm:$Z), (ANDI i64:$Y, i64:$Z)>;
 
-// def :Pat<(or i64:$Y, i64:$Z), (OR i64:$Y, i64:$Z)>;
-// def :Pat<(or i64:$Y, ui8imm:$Z), (ORI i64:$Y, i64:$Z)>;
+def :Pat<(or i64:$Y, i64:$Z), (OR i64:$Y, i64:$Z)>;
+def :Pat<(or i64:$Y, ui8imm:$Z), (ORI i64:$Y, i64:$Z)>;
 
-// def :Pat<(xor i64:$Y, i64:$Z), (XOR i64:$Y, i64:$Z)>;
-// def :Pat<(xor i64:$Y, ui8imm:$Z), (XORI i64:$Y, i64:$Z)>;
+def :Pat<(xor i64:$Y, i64:$Z), (XOR i64:$Y, i64:$Z)>;
+def :Pat<(xor i64:$Y, ui8imm:$Z), (XORI i64:$Y, i64:$Z)>;
 
-// def :Pat<(and i64:$Y, (not i64:$Z)), (ANDN i64:$Y, i64:$Z)>;
-// def :Pat<(and i64:$Y, (not ui8imm:$Z)), (ANDNI i64:$Y, ui8imm:$Z)>;
+def :Pat<(and i64:$Y, (not i64:$Z)), (ANDN i64:$Y, i64:$Z)>;
+def :Pat<(and i64:$Y, (not ui8imm:$Z)), (ANDNI i64:$Y, ui8imm:$Z)>;
 
-// def :Pat<(or i64:$Y, (not i64:$Z)), (ORN i64:$Y, i64:$Z)>;
-// def :Pat<(or i64:$Y, (not ui8imm:$Z)), (ORNI i64:$Y, ui8imm:$Z)>;
+def :Pat<(or i64:$Y, (not i64:$Z)), (ORN i64:$Y, i64:$Z)>;
+def :Pat<(or i64:$Y, (not ui8imm:$Z)), (ORNI i64:$Y, ui8imm:$Z)>;
 
-// def :Pat<(not (and i64:$Y, i64:$Z)), (NAND i64:$Y, i64:$Z)>;
-// def :Pat<(not (and i64:$Y, ui8imm:$Z)), (NANDI i64:$Y, ui8imm:$Z)>;
+def :Pat<(not (and i64:$Y, i64:$Z)), (NAND i64:$Y, i64:$Z)>;
+def :Pat<(not (and i64:$Y, ui8imm:$Z)), (NANDI i64:$Y, ui8imm:$Z)>;
 
-// def :Pat<(not (or i64:$Y, i64:$Z)), (NOR i64:$Y, i64:$Z)>;
-// def :Pat<(not (or i64:$Y, ui8imm:$Z)), (NORI i64:$Y, ui8imm:$Z)>;
+def :Pat<(not (or i64:$Y, i64:$Z)), (NOR i64:$Y, i64:$Z)>;
+def :Pat<(not (or i64:$Y, ui8imm:$Z)), (NORI i64:$Y, ui8imm:$Z)>;
 
-// def :Pat<(not (xor i64:$Y, i64:$Z)), (NXOR i64:$Y, i64:$Z)>;
-// def :Pat<(not (xor i64:$Y, ui8imm:$Z)), (NXORI i64:$Y, ui8imm:$Z)>;
+def :Pat<(not (xor i64:$Y, i64:$Z)), (NXOR i64:$Y, i64:$Z)>;
+def :Pat<(not (xor i64:$Y, ui8imm:$Z)), (NXORI i64:$Y, ui8imm:$Z)>;
 
 // mux
 
