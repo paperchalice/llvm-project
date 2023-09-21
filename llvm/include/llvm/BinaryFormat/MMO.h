@@ -26,8 +26,8 @@ namespace MMO {
 // Loader instructions are distinguished from tetrabytes of data by their first
 // (most significant) byte, which has the special escape-code value 0x98, called
 // MM in the program below.
-constexpr std::uint8_t MM = 0x98;          ///< the lop start
-constexpr std::uint8_t CurrentVersion = 1; ///< mmo format version
+constexpr inline std::uint8_t MM = 0x98;          ///< the lop start
+constexpr inline std::uint8_t CurrentVersion = 1; ///< mmo format version
 
 // When a tetrabyte does begin with the escape code, its next byte is the
 // lopcode defining a loader instruction. There are thirteen lopcodes:
