@@ -36,6 +36,6 @@ let Entry = 1 in def RetCC_MMIX_Knuth : CallingConv<[
 //===----------------------------------------------------------------------===//
 // Callee-saved Registers.
 //===----------------------------------------------------------------------===//
-def CSR_MMIX_Knuth : CalleeSavedRegs<(sequence "r%u", 0, 15)>;
+def CSR_MMIX_Knuth : CalleeSavedRegs<(add (sequence "r%u", 0, 15), rJ)>;
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXCALLINGCONV_TD

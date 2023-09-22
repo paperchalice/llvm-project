@@ -35,13 +35,19 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   MachineFunction &MF = MIRBuilder.getMF();
   MachineRegisterInfo &MRI = MF.getRegInfo();
   const DataLayout &DL = MF.getDataLayout();
-  // const TargetRegisterInfo &TRI = *MF.getSubtarget().getRegisterInfo();
+  const TargetRegisterInfo *TRI = MRI.getTargetRegisterInfo();
 
   SmallVector<ArgInfo, 8> OutArgs;
   for (auto &OrigArg : Info.OrigArgs) {
     splitToValueTypes(OrigArg, OutArgs, DL, Info.CallConv);
   }
 
+  auto Call = MIRBuilder.buildInstrNoInsert(MMIX::PUSHJ);
+  Call.addDef(MMIX::r15).addReg(MMIX::r15).addImm(0).addRegMask(
+      TRI->getCallPreservedMask(MF, Info.CallConv));
+  for(unsigned I = MMIX::r0; I!= MMIX::r15; ++I) {
+    Call.addUse(I, RegState::Implicit);
+  }
   MMIXOutgoingValueHandler Handler(MIRBuilder, MRI);
   OutgoingValueAssigner Assigner(CC_MMIX_Knuth);
 
@@ -53,10 +59,9 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   if (Info.Callee.isReg()) {
     MIRBuilder.buildInstr(MMIX::PUSHGOI, {Register(MMIX::r15)},
                           {Info.Callee.getReg(), static_cast<uint64_t>(0)});
-  } else
-    MIRBuilder
-        .buildInstr(MMIX::PUSHJ, {Register(MMIX::r15)}, {Register(MMIX::r15)})
-        .add(Info.Callee);
+  } else {
+    MIRBuilder.insertInstr(Call);
+  }
 
   // if it has return value, get them from r231
   if (!Info.OrigRet.Ty->isVoidTy()) {
@@ -126,12 +131,13 @@ bool MMIXCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   }
 
   bool Success = true;
+  auto Ret = MIRBuilder.buildInstrNoInsert(MMIX::POP).addImm(1).addImm(0);
   MMIXOutgoingValueHandler Handler(MIRBuilder, MRI);
   OutgoingValueAssigner Assigner(RetCC_MMIX_Knuth);
   Success =
       determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
                                     F.getCallingConv(), F.isVarArg());
-  MIRBuilder.buildInstr(MMIX::POP).addImm(1).addImm(0);
+  MIRBuilder.insertInstr(Ret);
   return Success;
 }
 

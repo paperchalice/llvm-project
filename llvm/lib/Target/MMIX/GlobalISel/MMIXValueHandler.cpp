@@ -16,27 +16,31 @@ MMIXCallLowering::MMIXOutgoingValueHandler::MMIXOutgoingValueHandler(
     MachineIRBuilder &MIRBuilder, MachineRegisterInfo &MRI)
     : OutgoingValueHandler(MIRBuilder, MRI) {}
 
-Register MMIXCallLowering::MMIXOutgoingValueHandler::getStackAddress(uint64_t Size, int64_t Offset, MachinePointerInfo &MPO, ISD::ArgFlagsTy Flags) {
+Register MMIXCallLowering::MMIXOutgoingValueHandler::getStackAddress(
+    uint64_t Size, int64_t Offset, MachinePointerInfo &MPO,
+    ISD::ArgFlagsTy Flags) {
   return Register{};
 }
 
 void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToReg(
     Register ValVReg, Register PhysReg, CCValAssign VA) {
-  MIRBuilder.buildCopy(PhysReg, extendRegister(ValVReg, VA))
-      .addUse(PhysReg, RegState::Implicit);
+    Register ExtReg = extendRegister(ValVReg, VA);
+    MIRBuilder.buildCopy(PhysReg, ExtReg);
 }
 
-void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToAddress(Register ValVReg, Register Addr,
-  LLT MemTy, MachinePointerInfo &MPO,
-  CCValAssign &VA) {}
+void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToAddress(
+    Register ValVReg, Register Addr, LLT MemTy, MachinePointerInfo &MPO,
+    CCValAssign &VA) {}
 
 // MMIXIncomingValueHandler
 
-MMIXCallLowering::MMIXIncomingValueHandler::MMIXIncomingValueHandler(MachineIRBuilder &MIRBuilder, MachineRegisterInfo &MRI)
+MMIXCallLowering::MMIXIncomingValueHandler::MMIXIncomingValueHandler(
+    MachineIRBuilder &MIRBuilder, MachineRegisterInfo &MRI)
     : IncomingValueHandler(MIRBuilder, MRI) {}
 
-Register MMIXCallLowering::MMIXIncomingValueHandler::getStackAddress(uint64_t Size, int64_t Offset,
-  MachinePointerInfo &MPO, ISD::ArgFlagsTy Flags) {
+Register MMIXCallLowering::MMIXIncomingValueHandler::getStackAddress(
+    uint64_t Size, int64_t Offset, MachinePointerInfo &MPO,
+    ISD::ArgFlagsTy Flags) {
   auto &MFI = MIRBuilder.getMF().getFrameInfo();
   // Byval is assumed to be writable memory, but other stack passed arguments
   // are not.
@@ -50,8 +54,8 @@ Register MMIXCallLowering::MMIXIncomingValueHandler::getStackAddress(uint64_t Si
   return AddrReg.getReg(0);
 }
 
-void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToReg(Register ValVReg, Register PhysReg,
-                                  CCValAssign VA) {
+void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToReg(
+    Register ValVReg, Register PhysReg, CCValAssign VA) {
   switch (VA.getLocInfo()) {
   case CCValAssign::LocInfo::Full:
     MIRBuilder.buildCopy(ValVReg, PhysReg);
@@ -75,9 +79,9 @@ void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToReg(Register ValVR
   MIRBuilder.getMBB().addLiveIn(PhysReg);
 }
 
-void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToAddress(Register ValVReg, Register Addr,
-                                      LLT MemTy, MachinePointerInfo &MPO,
-                                      CCValAssign &VA) {
+void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToAddress(
+    Register ValVReg, Register Addr, LLT MemTy, MachinePointerInfo &MPO,
+    CCValAssign &VA) {
   MachineFunction &MF = MIRBuilder.getMF();
   auto *MMO = MF.getMachineMemOperand(
       MPO, MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, MemTy,
