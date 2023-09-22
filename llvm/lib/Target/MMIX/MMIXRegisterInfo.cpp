@@ -30,12 +30,12 @@ MMIXRegisterInfo::MMIXRegisterInfo() : MMIXGenRegisterInfo(MMIX::r0) {}
 const uint32_t *
 MMIXRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
                                        CallingConv::ID) const {
-  return CSR_MMIX_RegMask;
+  return CSR_MMIX_Knuth_RegMask;
 }
 
 const MCPhysReg *
 MMIXRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
-  return CSR_MMIX_SaveList;
+  return CSR_MMIX_Knuth_SaveList;
 }
 
 //
