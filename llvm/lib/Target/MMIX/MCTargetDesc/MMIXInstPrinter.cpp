@@ -41,9 +41,10 @@ void MMIXInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
     else
       O << RegName;
   }
-  if (Operand.isImm()) {
+
+  if (Operand.isImm())
     O << Operand.getImm();
-  }
+
   if (Operand.isExpr()) {
     if (auto E = dyn_cast<MMIXMCExpr>(Operand.getExpr())) {
       std::int64_t Res = 0;
@@ -69,6 +70,10 @@ void MMIXInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
         default:
           break;
         }
+        break;
+      case MMIXMCExpr::VK_MMIX_PC_REL_JMP:
+      case MMIXMCExpr::VK_MMIX_PC_REL_BR:
+        O << dyn_cast<MCSymbolRefExpr>(E->getExpr())->getSymbol().getName();
         break;
       default:
         break;

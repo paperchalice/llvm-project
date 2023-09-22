@@ -51,12 +51,12 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
     return false;
 
   if (Info.Callee.isReg()) {
-    MIRBuilder.buildInstr(MMIX::PUSHGOI)
-        .addReg(MMIX::r15)
-        .addReg(Info.Callee.getReg())
-        .addImm(0);
+    MIRBuilder.buildInstr(MMIX::PUSHGOI, {Register(MMIX::r15)},
+                          {Info.Callee.getReg(), static_cast<uint64_t>(0)});
   } else
-    MIRBuilder.buildInstr(MMIX::PUSHJ).addReg(MMIX::r15).add(Info.Callee);
+    MIRBuilder
+        .buildInstr(MMIX::PUSHJ, {Register(MMIX::r15)}, {Register(MMIX::r15)})
+        .add(Info.Callee);
 
   // if it has return value, get them from r231
   if (!Info.OrigRet.Ty->isVoidTy()) {
@@ -66,7 +66,6 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
     IncomingValueAssigner RetAssigner(RetCC_MMIX_GNU);
     determineAndHandleAssignments(RetHandler, RetAssigner, InArgs, MIRBuilder,
                                   Info.CallConv, Info.IsVarArg);
-    MF.dump();
   }
   return true;
 }

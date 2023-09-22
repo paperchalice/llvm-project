@@ -14,8 +14,8 @@
 #include "MMIXRegisterBankInfo.h"
 #include "MMIXSubtarget.h"
 #include "MMIXTargetMachine.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
+#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 
 #define DEBUG_TYPE "mmix-isel"
 namespace {
@@ -33,6 +33,9 @@ public:
   bool select(MachineInstr &I) override;
 
 private:
+  void constrainGenericOp(MachineInstr &MI);
+  void constrainOperandRegClass(MachineOperand &RegMO,
+                                const TargetRegisterClass &RegClass);
   bool selectImpl(MachineInstr &I, CodeGenCoverage &CoverageInfo) const;
   /// @brief select G_CONSTANT to sequence of SETx.
   /// This function convert
@@ -87,6 +90,23 @@ MMIXInstructionSelector::MMIXInstructionSelector(
 #include "MMIXGenGlobalISel.inc"
 #undef GET_GLOBALISEL_TEMPORARIES_INIT
 {
+}
+
+void MMIXInstructionSelector::constrainGenericOp(MachineInstr &MI) {
+  MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
+  for (MachineOperand &Op : MI.all_defs()) {
+    if (Op.getReg().isPhysical() || MRI.getRegClassOrNull(Op.getReg()))
+      continue;
+    constrainOperandRegClass(Op, MMIX::GPRRegClass);
+  }
+}
+
+void MMIXInstructionSelector::constrainOperandRegClass(
+    MachineOperand &RegMO, const TargetRegisterClass &RegClass) {
+  MachineInstr &MI = *RegMO.getParent();
+  MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
+  RegMO.setReg(llvm::constrainOperandRegClass(*MF, TRI, MRI, TII, RBI, MI,
+                                              RegClass, RegMO));
 }
 
 bool MMIXInstructionSelector::selectG_CONSTANT(MachineInstr &I) const {
@@ -167,6 +187,7 @@ bool MMIXInstructionSelector::select(MachineInstr &I) {
 
   // Ignore COPY's: the register allocator will handle them.
   if (!I.isPreISelOpcode()) {
+    constrainGenericOp(I); // don't forget assign reg class for them
     return true;
   }
 

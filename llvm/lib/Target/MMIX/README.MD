@@ -8,3 +8,11 @@
   so that MMIX could in principle be built and even perhaps be competitive with some of the fastest general-purpose computers in the marketplace."
 >
 > -- Donald Ervin Knuth
+
+## Instruction selection
+Here we use the latest (up to 2023) instruction framework --- Global Instruction Selection.
+### Calling convention handling
+We use global instruction selection here, the calling convention handling is a
+problem. Under the framework of global instruction selection, calling convention
+is handled before instruction selection as well as register allocation.
+The calling convention used by DEK

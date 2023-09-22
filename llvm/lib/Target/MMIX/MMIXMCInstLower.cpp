@@ -1,4 +1,5 @@
 #include "MMIXMCInstLower.h"
+#include "MCTargetDesc/MMIXMCExpr.h"
 
 #define DEBUG_TYPE "mmix-mcinstlower"
 
@@ -34,8 +35,16 @@ bool MMIXMCInstLower::lowerOperand(const MachineOperand &MO, MCOperand &MCOp) {
   case MachineOperand::MO_Immediate:
     MCOp = MCOperand::createImm(MO.getImm());
     return true;
+  case MachineOperand::MO_GlobalAddress: {
+    const GlobalValue *GVal = MO.getGlobal();
+    auto S = AP.getSymbol(GVal);
+    auto SE = MMIXMCExpr::create(MCSymbolRefExpr::create(S, Ctx),
+                                 MMIXMCExpr::VK_MMIX_PC_REL_JMP, Ctx);
+    MCOp = MCOperand::createExpr(SE);
+  }
+  return true;
   default:
-    return true;
+    return false;
   }
   return true;
 }

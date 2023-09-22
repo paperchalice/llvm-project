@@ -33,6 +33,7 @@ public:
   static bool isGPRExpr(const MCExpr *Expr);
   bool shouldEmitFixup() const;
   VariantKind getKind() const;
+  const MCExpr *getExpr() const { return Expr; }
 
 private:
   MMIXMCExpr(const MCExpr *Expr, VariantKind Kind);

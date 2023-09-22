@@ -323,6 +323,9 @@ def SETMH : Inst_r_ui16imm<0xE1>;
 def SETML : Inst_r_ui16imm<0xE2>;
 
 def SETL : Inst_r_ui16imm<0xE3>;
+let EmitPriority = 1 in def : InstAlias<"SET\t$X,$YZ", (SETL GPR
+                                                       : $X, ui16imm
+                                                       : $YZ)>;
 
 def INCH : Inst_r_ui16imm<0xE4>;
 
@@ -358,7 +361,7 @@ defm GETA : Inst_r_branch<0xF4>;
 def PUT : Inst_X__Z<0xF6, (outs), (ins SFR : $X, GPR : $Z), "PUT">;
 def PUTI : Inst_X__Z<0xF7, (outs), (ins SFR : $X, ui8imm : $Z), "PUT">;
 
-let isReturn = true, Uses=[rJ] in def POP : Inst_X_YZ<0xF8, (outs),
+let isReturn = true, isTerminator = true, Uses=[rJ] in def POP : Inst_X_YZ<0xF8, (outs),
                                            (ins ui8imm
                                             : $X, ui16imm
                                             : $YZ),

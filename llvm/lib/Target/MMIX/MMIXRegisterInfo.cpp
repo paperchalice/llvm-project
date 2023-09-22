@@ -25,9 +25,7 @@
 
 using namespace llvm;
 
-MMIXRegisterInfo::MMIXRegisterInfo()
-    : MMIXGenRegisterInfo(MMIX::r0) {
-}
+MMIXRegisterInfo::MMIXRegisterInfo() : MMIXGenRegisterInfo(MMIX::r0) {}
 
 const uint32_t *
 MMIXRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
@@ -40,8 +38,14 @@ MMIXRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   return CSR_MMIX_SaveList;
 }
 
+//
 BitVector MMIXRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
+  for (unsigned I = MMIX::r32; I <= MMIX::r230; ++I)
+    Reserved.set(I);
+  for (unsigned I = MMIX::rA; I <= MMIX::rZZ; ++I)
+    Reserved.set(I);
+  
   return Reserved;
 }
 
@@ -52,9 +56,10 @@ bool MMIXRegisterInfo::isAsmClobberable(const MachineFunction &MF,
 
 bool MMIXRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
                                            int SPAdj, unsigned FIOperandNum,
-                                           RegScavenger *RS) const { return true; }
+                                           RegScavenger *RS) const {
+  return true;
+}
 
-Register
-MMIXRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  return {};
+Register MMIXRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
+  return MMIX::r253;
 }

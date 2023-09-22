@@ -36,5 +36,32 @@ void MMIXInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
       .addImm(0);
 }
 
+void MMIXInstrInfo::storeRegToStackSlot(
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, Register SrcReg,
+    bool isKill, int FrameIndex, const TargetRegisterClass *RC,
+    const TargetRegisterInfo *TRI, Register VReg) const {
+  MachineFunction &MF = *MBB.getParent();
+  MachineIRBuilder Builder(MBB, MI);
+  Builder.buildInstr(MMIX::STOI, {},
+                     {SrcReg, TRI->getFrameRegister(MF),
+                      static_cast<std::uint64_t>(FrameIndex)});
+  outs() << "TODO: implement " << __func__ << "\n";
+}
+
+void MMIXInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+                                         MachineBasicBlock::iterator MI,
+                                         Register DestReg, int FrameIndex,
+                                         const TargetRegisterClass *RC,
+                                         const TargetRegisterInfo *TRI,
+                                         Register VReg) const {
+  MachineFunction &MF = *MBB.getParent();
+  MachineIRBuilder Builder(MBB, MI);
+  auto Instr = Builder.buildInstrNoInsert(MMIX::LDO)
+                   .addReg(DestReg)
+                   .addReg(TRI->getFrameRegister(MF))
+                   .addImm(FrameIndex);
+  MBB.insert(MI, Instr.getInstr());
+  outs() << "TODO: implement " << __func__ << "\n";
+}
 #define GET_INSTRINFO_CTOR_DTOR
 #include "MMIXGenInstrInfo.inc"
