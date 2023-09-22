@@ -41,7 +41,7 @@ MMIXRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
 //
 BitVector MMIXRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
-  for (unsigned I = MMIX::r32; I <= MMIX::r230; ++I)
+  for (unsigned I = MMIX::r32; I <= MMIX::r255; ++I)
     Reserved.set(I);
   for (unsigned I = MMIX::rA; I <= MMIX::rZZ; ++I)
     Reserved.set(I);
