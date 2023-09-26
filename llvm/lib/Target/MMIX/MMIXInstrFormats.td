@@ -113,6 +113,10 @@ let OperandType = "OPERAND_IMMEDIATE" in {
 
 def base_address : Operand<iPTR> {
   let MIOperandInfo = (ops GPR, ui8imm);
+  // TODO: can use `RenderMethod` here
+  // but I'm lazy... the N be 2 here
+
+  // let RenderMethod = "addBaseAddress";
   let ParserMatchClass = MemAsmOperand;
 }
 

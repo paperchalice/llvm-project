@@ -34,6 +34,8 @@ public:
   StringRef getToken() const;
   std::int64_t getImm() const;
   std::uint64_t getConcreteMem() const;
+  // in `Target.td`, the class `Operand` has a dag field `MIOperandInfo`
+  // the number of operands in this field is the `N` below
   void addRegOperands(MCInst &Inst, unsigned N) const;
   void addImmOperands(MCInst &Inst, unsigned N) const;
   void addMemOperands(MCInst &Inst, unsigned N) const;
