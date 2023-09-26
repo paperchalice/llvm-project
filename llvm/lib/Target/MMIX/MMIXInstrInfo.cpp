@@ -14,6 +14,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
@@ -40,11 +41,6 @@ void MMIXInstrInfo::storeRegToStackSlot(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, Register SrcReg,
     bool isKill, int FrameIndex, const TargetRegisterClass *RC,
     const TargetRegisterInfo *TRI, Register VReg) const {
-  MachineFunction &MF = *MBB.getParent();
-  MachineIRBuilder Builder(MBB, MI);
-  Builder.buildInstr(MMIX::STOI, {},
-                     {SrcReg, TRI->getFrameRegister(MF),
-                      static_cast<std::uint64_t>(FrameIndex)});
   outs() << "TODO: implement " << __func__ << "\n";
 }
 
@@ -54,13 +50,6 @@ void MMIXInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                          const TargetRegisterClass *RC,
                                          const TargetRegisterInfo *TRI,
                                          Register VReg) const {
-  MachineFunction &MF = *MBB.getParent();
-  MachineIRBuilder Builder(MBB, MI);
-  auto Instr = Builder.buildInstrNoInsert(MMIX::LDO)
-                   .addReg(DestReg)
-                   .addReg(TRI->getFrameRegister(MF))
-                   .addImm(FrameIndex);
-  MBB.insert(MI, Instr.getInstr());
   outs() << "TODO: implement " << __func__ << "\n";
 }
 #define GET_INSTRINFO_CTOR_DTOR

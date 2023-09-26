@@ -17,12 +17,20 @@
 
 namespace llvm {
 bool CC_MMIX_Knuth(unsigned ValNo, MVT ValVT, MVT LocVT,
-                    CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
-                    CCState &State);
+                   CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
+                   CCState &State);
+
+bool CC_MMIX_Knuth_Caller(unsigned ValNo, MVT ValVT, MVT LocVT,
+                          CCValAssign::LocInfo LocInfo,
+                          ISD::ArgFlagsTy ArgFlags, CCState &State);
 
 bool RetCC_MMIX_Knuth(unsigned ValNo, MVT ValVT, MVT LocVT,
-                CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
-                CCState &State);
+                      CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
+                      CCState &State);
+
+bool RetCC_MMIX_Knuth_Caller(unsigned ValNo, MVT ValVT, MVT LocVT,
+                             CCValAssign::LocInfo LocInfo,
+                             ISD::ArgFlagsTy ArgFlags, CCState &State);
 } // namespace llvm
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXCALLINGCONV_H

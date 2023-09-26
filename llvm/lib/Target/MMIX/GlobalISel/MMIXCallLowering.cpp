@@ -41,15 +41,16 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   for (auto &OrigArg : Info.OrigArgs) {
     splitToValueTypes(OrigArg, OutArgs, DL, Info.CallConv);
   }
-
+  // PUSHJ will auto save masked registers, except the X
   auto Call = MIRBuilder.buildInstrNoInsert(MMIX::PUSHJ);
-  Call.addDef(MMIX::r15).addReg(MMIX::r15).addImm(0).addRegMask(
-      TRI->getCallPreservedMask(MF, Info.CallConv));
-  for(unsigned I = MMIX::r0; I!= MMIX::r15; ++I) {
-    Call.addUse(I, RegState::Implicit);
-  }
+
+  Call.addReg(MMIX::r15)
+      .addImm(0)
+      .addRegMask(TRI->getCallPreservedMask(MF, Info.CallConv))
+      .addDef(MMIX::r15, RegState::Implicit);
+
   MMIXOutgoingValueHandler Handler(MIRBuilder, MRI);
-  OutgoingValueAssigner Assigner(CC_MMIX_Knuth);
+  OutgoingValueAssigner Assigner(CC_MMIX_Knuth_Caller);
 
   bool Success = determineAndHandleAssignments(
       Handler, Assigner, OutArgs, MIRBuilder, Info.CallConv, Info.IsVarArg);
@@ -63,12 +64,11 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
     MIRBuilder.insertInstr(Call);
   }
 
-  // if it has return value, get them from r231
   if (!Info.OrigRet.Ty->isVoidTy()) {
     SmallVector<ArgInfo, 8> InArgs;
     splitToValueTypes(Info.OrigRet, InArgs, DL, Info.CallConv);
     MMIXIncomingValueHandler RetHandler(MIRBuilder, MRI);
-    IncomingValueAssigner RetAssigner(RetCC_MMIX_Knuth);
+    IncomingValueAssigner RetAssigner(RetCC_MMIX_Knuth_Caller);
     determineAndHandleAssignments(RetHandler, RetAssigner, InArgs, MIRBuilder,
                                   Info.CallConv, Info.IsVarArg);
   }

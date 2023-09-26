@@ -15,4 +15,10 @@ Here we use the latest (up to 2023) instruction framework --- Global Instruction
 We use global instruction selection here, the calling convention handling is a
 problem. Under the framework of global instruction selection, calling convention
 is handled before instruction selection as well as register allocation.
-The calling convention used by DEK
+The calling convention used by DEK is very casual, it uses the first registers
+as much as possible, and use PUSH-like instructions to save them, so the
+`callLowering` is hard to determine how many registers will be pushed into the stack,
+so here I set the value `X` be 15, i.e. force push the first 16 registers to stack.
+In future, may implement a real DEK calling convention by implementing a custom
+register allocator, but how to model this problem is also a problem, if use graph
+coloring, the constraint in this situation is somewhat weaker than pre-color...

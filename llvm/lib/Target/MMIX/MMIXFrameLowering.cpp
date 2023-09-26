@@ -28,9 +28,12 @@ MMIXFrameLowering::MMIXFrameLowering(const MMIXSubtarget &STI)
 
 bool MMIXFrameLowering::hasFP(const MachineFunction &MF) const { return true; }
 void MMIXFrameLowering::emitPrologue(MachineFunction &MF,
-                                     MachineBasicBlock &MBB) const {}
+                                     MachineBasicBlock &MBB) const {
+  outs() << "TODO: implement " << __func__ << '\n';
+}
 void MMIXFrameLowering::emitEpilogue(MachineFunction &MF,
-                                     MachineBasicBlock &MBB) const {}
+                                     MachineBasicBlock &MBB) const {
+  outs() << "TODO: implement " << __func__ << '\n';
+}
 
 } // namespace llvm
-

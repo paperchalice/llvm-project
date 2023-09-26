@@ -279,7 +279,7 @@ let mayStore = true in defm PREST : Inst__irri<0xBA, true>;
 
 defm SYNCID : Inst__irri<0xBC, true>;
 
-let isBranch = true in defm PUSHGO : Inst__rrri<0xBE, true>;
+let isBranch = true, Defs = [rJ] in defm PUSHGO : Inst__rrri<0xBE, true>;
 
 defm OR : Inst_r_rri<0xC0>;
 let EmitPriority = 1 in def : InstAlias<"SET\t$X,$Y", (ORI GPR
