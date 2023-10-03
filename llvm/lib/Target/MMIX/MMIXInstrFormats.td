@@ -446,8 +446,8 @@ multiclass Inst__push<bits<8> opcode, string opstr = NAME> {
                        (ins GPR:$X, branch_dest
                         : $YZ),
                        opstr>;
-    def B : Inst_X_YZ<!or(opcode, 1), (outs),
-                      (ins GPR:$X, branch_dest
+    def B : Inst_X_YZ<!or(opcode, 1), (outs GPR:$X),
+                      (ins branch_dest
                        : $YZ),
                       opstr #"B">;
   }

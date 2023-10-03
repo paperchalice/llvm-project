@@ -23,6 +23,7 @@ include "MMIXCallingConv.td"
 // Instruction Descriptions
 //===----------------------------------------------------------------------===//
 include "MMIXInstrInfo.td"
+include "MMIXPseudoInstrInfo.td"
 include "MMIXInstrGISel.td"
 include "MMIXCombine.td"
 //===----------------------------------------------------------------------===//

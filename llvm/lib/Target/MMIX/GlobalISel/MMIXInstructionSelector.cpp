@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXInstructionSelector.h"
+#include "MMIXInstrInfo.h"
 #include "MMIXRegisterBankInfo.h"
 #include "MMIXSubtarget.h"
 #include "MMIXTargetMachine.h"
@@ -33,9 +34,9 @@ public:
   bool select(MachineInstr &I) override;
 
 private:
-  void constrainGenericOp(MachineInstr &MI);
+  void constrainGenericOp(MachineInstr &MI) const;
   void constrainOperandRegClass(MachineOperand &RegMO,
-                                const TargetRegisterClass &RegClass);
+                                const TargetRegisterClass &RegClass) const;
   bool selectImpl(MachineInstr &I, CodeGenCoverage &CoverageInfo) const;
   /// @brief select G_CONSTANT to sequence of SETx.
   /// This function convert
@@ -74,6 +75,32 @@ using namespace MIPatternMatch;
 #include "MMIXGenGlobalISel.inc"
 #undef GET_GLOBALISEL_IMPL
 
+#define GET_InstEnc_DECL
+#include "MMIXGenSearchableTables.inc"
+
+static unsigned GetInstValue(unsigned Op) {
+  switch (Op) {
+  case InstEnc::SETH:
+    return MMIX::SETH;
+  case InstEnc::SETMH:
+    return MMIX::SETMH;
+  case InstEnc::SETML:
+    return MMIX::SETML;
+  case InstEnc::SETL:
+    return MMIX::SETL;
+  case InstEnc::ORH:
+    return MMIX::ORH;
+  case InstEnc::ORMH:
+    return MMIX::ORMH;
+  case InstEnc::ORML:
+    return MMIX::ORML;
+  case InstEnc::ORL:
+    return MMIX::ORL;
+  default:
+    return 0;
+  }
+}
+
 const char *MMIXInstructionSelector::getName() { return DEBUG_TYPE; }
 
 MMIXInstructionSelector::MMIXInstructionSelector(
@@ -92,7 +119,7 @@ MMIXInstructionSelector::MMIXInstructionSelector(
 {
 }
 
-void MMIXInstructionSelector::constrainGenericOp(MachineInstr &MI) {
+void MMIXInstructionSelector::constrainGenericOp(MachineInstr &MI) const {
   MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
   for (MachineOperand &Op : MI.all_defs()) {
     if (Op.getReg().isPhysical() || MRI.getRegClassOrNull(Op.getReg()))
@@ -102,7 +129,7 @@ void MMIXInstructionSelector::constrainGenericOp(MachineInstr &MI) {
 }
 
 void MMIXInstructionSelector::constrainOperandRegClass(
-    MachineOperand &RegMO, const TargetRegisterClass &RegClass) {
+    MachineOperand &RegMO, const TargetRegisterClass &RegClass) const {
   MachineInstr &MI = *RegMO.getParent();
   MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
   RegMO.setReg(llvm::constrainOperandRegClass(*MF, TRI, MRI, TII, RBI, MI,
@@ -111,36 +138,55 @@ void MMIXInstructionSelector::constrainOperandRegClass(
 
 bool MMIXInstructionSelector::selectG_CONSTANT(MachineInstr &I) const {
   assert(I.getOpcode() == TargetOpcode::G_CONSTANT && "not G_CONSTANT");
-  LLVM_DEBUG(dbgs() << "selecting for instruction: ");
-  LLVM_DEBUG(I.dump());
-  auto Op = I.getOperand(1);
-  std::uint64_t Value = 0;
-  if (Op.isImm()) {
-    Value = Op.getImm();
-  } else {
-    Value = Op.getCImm()->getZExtValue();
-  }
+
   MachineIRBuilder MIB(I);
   MachineBasicBlock &MBB = *I.getParent();
   MachineFunction &MF = *MBB.getParent();
   MachineRegisterInfo &MRI = MF.getRegInfo();
 
+  LLVM_DEBUG(dbgs() << "selecting for instruction: ");
+  LLVM_DEBUG(I.dump());
+  auto Op = I.getOperand(1);
+  std::uint64_t Val = 0;
+  if (Op.isImm()) {
+    Val = Op.getImm();
+  } else {
+    Val = Op.getCImm()->getZExtValue();
+  }
+
   auto ImplicitReg = MRI.createVirtualRegister(&MMIX::GPRRegClass);
   BuildMI(MBB, I, I.getDebugLoc(), TII.get(MMIX::IMPLICIT_DEF))
       .addDef(ImplicitReg);
-
-  unsigned Ops[] = {MMIX::SETH, MMIX::SETMH, MMIX::SETML, MMIX::SETL};
-  Register Regs[] = {ImplicitReg, MRI.createVirtualRegister(&MMIX::GPRRegClass),
-                     MRI.createVirtualRegister(&MMIX::GPRRegClass),
-                     MRI.createVirtualRegister(&MMIX::GPRRegClass),
-                     I.getOperand(0).getReg()};
-  for (int i = 0; i != 4; ++i) {
-    std::uint64_t V = (Value >> (16 * (3 - i))) & 0xFFFF;
-    auto Instr = MIB.buildInstr(Ops[i], {Regs[i + 1]}, {Regs[i], V});
-    if (!constrainSelectedInstRegOperands(*Instr, TII, TRI, RBI)) {
-      return false;
+  auto SrcReg = ImplicitReg;
+  for (int i = InstEnc::SETH; i <= InstEnc::ORL; ++i) {
+    std::uint16_t Part = 0;
+    switch (i & 0b0111) {
+    case 0:
+      Part = Val >> 48;
+      break;
+    case 1:
+      Part = Val >> 32;
+      break;
+    case 2:
+      Part = Val >> 16;
+      break;
+    case 3:
+      Part = Val;
+      break;
+    }
+    if (Part || i == InstEnc::SETL) {
+      auto DstReg = MRI.createVirtualRegister(&MMIX::GPRRegClass);
+      auto Instr =
+          MIB.buildInstr(GetInstValue(i), {DstReg}, {SrcReg, Val & 0xFFFF});
+      constrainSelectedInstRegOperands(*Instr, TII, TRI, RBI);
+      assert(MRI.getRegClass(DstReg));
+      SrcReg = DstReg;
+      i |= InstEnc::ORH;
     }
   }
+
+  // I don't know why can't replace all the usage
+  constrainGenericOp(*MIB.buildCopy(I.getOperand(0).getReg(), SrcReg));
   I.eraseFromParent();
   return true;
 }
@@ -208,7 +254,6 @@ bool MMIXInstructionSelector::select(MachineInstr &I) {
   default:
     return false;
   }
-  return false;
 }
 
 InstructionSelector * ::llvm::createMMIXInstructionSelector(

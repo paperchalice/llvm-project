@@ -37,8 +37,11 @@ MMIXRegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
       NumOperands);
   for (unsigned Idx = 0; Idx < NumOperands; ++Idx) {
     if (MI.getOperand(Idx).isReg()) {
-      LLT Ty = MRI.getType(MI.getOperand(Idx).getReg());
-      auto Size = Ty.getSizeInBits();
+      auto R = MI.getOperand(Idx).getReg();
+      LLT Ty = MRI.getType(R);
+      auto Size = 64;
+      if (Ty.isValid())
+        Size = Ty.getSizeInBits();
       ValMappings[Idx] = &getValueMapping(0, Size, MMIX::GPRBank);
     }
   }
@@ -51,9 +54,9 @@ const RegisterBank &
 MMIXRegisterBankInfo::getRegBankFromRegClass(const TargetRegisterClass &RC,
                                              LLT Ty) const {
   switch (RC.getID()) {
-  case MMIX::GPRRegClassID:
-    return getRegBank(MMIX::GPRBankID);
+  case MMIX::SPRRegClassID:
+    return getRegBank(MMIX::SPRRegClassID);
   default:
-    llvm_unreachable("Register class not supported");
+    return getRegBank(MMIX::GPRRegClassID);
   }
 }

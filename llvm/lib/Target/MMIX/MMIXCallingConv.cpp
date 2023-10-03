@@ -13,7 +13,7 @@
 
 #include "MMIXCallingConv.h"
 #include "MMIXRegisterInfo.h"
-
+#include "llvm/IR/DataLayout.h"
 using namespace llvm;
 
 #include "MMIXGenCallingConv.inc"

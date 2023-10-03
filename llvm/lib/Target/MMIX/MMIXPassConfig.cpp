@@ -1,6 +1,10 @@
 #include "MMIXPassConfig.h"
 #include "GlobalISel/MMIXCombiner.h"
 
+namespace llvm {
+
+}
+
 using namespace llvm;
 
 MMIXPassConfig::MMIXPassConfig(MMIXTargetMachine &TM, PassManagerBase &PM)
@@ -33,10 +37,6 @@ bool MMIXPassConfig::addGlobalInstructionSelect() {
 }
 
 // TODO: use custom register allocator to handle DEK calling convention
-FunctionPass *MMIXPassConfig::createTargetRegisterAllocator(bool Optimized) {
-  if (Optimized)
-    return createGreedyRegisterAllocator();
-  else
-    return createFastRegisterAllocator();
+FunctionPass *MMIXPassConfig::createTargetRegisterAllocator(bool) {
+  return createGreedyRegisterAllocator();
 }
-

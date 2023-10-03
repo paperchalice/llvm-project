@@ -15,12 +15,15 @@
 #include "MMIXCallLowering.h"
 #include "MMIXCallingConv.h"
 #include "MMIXInstrInfo.h"
+#include "MMIXRegisterInfo.h"
 #include "MMIXTargetLowering.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/Register.h"
 #include "llvm/Support/Debug.h"
+
+#include <algorithm>
 
 #define DEBUG_TYPE "mmix-call-lowering"
 
@@ -30,6 +33,8 @@ MMIXCallLowering::MMIXCallLowering(const TargetLowering &TLI)
 
 bool MMIXCallLowering::enableBigEndian() const { return true; }
 
+// the calling convention of mmix is somewhat obsecure
+// it uses register tuples to pass arguments
 bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
                                  CallLoweringInfo &Info) const {
   MachineFunction &MF = MIRBuilder.getMF();
@@ -37,40 +42,54 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   const DataLayout &DL = MF.getDataLayout();
   const TargetRegisterInfo *TRI = MRI.getTargetRegisterInfo();
 
+  MachineInstrBuilder Call;
+  if (Info.Callee.isReg())
+    Call =
+        MIRBuilder.buildInstrNoInsert(MMIX::CALL).addReg(Info.Callee.getReg());
+  else
+    Call = MIRBuilder.buildInstrNoInsert(MMIX::CALL).add(Info.Callee);
+
+  std::size_t TupleSize = 0;
+
+  // handle arguments passing
+  SmallVector<ArgInfo, 8> InArgs;
+  for (auto &OrigArg : Info.OrigArgs)
+    splitToValueTypes(OrigArg, InArgs, DL, Info.CallConv);
+  TupleSize += InArgs.size() + 1;
+
+  // handle return type
   SmallVector<ArgInfo, 8> OutArgs;
-  for (auto &OrigArg : Info.OrigArgs) {
-    splitToValueTypes(OrigArg, OutArgs, DL, Info.CallConv);
-  }
-  // PUSHJ will auto save masked registers, except the X
-  auto Call = MIRBuilder.buildInstrNoInsert(MMIX::PUSHJ);
-
-  Call.addReg(MMIX::r15)
-      .addImm(0)
-      .addRegMask(TRI->getCallPreservedMask(MF, Info.CallConv))
-      .addDef(MMIX::r15, RegState::Implicit);
-
-  MMIXOutgoingValueHandler Handler(MIRBuilder, MRI);
-  OutgoingValueAssigner Assigner(CC_MMIX_Knuth_Caller);
-
-  bool Success = determineAndHandleAssignments(
-      Handler, Assigner, OutArgs, MIRBuilder, Info.CallConv, Info.IsVarArg);
-  if (!Success)
-    return false;
-
-  if (Info.Callee.isReg()) {
-    MIRBuilder.buildInstr(MMIX::PUSHGOI, {Register(MMIX::r15)},
-                          {Info.Callee.getReg(), static_cast<uint64_t>(0)});
-  } else {
-    MIRBuilder.insertInstr(Call);
-  }
-
   if (!Info.OrigRet.Ty->isVoidTy()) {
-    SmallVector<ArgInfo, 8> InArgs;
-    splitToValueTypes(Info.OrigRet, InArgs, DL, Info.CallConv);
-    MMIXIncomingValueHandler RetHandler(MIRBuilder, MRI);
-    IncomingValueAssigner RetAssigner(RetCC_MMIX_Knuth_Caller);
-    determineAndHandleAssignments(RetHandler, RetAssigner, InArgs, MIRBuilder,
-                                  Info.CallConv, Info.IsVarArg);
+    splitToValueTypes(Info.OrigRet, OutArgs, DL, Info.CallConv);
+    TupleSize = std::max(TupleSize, OutArgs.size());
+  }
+
+  // construct a implicit register tuple to hold arguments
+  auto RegTupe = MRI.createVirtualRegister(TRI->getRegClass(TupleSize));
+  MIRBuilder.buildInstr(TargetOpcode::IMPLICIT_DEF, {RegTupe}, {});
+  auto FinalReg = RegTupe;
+  for (std::size_t i = 0, sz = InArgs.size(); i != sz; ++i) {
+    auto InArg = InArgs[i];
+    // use tablegen feature, TupleSize == RegTuple<TupleSize>RegClassID
+    auto NewReg = MRI.createVirtualRegister(TRI->getRegClass(TupleSize));
+    MIRBuilder.buildInstr(TargetOpcode::INSERT_SUBREG)
+        .addReg(NewReg, RegState::Define)
+        .addReg(FinalReg)
+        .addReg(InArg.Regs[0])
+        .addImm(i + sub0 + 1);
+    FinalReg = NewReg;
+  }
+  Call.addReg(FinalReg);
+
+  MIRBuilder.insertInstr(Call);
+
+  // extract final register
+  for (std::size_t i = 0, sz = OutArgs.size(); i != sz; ++i) {
+    auto OutArg = OutArgs[i];
+    MIRBuilder.buildInstr(TargetOpcode::EXTRACT_SUBREG)
+        .addReg(OutArg.Regs[0], RegState::Define)
+        .addReg(FinalReg)
+        .addImm(i + sub0);
   }
   return true;
 }
@@ -131,7 +150,9 @@ bool MMIXCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   }
 
   bool Success = true;
-  auto Ret = MIRBuilder.buildInstrNoInsert(MMIX::POP).addImm(1).addImm(0);
+  auto Ret =
+      MIRBuilder.buildInstrNoInsert(MMIX::POP).addImm(1).addImm(0).addUse(
+          MMIX::r0, RegState::Implicit);
   MMIXOutgoingValueHandler Handler(MIRBuilder, MRI);
   OutgoingValueAssigner Assigner(RetCC_MMIX_Knuth);
   Success =

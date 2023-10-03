@@ -117,7 +117,7 @@ bool MMIXCombiner::runOnMachineFunction(MachineFunction &MF) {
                      /*LegalizerInfo*/ nullptr, /*EnableOpt*/ false,
                      F.hasOptSize(), F.hasMinSize());
   MMIXCombinerImpl Impl(MF, CInfo, &TPC, *KB,
-                        /*CSEInfo*/ nullptr, RuleConfig, ST);
+                        /*CSEInfo*/ nullptr, RuleConfig, ST);    
   return Impl.combineMachineInstrs();
 }
 

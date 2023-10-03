@@ -279,7 +279,7 @@ let mayStore = true in defm PREST : Inst__irri<0xBA, true>;
 
 defm SYNCID : Inst__irri<0xBC, true>;
 
-let isBranch = true, Defs = [rJ] in defm PUSHGO : Inst__rrri<0xBE, true>;
+let isBranch = true, Defs = [rJ] in defm PUSHGO : Inst_r_rri<0xBE, true>;
 
 defm OR : Inst_r_rri<0xC0>;
 let EmitPriority = 1 in def : InstAlias<"SET\t$X,$Y", (ORI GPR
@@ -354,7 +354,6 @@ def ANDNL : Inst_r_ui16imm<0xEF>;
 defm JMP : Inst_jmpb<0xF0>;
 
 let isCall = true, Defs=[rJ] in defm PUSHJ : Inst__push<0xF2>;
-let isAsmParserOnly = true in defm PUSHJ_imm: Inst__push<0xF2>;
 
 defm GETA : Inst_r_branch<0xF4>;
 

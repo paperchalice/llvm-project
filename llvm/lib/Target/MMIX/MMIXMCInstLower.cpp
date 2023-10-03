@@ -10,6 +10,7 @@ MMIXMCInstLower::MMIXMCInstLower(MCContext &Ctx, const AsmPrinter &AP)
 
 void MMIXMCInstLower::lower(const MachineInstr *MI, MCInst &OutMI) {
   assert(MI && "MI is nullptr");
+  outs() << "TODO: implement " << __func__ << " in " << __FILE__ << '\n';
   MI->dump();
   switch (MI->getOpcode()) {
   default:
@@ -46,5 +47,4 @@ bool MMIXMCInstLower::lowerOperand(const MachineOperand &MO, MCOperand &MCOp) {
   default:
     return false;
   }
-  return true;
 }

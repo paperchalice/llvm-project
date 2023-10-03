@@ -6,6 +6,9 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+//
+// This class is responsible for converting MachineInstr -> MCInst
+//
 
 #ifndef LLVM_LIB_TARGET_MMIX_MMIXMCINSTLOWER_H
 #define LLVM_LIB_TARGET_MMIX_MMIXMCINSTLOWER_H

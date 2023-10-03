@@ -76,10 +76,10 @@ MMIXLegalizerInfo::MMIXLegalizerInfo(const MMIXSubtarget &ST) {
                                  {s64, p0, s64, 64}});
 
   getActionDefinitionsBuilder({G_STORE, G_INDEXED_STORE})
-      .legalForTypesWithMemDesc({{s64, p0, s8, 8},
-                                 {s64, p0, s16, 16},
-                                 {s64, p0, s32, 32},
-                                 {s64, p0, s64, 64}});
+      .legalForTypesWithMemDesc({{s64, p0, s8, 1},
+                                 {s64, p0, s16, 1},
+                                 {s64, p0, s32, 1},
+                                 {s64, p0, s64, 1}});
 
   getActionDefinitionsBuilder(
       {G_ATOMIC_CMPXCHG_WITH_SUCCESS, G_ATOMIC_CMPXCHG, G_ATOMICRMW_XCHG,

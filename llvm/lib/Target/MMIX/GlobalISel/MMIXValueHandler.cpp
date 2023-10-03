@@ -19,18 +19,32 @@ MMIXCallLowering::MMIXOutgoingValueHandler::MMIXOutgoingValueHandler(
 Register MMIXCallLowering::MMIXOutgoingValueHandler::getStackAddress(
     uint64_t Size, int64_t Offset, MachinePointerInfo &MPO,
     ISD::ArgFlagsTy Flags) {
-  return Register{};
+  auto &MF = MIRBuilder.getMF();
+
+  unsigned PtrSize = MIRBuilder.getDataLayout().getPointerSizeInBits();
+  auto AS = MIRBuilder.getDataLayout().getAllocaAddrSpace();
+
+  LLT p0 = LLT::pointer(AS, PtrSize);
+  LLT s64 = LLT::scalar(PtrSize);
+
+  auto SPReg = MIRBuilder.buildCopy(p0, Register(MMIX::r254)).getReg(0);
+  auto OffsetReg = MIRBuilder.buildConstant(s64, Offset);
+  auto AddrReg = MIRBuilder.buildPtrAdd(p0, SPReg, OffsetReg);
+  MPO = MachinePointerInfo::getStack(MF, Offset);
+  return AddrReg.getReg(0);
 }
 
 void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToReg(
-    Register ValVReg, Register PhysReg, CCValAssign VA) {
-    Register ExtReg = extendRegister(ValVReg, VA);
-    MIRBuilder.buildCopy(PhysReg, ExtReg);
-}
+    Register ValVReg, Register PhysReg, CCValAssign VA) {}
 
 void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToAddress(
     Register ValVReg, Register Addr, LLT MemTy, MachinePointerInfo &MPO,
-    CCValAssign &VA) {}
+    CCValAssign &VA) {
+  MachineFunction &MF = MIRBuilder.getMF();
+  auto *MMO = MF.getMachineMemOperand(MPO, MachineMemOperand::MOStore, MemTy,
+                                      inferAlignFromPtrInfo(MF, MPO));
+  MIRBuilder.buildStore(ValVReg, Addr, *MMO);
+}
 
 // MMIXIncomingValueHandler
 
@@ -46,11 +60,11 @@ Register MMIXCallLowering::MMIXIncomingValueHandler::getStackAddress(
   // are not.
   const bool IsImmutable = !Flags.isByVal();
   unsigned PtrSize = MIRBuilder.getDataLayout().getPointerSizeInBits();
-  auto AS = MIRBuilder.getDataLayout().getDefaultGlobalsAddressSpace();
 
   int FI = MFI.CreateFixedObject(Size, Offset, IsImmutable);
   MPO = MachinePointerInfo::getFixedStack(MIRBuilder.getMF(), FI);
-  auto AddrReg = MIRBuilder.buildFrameIndex(LLT::pointer(AS, PtrSize), FI);
+  auto AddrReg =
+      MIRBuilder.buildFrameIndex(LLT::pointer(MPO.AddrSpace, PtrSize), FI);
   return AddrReg.getReg(0);
 }
 
@@ -63,8 +77,8 @@ void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToReg(
   case CCValAssign::LocInfo::SExt:
   case CCValAssign::LocInfo::ZExt:
   case CCValAssign::LocInfo::AExt: {
-    auto Copy = MIRBuilder.buildCopy(LLT{VA.getLocVT()}, PhysReg);
-    MIRBuilder.buildTrunc(ValVReg, Copy);
+    // auto Ext = MIRBuilder.buildAnyExt(LLT{VA.getValVT()}, ValVReg);
+    MIRBuilder.buildCopy(PhysReg, ValVReg);
   } break;
   case CCValAssign::LocInfo::SExtUpper:
   case CCValAssign::LocInfo::ZExtUpper:

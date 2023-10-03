@@ -26,7 +26,10 @@
 
 using namespace llvm;
 
-MMIXInstrInfo::MMIXInstrInfo(MMIXSubtarget &STI) : STI(STI) {}
+MMIXInstrInfo::MMIXInstrInfo(MMIXSubtarget &STI)
+    : MMIXGenInstrInfo(MMIX::ADJCALLSTACKDOWN, MMIX::ADJCALLSTACKUP, ~0u,
+                       MMIX::POP),
+      STI(STI) {}
 
 void MMIXInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator MI,
@@ -42,6 +45,30 @@ void MMIXInstrInfo::storeRegToStackSlot(
     bool isKill, int FrameIndex, const TargetRegisterClass *RC,
     const TargetRegisterInfo *TRI, Register VReg) const {
   outs() << "TODO: implement " << __func__ << "\n";
+  outs() << "store reg: " << SrcReg.id() << " to index " << FrameIndex << '\n';
+  auto &MF = *MBB.getParent();
+  auto &MFI = MF.getFrameInfo();
+
+  auto PtrInfo = MachinePointerInfo::getFixedStack(MF, FrameIndex);
+  auto *MMO = MF.getMachineMemOperand(PtrInfo, MachineMemOperand::MOStore,
+                                      MFI.getObjectSize(FrameIndex),
+                                      MFI.getObjectAlign(FrameIndex));
+
+  MachineIRBuilder Builder(MBB, MI);
+  if (RC->getID() == MMIX::SPRRegClassID) {
+    Builder.buildInstr(MMIX::GET).addDef(MMIX::r16).addReg(SrcReg);
+    Builder.buildInstr(MMIX::STOU)
+        .addReg(MMIX::r16, RegState::Kill)
+        .addReg(MMIX::r254)
+        .addFrameIndex(FrameIndex)
+        .addMemOperand(MMO);
+  } else {
+    assert(RC->getID() == MMIX::GPRRegClassID && "uknown register class ID!");
+    Builder.buildInstr(MMIX::STOU)
+        .addReg(SrcReg)
+        .addFrameIndex(FrameIndex)
+        .addMemOperand(MMO);
+  }
 }
 
 void MMIXInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
@@ -51,6 +78,7 @@ void MMIXInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                          const TargetRegisterInfo *TRI,
                                          Register VReg) const {
   outs() << "TODO: implement " << __func__ << "\n";
+  outs() << "load reg: " << DestReg.id() << " to index " << FrameIndex << '\n';
 }
 #define GET_INSTRINFO_CTOR_DTOR
 #include "MMIXGenInstrInfo.inc"

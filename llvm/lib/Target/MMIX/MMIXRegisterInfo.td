@@ -89,4 +89,25 @@ def SPR : RegisterClass<"MMIX", [i64], 64,
                          rYY, rZZ)> {
   let isAllocatable = false;
 }
+
+def GeneralPurposeRegisters : RegisterCategory<[GPR]>;
+
+
+// register tuple
+foreach i = {0...63} in {
+def sub#i : SubRegIndex<64>;
+}
+
+def MMIXRegTuple2: RegisterTuples<[sub0, sub1], [(rotl GPR, 0), (rotl GPR, 1)]>;
+foreach i = {3...20} in {
+  def MMIXRegTuple # i: RegisterTuples<!listconcat(!cast<RegisterTuples>("MMIXRegTuple"#!sub(i,1)).SubRegIndices, [!cast<SubRegIndex>("sub" # !sub(i,1))]),
+    !listconcat(!cast<RegisterTuples>("MMIXRegTuple"#!sub(i,1)).SubRegs, [(rotl GPR, !sub(i,1))])>;
+}
+
+foreach i = {2...20} in {
+  def RegTuple # i :  RegisterClass<"MMIX", [untyped], 64, (add !cast<RegisterTuples>("MMIXRegTuple"#i))> {
+  let Size = !mul(i, 64);
+}
+}
+
 #endif // LLVM_LIB_TARGET_MMIX_MMIXREGISTERINFO_TD

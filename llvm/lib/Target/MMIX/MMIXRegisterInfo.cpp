@@ -30,7 +30,7 @@ MMIXRegisterInfo::MMIXRegisterInfo() : MMIXGenRegisterInfo(MMIX::r0) {}
 const uint32_t *
 MMIXRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
                                        CallingConv::ID) const {
-  return CSR_MMIX_Knuth_RegMask;
+  return CSR_MMIX_Knuth_RegMask; // this mask specifies register that are not clobbered by PUSH*
 }
 
 const MCPhysReg *
@@ -57,7 +57,8 @@ bool MMIXRegisterInfo::isAsmClobberable(const MachineFunction &MF,
 bool MMIXRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
                                            int SPAdj, unsigned FIOperandNum,
                                            RegScavenger *RS) const {
-  return true;
+  outs() << "TODO: handle eliminate\n";
+  return false;
 }
 
 Register MMIXRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
