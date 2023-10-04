@@ -35,7 +35,10 @@ Register MMIXCallLowering::MMIXOutgoingValueHandler::getStackAddress(
 }
 
 void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToReg(
-    Register ValVReg, Register PhysReg, CCValAssign VA) {}
+    Register ValVReg, Register PhysReg, CCValAssign VA) {
+  Register ExtReg = extendRegister(ValVReg, VA);
+  MIRBuilder.buildCopy(PhysReg, ExtReg);
+}
 
 void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToAddress(
     Register ValVReg, Register Addr, LLT MemTy, MachinePointerInfo &MPO,
