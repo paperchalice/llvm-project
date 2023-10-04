@@ -68,7 +68,7 @@ MMIXCombinerImpl::MMIXCombinerImpl(MachineFunction &MF, CombinerInfo &CInfo,
 {
 }
 
-const char *MMIXCombinerImpl::getName() { return "MMIXCombiner"; }
+const char *MMIXCombinerImpl::getName() { return DEBUG_TYPE; }
 
 bool MMIXCombinerImpl::tryCombineAll(MachineInstr &I) const {
   return tryCombineAllImpl(I);

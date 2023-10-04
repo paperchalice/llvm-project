@@ -43,14 +43,12 @@ private:
   /// ```G_CONSTANT i64 X``` ->
   /// %0:gpr = IMPLICIT_DEF
   /// %1:gpr = SETH %0, X[48..63]
-  /// %2:gpr = SETMH %1, X[32...47]
-  /// %3:gpr = SETML %2, X[16...31]
-  /// %4:gpr = SETL %3, X[0...15]
+  /// %2:gpr = ORMH %1, X[32...47]
+  /// %3:gpr = ORML %2, X[16...31]
+  /// %4:gpr = ORL %3, X[0...15]
   /// @param I
   /// @return true if succcess
   bool selectG_CONSTANT(MachineInstr &I) const;
-
-  bool selectG_ADD(MachineInstr &I) const;
 
   const MMIXSubtarget &STI;
   const MMIXInstrInfo &TII;
@@ -191,42 +189,6 @@ bool MMIXInstructionSelector::selectG_CONSTANT(MachineInstr &I) const {
   return true;
 }
 
-bool MMIXInstructionSelector::selectG_ADD(MachineInstr &I) const {
-  assert(I.getOpcode() == TargetOpcode::G_ADD && "not G_ADD");
-  LLVM_DEBUG(dbgs() << "selecting for instruction: ");
-  LLVM_DEBUG(I.dump());
-
-  MachineIRBuilder MIB(I);
-  MachineBasicBlock &MBB = *I.getParent();
-  MachineFunction &MF = *MBB.getParent();
-  MachineRegisterInfo &MRI = MF.getRegInfo();
-
-  if (std::uint8_t ImmVal;
-      mi_match(I, MRI, m_GAdd(m_Reg(), m_UI8Cst(ImmVal)))) {
-    // select ADDI
-    auto Instr = MIB.buildInstr(MMIX::ADDI, {I.getOperand(0)},
-                                {I.getOperand(1), std::int64_t(ImmVal)});
-    if (!constrainSelectedInstRegOperands(*Instr, TII, TRI, RBI)) {
-      return false;
-    }
-    I.eraseFromParent();
-    return true;
-  }
-
-  if (mi_match(I, MRI, m_GAdd(m_Reg(), m_Reg()))) {
-    // select ADD
-    auto Instr = MIB.buildInstr(MMIX::ADDI, {I.getOperand(0)},
-                                {I.getOperand(1), I.getOperand(2)});
-    if (!constrainSelectedInstRegOperands(*Instr, TII, TRI, RBI)) {
-      return false;
-    }
-    I.eraseFromParent();
-    return true;
-  }
-
-  return false;
-}
-
 bool MMIXInstructionSelector::select(MachineInstr &I) {
   LLVM_DEBUG(dbgs() << "select for instruction: ");
   LLVM_DEBUG(I.dump());
@@ -248,11 +210,8 @@ bool MMIXInstructionSelector::select(MachineInstr &I) {
   switch (I.getOpcode()) {
   case G_CONSTANT:
     return selectG_CONSTANT(I);
-  case G_ADD: {
-    return selectG_ADD(I);
-  }
   default:
-    return false;
+    return true;
   }
 }
 
