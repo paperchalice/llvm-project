@@ -76,7 +76,7 @@ def SFR : RegisterOperand<SPR> { let ParserMatchClass = SFRAsmOperand; }
 
 def jump_dest : Operand<OtherVT> { let ParserMatchClass = MemAsmOperand; }
 
-def branch_dest : Operand<i16> { let ParserMatchClass = MemAsmOperand; }
+def branch_dest : Operand<OtherVT> { let ParserMatchClass = MemAsmOperand; }
 
 class UImmAsmOperand<int width> : AsmOperandClass {
   let Name = "UImm" #width;
