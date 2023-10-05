@@ -29,6 +29,16 @@ def CC_MMIX_Knuth_Caller_Reg : CallingConv<[
            ]>>,
 ]>;
 
+let Entry = 1 in def CC_MMIX_Knuth_Stack : CallingConv<[
+  CCIfType<[iPTR], CCBitConvertToType<i64>>,
+
+  // stack
+  CCIfType<[i8], CCAssignToStack<1, 1>>,
+  CCIfType<[i16], CCAssignToStack<2, 2>>,
+  CCIfType<[i32], CCAssignToStack<4, 4>>,
+  CCIfType<[i64], CCAssignToStack<8, 8>>,
+]>;
+
 let Entry = 1 in def CC_MMIX_Knuth : CallingConv<[
   CCIfType<[iPTR], CCBitConvertToType<i64>>,
   CCIfType<[i1, i8, i16, i32, i64], CCDelegateTo<CC_MMIX_Knuth_Reg>>,
