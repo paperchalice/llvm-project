@@ -415,5 +415,5 @@ def GET : Inst_X__Z<0xFE, (outs GPR : $X), (ins SFR : $Z), "GET">;
 defm TRIP : Inst_trip_trap<0xFF>;
 def : InstAlias<"TRIP", (TRIP 0)>;
 
-include "MMIXInstrPattern"
+include "MMIXInstrPattern.td"
 #endif
