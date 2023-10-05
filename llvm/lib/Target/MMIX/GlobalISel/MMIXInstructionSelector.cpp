@@ -211,7 +211,7 @@ bool MMIXInstructionSelector::select(MachineInstr &I) {
   case G_CONSTANT:
     return selectG_CONSTANT(I);
   default:
-    return true;
+    return false;
   }
 }
 

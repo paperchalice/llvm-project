@@ -342,6 +342,13 @@ multiclass Inst_r_rri<bits<8> opcode, bit base = false, string opstr = NAME> {
     }
 }
 
+multiclass Inst_czs<bits<8> opcode, string opstr = NAME> {
+  let Constraints = "$X = $X0" in {
+  def "" : Inst_X_Y_Z<opcode, (outs GPR:$X), (ins GPR:$X0, GPR:$Y, GPR:$Z), opstr>;
+  def I : Inst_X_Y_Z<!or(opcode, 1), (outs GPR:$X), (ins GPR:$X0, GPR:$Y, ui8imm:$Z), opstr>;
+  }
+}
+
 multiclass Inst_r_iri<bits<8> opcode, string opstr> {
   def "" : Inst_r_ir<opcode, opstr>;
   def I : Inst_r_ii<!or(opcode, 1), opstr>;

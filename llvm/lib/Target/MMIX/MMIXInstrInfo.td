@@ -200,37 +200,37 @@ defm PBNP : Inst__rbranch<0x5C>;
 
 defm PBEV : Inst__rbranch<0x5E>;
 
-defm CSN : Inst_r_rri<0x60>;
+defm CSN : Inst_czs<0x60>;
 
-defm CSZ : Inst_r_rri<0x62>;
+defm CSZ : Inst_czs<0x62>;
 
-defm CSP : Inst_r_rri<0x64>;
+defm CSP : Inst_czs<0x64>;
 
-defm CSOD : Inst_r_rri<0x66>;
+defm CSOD : Inst_czs<0x66>;
 
-defm CSNN : Inst_r_rri<0x68>;
+defm CSNN : Inst_czs<0x68>;
 
-defm CSNZ : Inst_r_rri<0x6A>;
+defm CSNZ : Inst_czs<0x6A>;
 
-defm CSNP : Inst_r_rri<0x6C>;
+defm CSNP : Inst_czs<0x6C>;
 
-defm CSEV : Inst_r_rri<0x6E>;
+defm CSEV : Inst_czs<0x6E>;
 
-defm ZSN : Inst_r_rri<0x70>;
+defm ZSN : Inst_czs<0x70>;
 
-defm ZSZ : Inst_r_rri<0x72>;
+defm ZSZ : Inst_czs<0x72>;
 
-defm ZSP : Inst_r_rri<0x74>;
+defm ZSP : Inst_czs<0x74>;
 
-defm ZSOD : Inst_r_rri<0x76>;
+defm ZSOD : Inst_czs<0x76>;
 
-defm ZSNN : Inst_r_rri<0x78>;
+defm ZSNN : Inst_czs<0x78>;
 
-defm ZSNZ : Inst_r_rri<0x7A>;
+defm ZSNZ : Inst_czs<0x7A>;
 
-defm ZSNP : Inst_r_rri<0x7C>;
+defm ZSNP : Inst_czs<0x7C>;
 
-defm ZSEV : Inst_r_rri<0x7E>;
+defm ZSEV : Inst_czs<0x7E>;
 
 let mayLoad = true in {
   defm LDB : Inst_r_rri<0x80, true>;
@@ -540,5 +540,27 @@ def :Pat<(not (xor i64:$Y, ui8imm:$Z)), (NXORI i64:$Y, ui8imm:$Z)>;
 
 // mux
 
+// comparison
+def :Pat<(setugt i64:$Y, i64:$Z), (i64 (CSPI (SETL (IMPLICIT_DEF), 0), (CMPU i64:$Y, i64:$Z), 1))>;
+def :Pat<(setugt i64:$Y, ui8imm:$Z), (i64 (CSPI (SETL (IMPLICIT_DEF), 0), (CMPUI i64:$Y, ui8imm:$Z), 1))>;
+def :Pat<(setuge i64:$Y, i64:$Z), (i64 (CSNNI (SETL (IMPLICIT_DEF), 0), (CMPU i64:$Y, i64:$Z), 1))>;
+def :Pat<(setuge i64:$Y, ui8imm:$Z), (i64 (CSNNI (SETL (IMPLICIT_DEF), 0), (CMPUI i64:$Y, ui8imm:$Z), 1))>;
+def :Pat<(setult i64:$Y, i64:$Z), (i64 (CSNI (SETL (IMPLICIT_DEF), 0), (CMPU i64:$Y, i64:$Z), 1))>;
+def :Pat<(setult i64:$Y, ui8imm:$Z), (i64 (CSNI (SETL (IMPLICIT_DEF), 0), (CMPUI i64:$Y, ui8imm:$Z), 1))>;
+def :Pat<(setule i64:$Y, i64:$Z), (i64 (CSNPI (SETL (IMPLICIT_DEF), 0), (CMPU i64:$Y, i64:$Z), 1))>;
+def :Pat<(setule i64:$Y, ui8imm:$Z), (i64 (CSNPI (SETL (IMPLICIT_DEF), 0), (CMPUI i64:$Y, ui8imm:$Z), 1))>;
+def :Pat<(seteq i64:$Y, i64:$Z), (i64 (CSZI (SETL (IMPLICIT_DEF), 0), (CMP i64:$Y, i64:$Z), 1))>;
+def :Pat<(seteq i64:$Y, ui8imm:$Z), (i64 (CSZI (SETL (IMPLICIT_DEF), 0), (CMPI i64:$Y, ui8imm:$Z), 1))>;
+def :Pat<(setgt i64:$Y, i64:$Z), (i64 (CSPI (SETL (IMPLICIT_DEF), 0), (CMP i64:$Y, i64:$Z), 1))>;
+def :Pat<(setgt i64:$Y, ui8imm:$Z), (i64 (CSPI (SETL (IMPLICIT_DEF), 0), (CMPI i64:$Y, ui8imm:$Z), 1))>;
+def :Pat<(setge i64:$Y, i64:$Z), (i64 (CSNNI (SETL (IMPLICIT_DEF), 0), (CMP i64:$Y, i64:$Z), 1))>;
+def :Pat<(setge i64:$Y, ui8imm:$Z), (i64 (CSNNI (SETL (IMPLICIT_DEF), 0), (CMPI i64:$Y, ui8imm:$Z), 1))>;
+def :Pat<(setlt i64:$Y, i64:$Z), (i64 (CSNI (SETL (IMPLICIT_DEF), 0), (CMP i64:$Y, i64:$Z), 1))>;
+def :Pat<(setlt i64:$Y, ui8imm:$Z), (i64 (CSNI (SETL (IMPLICIT_DEF), 0), (CMPI i64:$Y, ui8imm:$Z), 1))>;
+def :Pat<(setle i64:$Y, i64:$Z), (i64 (CSNPI (SETL (IMPLICIT_DEF), 0), (CMP i64:$Y, i64:$Z), 1))>;
+def :Pat<(setle i64:$Y, ui8imm:$Z), (i64 (CSNPI (SETL (IMPLICIT_DEF), 0), (CMPI i64:$Y, ui8imm:$Z), 1))>;
+def :Pat<(setne i64:$Y, i64:$Z), (i64 (CSNZI (SETL (IMPLICIT_DEF), 0), (CMP i64:$Y, i64:$Z), 1))>;
+def :Pat<(setne i64:$Y, ui8imm:$Z), (i64 (CSNZI (SETL (IMPLICIT_DEF), 0), (CMPI i64:$Y, ui8imm:$Z), 1))>;
+def :Pat<(select i64:$cond, i64:$b1, i64:$b0), (CSZ i64:$b1, i64:$cond, i64:$b0)>;
 // def :Pat<(usubsat v8i8:$Y, v8i8:$Z), (BDIF v8i8:$Y, v8i8:$Z)>;
 #endif

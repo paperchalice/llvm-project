@@ -119,7 +119,9 @@ MMIXLegalizerInfo::MMIXLegalizerInfo(const MMIXSubtarget &ST) {
   getActionDefinitionsBuilder({G_FSHL, G_FSHR, G_ROTR, G_ROTL});
 
   getActionDefinitionsBuilder({G_ICMP, G_FCMP, G_SELECT})
-      .legalForCartesianProduct({s64});
+      .legalForCartesianProduct({s64, s64, s64, s64})
+      .clampScalar(0, s64, s64)
+      .clampScalar(1, s64, s64);
 
   getActionDefinitionsBuilder({G_UADDO, G_UADDE, G_USUBO, G_USUBE});
 
