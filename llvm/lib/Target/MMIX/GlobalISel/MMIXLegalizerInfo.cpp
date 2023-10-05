@@ -91,7 +91,8 @@ MMIXLegalizerInfo::MMIXLegalizerInfo(const MMIXSubtarget &ST) {
 
   getActionDefinitionsBuilder(G_FENCE);
 
-  getActionDefinitionsBuilder(G_BRCOND).legalFor({s64});
+  getActionDefinitionsBuilder(G_BRCOND).legalFor({s64}).clampScalar(0, s64,
+                                                                    s64);
 
   getActionDefinitionsBuilder(G_BRINDIRECT).legalFor({p0});
 

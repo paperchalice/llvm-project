@@ -49,6 +49,7 @@ private:
   /// @param I
   /// @return true if succcess
   bool selectG_CONSTANT(MachineInstr &I) const;
+  bool selectG_PHI(MachineInstr &I) const;
 
   const MMIXSubtarget &STI;
   const MMIXInstrInfo &TII;
@@ -189,6 +190,21 @@ bool MMIXInstructionSelector::selectG_CONSTANT(MachineInstr &I) const {
   return true;
 }
 
+bool MMIXInstructionSelector::selectG_PHI(MachineInstr &I) const {
+  MachineBasicBlock &MBB = *I.getParent();
+  MachineFunction &MF = *MBB.getParent();
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+
+  I.setDesc(TII.get(TargetOpcode::PHI));
+
+  Register DstReg = I.getOperand(0).getReg();
+  const TargetRegisterClass *RC = TRI.getRegClass(MMIX::GPRRegClassID);
+  if (!RBI.constrainGenericRegister(DstReg, *RC, MRI)) {
+    return false;
+  }
+  return true;
+}
+
 bool MMIXInstructionSelector::select(MachineInstr &I) {
   LLVM_DEBUG(dbgs() << "select for instruction: ");
   LLVM_DEBUG(I.dump());
@@ -208,8 +224,11 @@ bool MMIXInstructionSelector::select(MachineInstr &I) {
   MachineIRBuilder MIB(I);
 
   switch (I.getOpcode()) {
+  case G_PHI:
+    return selectG_PHI(I);
   case G_CONSTANT:
     return selectG_CONSTANT(I);
+  case G_BRCOND:return true;
   default:
     return false;
   }
