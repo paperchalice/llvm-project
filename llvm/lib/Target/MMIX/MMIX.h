@@ -15,11 +15,22 @@
 #define LLVM_LIB_TARGET_MMIX_MMIX_H
 
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Target/TargetMachine.h"
 
+#include <cstdint>
+
 namespace llvm {
 void initializeMMIXCombinerPass(PassRegistry &);
+
+namespace MMIX::backend {
+
+extern cl::opt<std::uint8_t> InitialGCounter;
+extern cl::opt<std::uint8_t> InitialLCounter;
+
+} // namespace MMIX::backend
+
 } // end namespace llvm
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIX_H

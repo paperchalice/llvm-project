@@ -20,6 +20,7 @@ tablegen(LLVM MMIXGenSearchableTables.inc -gen-searchable-tables)
 add_public_tablegen_target(MMIXCommonTableGen)
 
 add_llvm_target(MMIXCodeGen
+  MMIX.cpp
   MMIXAsmPrinter.cpp
   MMIXCallingConv.cpp
   MMIXCodeGenPassBuilder.cpp
