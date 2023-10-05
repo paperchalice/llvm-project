@@ -55,7 +55,7 @@ MMIXTargetMachine::MMIXTargetMachine(const Target &T, const Triple &TT,
                                      const TargetOptions &Options,
                                      std::optional<Reloc::Model> RM,
                                      std::optional<CodeModel::Model> CM,
-                                     CodeGenOpt::Level OL, bool JIT)
+                                     CodeGenOptLevel OL, bool JIT)
     : LLVMTargetMachine(T, MMIXDLStr, TT, CPU, FS, Options,
                         RM.value_or(Reloc::Model::Static),
                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
