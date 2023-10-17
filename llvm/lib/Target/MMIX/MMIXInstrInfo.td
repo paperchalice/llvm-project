@@ -57,25 +57,26 @@ def FCMP : Inst_r_rr<0x01> {
 
 def FUN : Inst_r_rr<0x02>;
 
-def FEQL : Inst_r_rr<0x03> { let isCompare = true; }
+def FEQL : Inst_r_rr<0x03> {
+  let isCompare = true;
+}
 
 def FADD : Inst_r_rr<0x04> {
   let isAdd = true;
   let mayRaiseFPException = true;
   let Defs = [rA];
+  let Pattern = [(set f64:$X, (fadd f64:$Y, f64:$Z))];
 }
 
-def FIX : Inst_r_roundz<0x05, "FIX"> {
+defm FIX : Inst_r_roundz<0x05, "FIX">;
+
+def FSUB : Inst_r_rr<0x06> {
   let mayRaiseFPException = true;
   let Defs = [rA];
+  let Pattern = [(set f64:$X, (fsub f64:$Y, f64:$Z))];
 }
-let EmitPriority = 1 in def : InstAlias<"FIX\t$X,$Z", (FIX GPR
-                                                       : $X, 0, GPR
-                                                       : $Z)>;
 
-def FSUB : Inst_r_rr<0x06>;
-
-def FIXU : Inst_r_roundz<0x07>;
+defm FIXU : Inst_r_roundz<0x07>;
 
 defm FLOT : Inst_r_roundzi<0x08>;
 defm FLOTU : Inst_r_roundzi<0x0A>;
@@ -85,6 +86,7 @@ defm SFLOTU : Inst_r_roundzi<0x0E>;
 def FMUL : Inst_r_rr<0x10> {
   let mayRaiseFPException = true;
   let Defs = [rA];
+  let Pattern = [(set f64:$X, (fmul f64:$Y, f64:$Z))];
 }
 
 let Uses = [rE], Defs = [rA] in {
@@ -99,12 +101,8 @@ def FDIV : Inst_r_rr<0x14> {
 }
 
 def FSQRT : Inst_X_Y_Z<0x15,
-                       (outs GPR
-                        : $X),
-                       (ins round_mode
-                        : $Y, GPR
-                        : $Z),
-                       "FSQRT"> {
+                       (outs GPR:$X),
+                       (ins round_mode: $Y,GPR:$Z)> {
   let mayRaiseFPException = true;
   let Defs = [rA];
 }
@@ -115,8 +113,7 @@ def FREM : Inst_r_rr<0x16> {
   let Defs = [rA];
 }
 
-def FINT : Inst_r_roundz<0x17>;
-def : InstAlias<"FINT\t$X,$Z", (FINT GPR : $X, 0, GPR : $Z)>;
+defm FINT : Inst_r_roundz<0x17>;
 
 let Defs = [rA] in defm MUL : Inst_r_rri<0x18>;
 

@@ -9,6 +9,18 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MMIXINSTRFORMATS_TD
 #define LLVM_LIB_TARGET_MMIX_MMIXINSTRFORMATS_TD
 
+// helper functions
+
+class IsUnsigned<string opstr> {
+  bit Val = !eq("U", !substr(opstr, !sub(!size(opstr), 1)));
+}
+
+class AcceptUI8imm<string opstr> {
+  bit Val = !eq("I", !substr(opstr, !sub(!size(opstr), 1)));
+}
+
+// Instruction class
+
 def InstEnc : GenericEnum {
   let FilterClass = "InstEncEnum";
   let NameField = "Name";
@@ -22,12 +34,12 @@ class InstEncEnum<bits<8> enc> {
 
 class MMIXInst<bits<8> opcode, dag oops, dag iops, string opstr, string argstr>
     : Instruction, InstEncEnum<opcode> {
-  field bits<32> Inst; // Instruction encoding.
+  bits<32> Inst; // Instruction encoding.
   // SoftFail is a field the disassembler can use to provide a way for
   // instructions to not match without killing the whole decode process. It is
   // mainly used for ARM, but Tablegen expects this field to exist or it fails
   // to build the decode table.
-  field bits<32> SoftFail = 0;
+  bits<32> SoftFail = 0;
   let Namespace = "MMIX";
   let Size = 4;
   let AsmString = opstr #"\t" #argstr;
@@ -120,7 +132,7 @@ def base_address : Operand<iPTR> {
   let ParserMatchClass = MemAsmOperand;
 }
 
-class Inst_X_Y_Z<bits<8> opcode, dag oops, dag iops, string opstr>
+class Inst_X_Y_Z<bits<8> opcode, dag oops, dag iops, string opstr=NAME>
     : MMIXInst<opcode, oops, iops, opstr, "$X,$Y,$Z"> {
   bits<8> X;
   bits<8> Y;
@@ -211,13 +223,12 @@ class Inst__rri<bits<8> opcode, string opstr> : Inst_X_Y_Z<opcode, (outs),
                                                             : $Z),
                                                            opstr>;
 
-class Inst_r_roundz<bits<8> opcode, string opstr = NAME> : Inst_X_Y_Z<opcode,
-                                                               (outs GPR
-                                                                : $X),
-                                                               (ins round_mode
-                                                                : $Y, GPR
-                                                                : $Z),
-                                                               opstr>;
+multiclass Inst_r_roundz<bits<8> opcode, string opstr = NAME> {
+  let mayRaiseFPException = !not(IsUnsigned<opstr>.Val) in
+    def "" : Inst_X_Y_Z<opcode, (outs GPR:$X), (ins round_mode:$Y, GPR:$Z), opstr>;
+  let EmitPriority = 1 in
+    def : InstAlias<opstr # "\t$X,$Z", (!cast<Inst_X_Y_Z>(opstr) GPR : $X, 0, GPR:$Z)>;
+}
 
 class Inst_J<bits<8> opcode, dag oops, dag iops, string opstr> : MMIXInst<opcode, oops, iops, opstr, "$X,$YZ"> {
   let isAsmParserOnly = true;
@@ -328,11 +339,18 @@ class Inst_jump<bits<8> opcode, string opstr> : Inst_XYZ<opcode, (outs),
 }
 
 multiclass Inst_r_rri<bits<8> opcode, bit base = false, string opstr = NAME> {
-  def "" : Inst_r_rr<opcode, opstr>;
-  def I : Inst_r_ri<!or(opcode, 1), opstr>;
+  def "" : Inst_r_rr<opcode, opstr> {
+    let Pattern = !if(!exists<SDNode>(!tolower(opstr)),
+      [(set i64:$X, (!cast<SDNode>(!tolower(opstr)) i64:$Y, i64:$Z))],
+      []);
+  }
+  def I : Inst_r_ri<!or(opcode, 1), opstr> {
+    let Pattern = !if(!exists<SDNode>(!tolower(opstr)),
+      [(set i64:$X, (!cast<SDNode>(!tolower(opstr)) i64:$Y, ui8imm:$Z))],
+      []);
+  }
 
-  if base
-    then {
+  if base  then {
       // FIXME: tablegen behavior related
       def J : Inst_J<!or(opcode, 1),
                             (outs GPR

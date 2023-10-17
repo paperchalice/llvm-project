@@ -79,19 +79,11 @@ i64:$X, i64:$Y, i64:$Z)>; def :Pat<(truncstorei32 (srl i64:$X, (i8 32)), (add
 i64:$Y, ui8imm:$Z)), (STHT i64:$X, i64:$Y, ui8imm:$Z)>;
 
 // add and sub
-def :Pat<(add i64:$Y, i64:$Z), (ADD i64:$Y, i64:$Z)>;
-def :Pat<(add i64:$Y, ui8imm:$Z), (ADDI i64:$Y, ui8imm:$Z)>;
-def :Pat<(add i64:$Y, i64:$Z), (ADDU i64:$Y, i64:$Z)>;
-def :Pat<(add i64:$Y, ui8imm:$Z), (ADDUI i64:$Y, ui8imm:$Z)>;
 def :Pat<(add (mul i64:$Y, 2), i64:$Z), (I2ADDU i64:$Y, i64:$Z)>;
 def :Pat<(add (mul i64:$Y, 4), i64:$Z), (I4ADDU i64:$Y, i64:$Z)>;
 def :Pat<(add (mul i64:$Y, 8), i64:$Z), (I8ADDU i64:$Y, i64:$Z)>;
 def :Pat<(add (mul i64:$Y, 16), i64:$Z), (I16ADDU i64:$Y, i64:$Z)>;
 
-def :Pat<(sub i64:$Y, i64:$Z), (SUB i64:$Y, i64:$Z)>;
-def :Pat<(sub i64:$Y, ui8imm:$Z), (SUBI i64:$Y, ui8imm:$Z)>;
-def :Pat<(sub i64:$Y, i64:$Z), (SUB i64:$Y, i64:$Z)>;
-def :Pat<(sub i64:$Y, ui8imm:$Z), (SUBI i64:$Y, ui8imm:$Z)>;
 def :Pat<(sub i64:$Y, i64:$Z), (SUBU i64:$Y, i64:$Z)>;
 def :Pat<(sub i64:$Y, ui8imm:$Z), (SUBUI i64:$Y, ui8imm:$Z)>;
 

@@ -82,7 +82,7 @@ def rYY : MMIXSR<30>; // Y operand (trap)
 def rZZ : MMIXSR<31>; // Z operand (trap)
 
 // example register class, here is gpr
-def GPR : RegisterClass<"MMIX", [v8i8, v4i16, v2i32, i64], 64,
+def GPR : RegisterClass<"MMIX", [v8i8, v4i16, v2i32, i64, f64], 64,
                         (add(sequence "r%u", 0, 255))>;
 def SPR : RegisterClass<"MMIX", [i64], 64,
                         (add(sequence "r%c", 0x41, 0x5a), rBB, rTT, rWW, rXX,
@@ -98,10 +98,10 @@ foreach i = {0...63} in {
 def sub#i : SubRegIndex<64>;
 }
 
-def MMIXRegTuple2: RegisterTuples<[sub0, sub1], [(rotl GPR, 0), (rotl GPR, 1)]>;
+def MMIXRegTuple2: RegisterTuples<[sub0, sub1], [(add GPR), (shl GPR, 1)]>;
 foreach i = {3...20} in {
   def MMIXRegTuple # i: RegisterTuples<!listconcat(!cast<RegisterTuples>("MMIXRegTuple"#!sub(i,1)).SubRegIndices, [!cast<SubRegIndex>("sub" # !sub(i,1))]),
-    !listconcat(!cast<RegisterTuples>("MMIXRegTuple"#!sub(i,1)).SubRegs, [(rotl GPR, !sub(i,1))])>;
+    !listconcat(!cast<RegisterTuples>("MMIXRegTuple"#!sub(i,1)).SubRegs, [(shl GPR, !sub(i,1))])>;
 }
 
 foreach i = {2...20} in {
