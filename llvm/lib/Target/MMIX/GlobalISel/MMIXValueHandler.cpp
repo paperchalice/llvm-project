@@ -8,7 +8,7 @@
 #include "llvm/CodeGen/Register.h"
 #include "llvm/Support/Debug.h"
 
-namespace llvm {
+using namespace llvm;
 
 // MMIXOutgoingValueHandler
 
@@ -47,6 +47,26 @@ void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToAddress(
   auto *MMO = MF.getMachineMemOperand(MPO, MachineMemOperand::MOStore, MemTy,
                                       inferAlignFromPtrInfo(MF, MPO));
   MIRBuilder.buildStore(ValVReg, Addr, *MMO);
+}
+
+// MMIXCallSiteValueHandler
+
+MMIXCallLowering::MMIXCallSiteArgValueHandler::MMIXCallSiteArgValueHandler(
+    MachineIRBuilder &MIRBuilder, MachineRegisterInfo &MRI)
+    : MMIXOutgoingValueHandler(MIRBuilder, MRI), CurrentSubRegIndex(sub1) {}
+
+void MMIXCallLowering::MMIXCallSiteArgValueHandler::assignValueToReg(
+    Register ValVReg, Register PhysReg, CCValAssign VA) {
+  Register ExtReg = extendRegister(ValVReg, VA);
+  auto RegClass = MRI.getRegClass(ArgTupleReg);
+  assert(RegClass && "Invalid RegisterClass for argument tuple!");
+  auto DstReg = MRI.createVirtualRegister(RegClass);
+  MIRBuilder.buildInstr(TargetOpcode::INSERT_SUBREG)
+      .addReg(DstReg, RegState::Define)
+      .addReg(ArgTupleReg)
+      .addReg(ExtReg)
+      .addImm(CurrentSubRegIndex++);
+  ArgTupleReg = DstReg;
 }
 
 // MMIXIncomingValueHandler
@@ -106,4 +126,18 @@ void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToAddress(
   MIRBuilder.buildLoad(ValVReg, Addr, *MMO);
 }
 
-} // namespace llvm
+MMIXCallLowering::MMIXCallSiteRetValueHandler::MMIXCallSiteRetValueHandler(
+    MachineIRBuilder &MIRBuilder, MachineRegisterInfo &MRI)
+    : MMIXIncomingValueHandler(MIRBuilder, MRI), CurrentSubRegIndex(sub0) {}
+
+void MMIXCallLowering::MMIXCallSiteRetValueHandler::assignValueToReg(
+    Register ValVReg, Register PhysReg, CCValAssign VA) {
+  MIRBuilder.buildInstr(TargetOpcode::EXTRACT_SUBREG)
+      .addReg(ValVReg, RegState::Define)
+      .addReg(RetTuple)
+      .addImm(CurrentSubRegIndex++);
+}
+
+void llvm::MMIXCallLowering::MMIXCallSiteRetValueHandler::assignValueToAddress(
+    Register ValVReg, Register Addr, LLT MemTy, MachinePointerInfo &MPO,
+    CCValAssign &VA) {}

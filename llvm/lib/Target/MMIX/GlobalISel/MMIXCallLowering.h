@@ -55,6 +55,18 @@ public:
                               CCValAssign &VA) override;
   };
 
+  struct MMIXCallSiteArgValueHandler : public MMIXOutgoingValueHandler {
+    MMIXCallSiteArgValueHandler(MachineIRBuilder &MIRBuilder,
+                                MachineRegisterInfo &MRI);
+
+  public:
+    Register ArgTupleReg;
+    std::uint16_t CurrentSubRegIndex;
+
+    void assignValueToReg(Register ValVReg, Register PhysReg,
+                          CCValAssign VA) override;
+  };
+
   struct MMIXIncomingValueHandler : public IncomingValueHandler {
     MMIXIncomingValueHandler(MachineIRBuilder &MIRBuilder,
                              MachineRegisterInfo &MRI);
@@ -63,6 +75,19 @@ public:
     Register getStackAddress(uint64_t Size, int64_t Offset,
                              MachinePointerInfo &MPO,
                              ISD::ArgFlagsTy Flags) override;
+    void assignValueToReg(Register ValVReg, Register PhysReg,
+                          CCValAssign VA) override;
+    void assignValueToAddress(Register ValVReg, Register Addr, LLT MemTy,
+                              MachinePointerInfo &MPO,
+                              CCValAssign &VA) override;
+  };
+
+  struct MMIXCallSiteRetValueHandler : public MMIXIncomingValueHandler {
+    MMIXCallSiteRetValueHandler(MachineIRBuilder &MIRBuilder,
+                             MachineRegisterInfo &MRI);
+    Register RetTuple;
+    std::uint16_t CurrentSubRegIndex;
+  public:
     void assignValueToReg(Register ValVReg, Register PhysReg,
                           CCValAssign VA) override;
     void assignValueToAddress(Register ValVReg, Register Addr, LLT MemTy,
