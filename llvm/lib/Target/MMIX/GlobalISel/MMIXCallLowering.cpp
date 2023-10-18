@@ -166,7 +166,7 @@ bool MMIXCallLowering::lowerFormalArguments(MachineIRBuilder &MIRBuilder,
   }
 
   MMIXIncomingValueHandler Handler(MIRBuilder, MRI);
-  IncomingValueAssigner Assigner(CC_MMIX_Knuth);
+  IncomingValueAssigner Assigner(CC_MMIX_Knuth_Callee);
   return determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
                                        F.getCallingConv(), F.isVarArg());
 }
@@ -202,14 +202,25 @@ bool MMIXCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   }
 
   bool Success = true;
-  auto Ret =
-      MIRBuilder.buildInstrNoInsert(MMIX::POP).addImm(1).addImm(0).addDef(
-          MMIX::r0, RegState::Implicit);
+  auto Ret = MIRBuilder.buildInstrNoInsert(MMIX::POP);
   MMIXOutgoingValueHandler Handler(MIRBuilder, MRI);
   OutgoingValueAssigner Assigner(RetCC_MMIX_Knuth);
-  Success =
-      determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
-                                    F.getCallingConv(), F.isVarArg());
+  SmallVector<CCValAssign, 16> ArgLocs;
+
+  CCState CCInfo(F.getCallingConv(), F.isVarArg(), MF, ArgLocs, F.getContext());
+  determineAssignments(Assigner, SplitArgs, CCInfo);
+  std::size_t RegCnt = 0;
+  for (const auto &ArgLoc : ArgLocs) {
+    if (!ArgLoc.isRegLoc())
+      break;
+    else
+      ++RegCnt;
+  }
+  if (RegCnt > 1)
+    Handler.LastRetReg = MMIX::r0 + RegCnt - 1;
+  Ret.addImm(RegCnt).addImm(0);
+  determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
+                                F.getCallingConv(), F.isVarArg());
   MIRBuilder.insertInstr(Ret);
   return Success;
 }

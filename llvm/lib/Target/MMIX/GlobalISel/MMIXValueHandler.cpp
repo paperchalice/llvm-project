@@ -37,7 +37,15 @@ Register MMIXCallLowering::MMIXOutgoingValueHandler::getStackAddress(
 void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToReg(
     Register ValVReg, Register PhysReg, CCValAssign VA) {
   Register ExtReg = extendRegister(ValVReg, VA);
-  MIRBuilder.buildCopy(PhysReg, ExtReg);
+  if (LastRetReg)
+    if (PhysReg == MMIX::r0)
+      MIRBuilder.buildCopy(LastRetReg, ExtReg);
+    else if (PhysReg == LastRetReg)
+      MIRBuilder.buildCopy(MMIX::r0, ExtReg);
+    else
+      MIRBuilder.buildCopy(PhysReg, ExtReg);
+  else
+    MIRBuilder.buildCopy(PhysReg, ExtReg);
 }
 
 void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToAddress(
@@ -98,27 +106,8 @@ Register MMIXCallLowering::MMIXIncomingValueHandler::getStackAddress(
 
 void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToReg(
     Register ValVReg, Register PhysReg, CCValAssign VA) {
-  switch (VA.getLocInfo()) {
-  case CCValAssign::LocInfo::Full:
-    MIRBuilder.buildCopy(ValVReg, PhysReg);
-    break;
-  case CCValAssign::LocInfo::SExt:
-  case CCValAssign::LocInfo::ZExt:
-  case CCValAssign::LocInfo::AExt: {
-    // auto Ext = MIRBuilder.buildAnyExt(LLT{VA.getValVT()}, ValVReg);
-    MIRBuilder.buildCopy(PhysReg, ValVReg);
-  } break;
-  case CCValAssign::LocInfo::SExtUpper:
-  case CCValAssign::LocInfo::ZExtUpper:
-  case CCValAssign::LocInfo::AExtUpper:
-  case CCValAssign::LocInfo::BCvt:
-  case CCValAssign::LocInfo::Trunc:
-  case CCValAssign::LocInfo::VExt:
-  case CCValAssign::LocInfo::FPExt:
-  case CCValAssign::LocInfo::Indirect:
-    break;
-  }
-  MIRBuilder.getMBB().addLiveIn(PhysReg);
+  Register ExtReg = extendRegister(ValVReg, VA);
+  MIRBuilder.buildCopy(PhysReg, ExtReg);
 }
 
 void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToAddress(

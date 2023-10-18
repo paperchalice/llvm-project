@@ -46,6 +46,8 @@ public:
     
     // Cache the SP register vreg if we need it more than once in this call site.
     Register SPReg;
+
+    Register LastRetReg;
   public:
     Register getStackAddress(uint64_t Size, int64_t Offset,
                              MachinePointerInfo &MPO,
