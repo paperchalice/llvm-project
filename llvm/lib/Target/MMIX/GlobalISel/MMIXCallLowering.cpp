@@ -208,7 +208,9 @@ bool MMIXCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   SmallVector<CCValAssign, 16> ArgLocs;
 
   CCState CCInfo(F.getCallingConv(), F.isVarArg(), MF, ArgLocs, F.getContext());
-  determineAssignments(Assigner, SplitArgs, CCInfo);
+  Success = determineAssignments(Assigner, SplitArgs, CCInfo);
+  if (!Success)
+    return false;
   std::size_t RegCnt = 0;
   for (const auto &ArgLoc : ArgLocs) {
     if (!ArgLoc.isRegLoc())
@@ -219,8 +221,8 @@ bool MMIXCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   if (RegCnt > 1)
     Handler.LastRetReg = MMIX::r0 + RegCnt - 1;
   Ret.addImm(RegCnt).addImm(0);
-  determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
-                                F.getCallingConv(), F.isVarArg());
+  Success = (Handler, Assigner, SplitArgs, MIRBuilder, F.getCallingConv(),
+             F.isVarArg());
   MIRBuilder.insertInstr(Ret);
   return Success;
 }
