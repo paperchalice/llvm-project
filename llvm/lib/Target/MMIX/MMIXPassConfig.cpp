@@ -1,9 +1,7 @@
 #include "MMIXPassConfig.h"
 #include "GlobalISel/MMIXCombiner.h"
 
-namespace llvm {
-
-}
+namespace llvm {}
 
 using namespace llvm;
 
@@ -18,7 +16,14 @@ bool MMIXPassConfig::addIRTranslator() {
 }
 
 void MMIXPassConfig::addPreLegalizeMachineIR() {
-  addPass(createMMIXCombiner());
+  switch (getOptLevel()) {
+  case CodeGenOptLevel::None:
+    addPass(createMMIXO0PreLegalizerCombiner());
+    break;
+  default:
+    addPass(createMMIXPreLegalizerCombiner());
+    break;
+  }
 }
 
 bool MMIXPassConfig::addLegalizeMachineIR() {

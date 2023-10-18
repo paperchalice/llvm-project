@@ -7,7 +7,7 @@
 #include "llvm/Support/CommandLine.h"
 
 #define GET_GICOMBINER_DEPS
-#include "MMIXGenGICombiner.inc"
+#include "MMIXGenPreLegalizerCombiner.inc"
 #undef GET_GICOMBINER_DEPS
 
 namespace llvm {
@@ -15,7 +15,9 @@ namespace llvm {
 // #define MMIXCOMBINERHELPER_GENCOMBINERHELPER_H
 // #include "MMIXGenGICombiner.inc"
 // #undef MMIXCOMBINERHELPER_GENCOMBINERHELPER_H
-FunctionPass *createMMIXCombiner();
-}
+FunctionPass *createMMIXPreLegalizerCombiner();
+FunctionPass *createMMIXO0PreLegalizerCombiner();
+void initializeMMIXPreLegalizerCombinerPass(PassRegistry &);
+} // namespace llvm
 
 #endif // LLVM_LIB_TARGET_MMIX_GLOBALISEL_MMIXCOMBINER_H

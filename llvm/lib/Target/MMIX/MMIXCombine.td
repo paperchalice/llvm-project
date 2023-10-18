@@ -1,7 +1,13 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MMIXCOMBINE_TD
 #define LLVM_LIB_TARGET_MMIX_MMIXCOMBINE_TD
 
-def MMIXCombiner : GICombiner<"MMIXCombinerImpl", [all_combines]> {
+def MMIXPreLegalizerCombiner : GICombiner<"MMIXPreLegalizerCombinerImpl",
+  [all_combines]> {
+  let CombineAllMethodName = "tryCombineAllImpl";
+}
+
+def MMIXO0PreLegalizerCombiner : GICombiner<"MMIXO0PreLegalizerCombinerImpl",
+  [optnone_combines]> {
   let CombineAllMethodName = "tryCombineAllImpl";
 }
 

@@ -8,7 +8,8 @@ tablegen(LLVM MMIXGenAsmWriter.inc -gen-asm-writer)
 tablegen(LLVM MMIXGenCallingConv.inc -gen-callingconv)
 tablegen(LLVM MMIXGenDisassemblerTables.inc -gen-disassembler)
 tablegen(LLVM MMIXGenGlobalISel.inc -gen-global-isel --warn-on-skipped-patterns --optimize-match-table)
-tablegen(LLVM MMIXGenGICombiner.inc -gen-global-isel-combiner -combiners="MMIXCombiner")
+tablegen(LLVM MMIXGenPreLegalizerCombiner.inc -gen-global-isel-combiner -combiners="MMIXPreLegalizerCombiner")
+tablegen(LLVM MMIXGenO0PreLegalizerCombiner.inc -gen-global-isel-combiner -combiners="MMIXO0PreLegalizerCombiner")
 tablegen(LLVM MMIXGenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM MMIXGenMCCodeEmitter.inc -gen-emitter)
 tablegen(LLVM MMIXGenMCPseudoLowering.inc -gen-pseudo-lowering)
@@ -35,7 +36,8 @@ add_llvm_target(MMIXCodeGen
   MMIXTargetObjectFile.cpp
 
   GlobalISel/MMIXCallLowering.cpp
-  GlobalISel/MMIXCombiner.cpp
+  GlobalISel/MMIXPreLegalizerCombiner.cpp
+  GlobalISel/MMIXO0PreLegalizerCombiner.cpp
   GlobalISel/MMIXInstructionSelector.cpp
   GlobalISel/MMIXLegalizerInfo.cpp
   GlobalISel/MMIXRegisterBankInfo.cpp

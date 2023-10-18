@@ -1,5 +1,5 @@
-#include "MMIXCombiner.h"
 #include "MMIX.h"
+#include "MMIXCombiner.h"
 #include "MMIXSubtarget.h"
 #include "llvm/CodeGen/GlobalISel/CSEInfo.h"
 #include "llvm/CodeGen/GlobalISel/Combiner.h"
@@ -17,28 +17,28 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 
-#define DEBUG_TYPE "mmix-combiner"
+#define DEBUG_TYPE "mmix-prelegalizer-combiner"
 
 using namespace llvm;
 
 namespace {
 
 #define GET_GICOMBINER_TYPES
-#include "MMIXGenGICombiner.inc"
+#include "MMIXGenPreLegalizerCombiner.inc"
 #undef GET_GICOMBINER_TYPES
 
-class MMIXCombinerImpl : public Combiner {
+class MMIXPreLegalizerCombinerImpl : public Combiner {
 protected:
   // TODO: Make CombinerHelper methods const.
   mutable CombinerHelper Helper;
-  const MMIXCombinerImplRuleConfig &RuleConfig;
+  const MMIXPreLegalizerCombinerImplRuleConfig &RuleConfig;
 
 public:
-  MMIXCombinerImpl(MachineFunction &MF, CombinerInfo &CInfo,
-                   const TargetPassConfig *TPC, GISelKnownBits &KB,
-                   GISelCSEInfo *CSEInfo,
-                   const MMIXCombinerImplRuleConfig &RuleConfig,
-                   const MMIXSubtarget &STI);
+  MMIXPreLegalizerCombinerImpl(
+      MachineFunction &MF, CombinerInfo &CInfo, const TargetPassConfig *TPC,
+      GISelKnownBits &KB, GISelCSEInfo *CSEInfo,
+      const MMIXPreLegalizerCombinerImplRuleConfig &RuleConfig,
+      const MMIXSubtarget &STI);
   bool tryCombineAllImpl(MachineInstr &I) const;
   static const char *getName();
 
@@ -47,30 +47,30 @@ public:
 
 private:
 #define GET_GICOMBINER_CLASS_MEMBERS
-#include "MMIXGenGICombiner.inc"
+#include "MMIXGenPreLegalizerCombiner.inc"
 #undef GET_GICOMBINER_CLASS_MEMBERS
 };
 
 #define GET_GICOMBINER_IMPL
-#include "MMIXGenGICombiner.inc"
+#include "MMIXGenPreLegalizerCombiner.inc"
 #undef GET_GICOMBINER_IMPL
 
-MMIXCombinerImpl::MMIXCombinerImpl(MachineFunction &MF, CombinerInfo &CInfo,
-                                   const TargetPassConfig *TPC,
-                                   GISelKnownBits &KB, GISelCSEInfo *CSEInfo,
-                                   const MMIXCombinerImplRuleConfig &RuleConfig,
-                                   const MMIXSubtarget &STI)
+MMIXPreLegalizerCombinerImpl::MMIXPreLegalizerCombinerImpl(
+    MachineFunction &MF, CombinerInfo &CInfo, const TargetPassConfig *TPC,
+    GISelKnownBits &KB, GISelCSEInfo *CSEInfo,
+    const MMIXPreLegalizerCombinerImplRuleConfig &RuleConfig,
+    const MMIXSubtarget &STI)
     : Combiner(MF, CInfo, TPC, &KB, CSEInfo),
       Helper(Observer, B, /*IsPreLegalize*/ true, &KB), RuleConfig(RuleConfig),
 #define GET_GICOMBINER_CONSTRUCTOR_INITS
-#include "MMIXGenGICombiner.inc"
+#include "MMIXGenPreLegalizerCombiner.inc"
 #undef GET_GICOMBINER_CONSTRUCTOR_INITS
 {
 }
 
-const char *MMIXCombinerImpl::getName() { return DEBUG_TYPE; }
+const char *MMIXPreLegalizerCombinerImpl::getName() { return DEBUG_TYPE; }
 
-bool MMIXCombinerImpl::tryCombineAll(MachineInstr &I) const {
+bool MMIXPreLegalizerCombinerImpl::tryCombineAll(MachineInstr &I) const {
   return tryCombineAllImpl(I);
 }
 
@@ -80,28 +80,28 @@ bool MMIXCombinerImpl::tryCombineAll(MachineInstr &I) const {
 // ================
 
 // TODO: migrate to new pass manager
-class MMIXCombiner : public MachineFunctionPass {
+class MMIXPreLegalizerCombiner : public MachineFunctionPass {
 public:
   static char ID;
-  MMIXCombiner();
-  StringRef getPassName() const override { return "MMIXCombiner"; }
+  MMIXPreLegalizerCombiner();
+  StringRef getPassName() const override { return "MMIXPreLegalizerCombiner"; }
   bool runOnMachineFunction(MachineFunction &MF) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 private:
-  MMIXCombinerImplRuleConfig RuleConfig;
+  MMIXPreLegalizerCombinerImplRuleConfig RuleConfig;
 };
 
-char MMIXCombiner::ID = 0;
+char MMIXPreLegalizerCombiner::ID = 0;
 
-MMIXCombiner::MMIXCombiner() : MachineFunctionPass(ID) {
-  initializeMMIXCombinerPass(*PassRegistry::getPassRegistry());
+MMIXPreLegalizerCombiner::MMIXPreLegalizerCombiner() : MachineFunctionPass(ID) {
+  initializeMMIXPreLegalizerCombinerPass(*PassRegistry::getPassRegistry());
 
   if (!RuleConfig.parseCommandLineOption())
     report_fatal_error("Invalid rule identifier");
 }
 
-bool MMIXCombiner::runOnMachineFunction(MachineFunction &MF) {
+bool MMIXPreLegalizerCombiner::runOnMachineFunction(MachineFunction &MF) {
   if (MF.getProperties().hasProperty(
           MachineFunctionProperties::Property::FailedISel)) {
     return false;
@@ -116,12 +116,12 @@ bool MMIXCombiner::runOnMachineFunction(MachineFunction &MF) {
   CombinerInfo CInfo(/*AllowIllegalOps*/ true, /*ShouldLegalizeIllegal*/ false,
                      /*LegalizerInfo*/ nullptr, /*EnableOpt*/ false,
                      F.hasOptSize(), F.hasMinSize());
-  MMIXCombinerImpl Impl(MF, CInfo, &TPC, *KB,
-                        /*CSEInfo*/ nullptr, RuleConfig, ST);    
+  MMIXPreLegalizerCombinerImpl Impl(MF, CInfo, &TPC, *KB,
+                                    /*CSEInfo*/ nullptr, RuleConfig, ST);
   return Impl.combineMachineInstrs();
 }
 
-void MMIXCombiner::getAnalysisUsage(AnalysisUsage &AU) const {
+void MMIXPreLegalizerCombiner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetPassConfig>();
   AU.setPreservesCFG();
   getSelectionDAGFallbackAnalysisUsage(AU);
@@ -134,11 +134,13 @@ void MMIXCombiner::getAnalysisUsage(AnalysisUsage &AU) const {
   MachineFunctionPass::getAnalysisUsage(AU);
 }
 
-INITIALIZE_PASS_BEGIN(MMIXCombiner, DEBUG_TYPE, "Combine MMIX machine instrs",
-                      false, false)
+INITIALIZE_PASS_BEGIN(MMIXPreLegalizerCombiner, DEBUG_TYPE,
+                      "Combine MMIX machine instrs", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetPassConfig)
 INITIALIZE_PASS_DEPENDENCY(GISelKnownBitsAnalysis)
-INITIALIZE_PASS_END(MMIXCombiner, DEBUG_TYPE, "Combine MMIX machine instrs",
-                    false, false)
+INITIALIZE_PASS_END(MMIXPreLegalizerCombiner, DEBUG_TYPE,
+                    "Combine MMIX machine instrs", false, false)
 
-FunctionPass * ::llvm::createMMIXCombiner() { return new MMIXCombiner(); }
+FunctionPass * ::llvm::createMMIXPreLegalizerCombiner() {
+  return new MMIXPreLegalizerCombiner();
+}
