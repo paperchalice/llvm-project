@@ -25,7 +25,7 @@ include "MMIXCallingConv.td"
 include "MMIXInstrInfo.td"
 include "MMIXPseudoInstrInfo.td"
 include "MMIXInstrGISel.td"
-include "MMIXCombine.td"
+include "GlobalIsel/MMIXCombine.td"
 //===----------------------------------------------------------------------===//
 // MMIX processors supported.
 //===----------------------------------------------------------------------===//
