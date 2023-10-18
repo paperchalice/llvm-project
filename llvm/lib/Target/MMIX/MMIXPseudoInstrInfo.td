@@ -33,9 +33,10 @@ def ADJCALLSTACKDOWN : MMIXCallFramePseudo;
 def ADJCALLSTACKUP : MMIXCallFramePseudo;
 
 def CALL : MMIXPseudo {
-  let OutOperandList = (outs);
-  let InOperandList = (ins ui16imm:$YZ, variable_ops);
+  let OutOperandList = (outs unknown:$ret);
+  let InOperandList = (ins unknown:$reg_tuple, ui16imm:$YZ);
   let isCall = true;
+  let Constraints = "$ret = $reg_tuple";
 }
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXPSEUDOINSTRINFO_TD

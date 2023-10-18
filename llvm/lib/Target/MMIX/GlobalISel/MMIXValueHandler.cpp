@@ -20,14 +20,14 @@ Register MMIXCallLowering::MMIXOutgoingValueHandler::getStackAddress(
     uint64_t Size, int64_t Offset, MachinePointerInfo &MPO,
     ISD::ArgFlagsTy Flags) {
   auto &MF = MIRBuilder.getMF();
-
   unsigned PtrSize = MIRBuilder.getDataLayout().getPointerSizeInBits();
   auto AS = MIRBuilder.getDataLayout().getAllocaAddrSpace();
 
   LLT p0 = LLT::pointer(AS, PtrSize);
   LLT s64 = LLT::scalar(PtrSize);
 
-  auto SPReg = MIRBuilder.buildCopy(p0, Register(MMIX::r254)).getReg(0);
+  if (!SPReg)
+    SPReg = MIRBuilder.buildCopy(p0, Register(MMIX::r254)).getReg(0);
   auto OffsetReg = MIRBuilder.buildConstant(s64, Offset);
   auto AddrReg = MIRBuilder.buildPtrAdd(p0, SPReg, OffsetReg);
   MPO = MachinePointerInfo::getStack(MF, Offset);
@@ -61,12 +61,17 @@ void MMIXCallLowering::MMIXCallSiteArgValueHandler::assignValueToReg(
   auto RegClass = MRI.getRegClass(ArgTupleReg);
   assert(RegClass && "Invalid RegisterClass for argument tuple!");
   auto DstReg = MRI.createVirtualRegister(RegClass);
-  MIRBuilder.buildInstr(TargetOpcode::INSERT_SUBREG)
-      .addReg(DstReg, RegState::Define)
-      .addReg(ArgTupleReg)
-      .addReg(ExtReg)
-      .addImm(CurrentSubRegIndex++);
-  ArgTupleReg = DstReg;
+
+  if (RegClass == &MMIX::GPRRegClass) {
+    MIRBuilder.buildCopy(DstReg, ArgTupleReg);
+  } else {
+    MIRBuilder.buildInstr(TargetOpcode::INSERT_SUBREG)
+        .addReg(DstReg, RegState::Define)
+        .addReg(ArgTupleReg)
+        .addReg(ExtReg)
+        .addImm(CurrentSubRegIndex++);
+    ArgTupleReg = DstReg;
+  }
 }
 
 // MMIXIncomingValueHandler
@@ -132,12 +137,23 @@ MMIXCallLowering::MMIXCallSiteRetValueHandler::MMIXCallSiteRetValueHandler(
 
 void MMIXCallLowering::MMIXCallSiteRetValueHandler::assignValueToReg(
     Register ValVReg, Register PhysReg, CCValAssign VA) {
-  MIRBuilder.buildInstr(TargetOpcode::EXTRACT_SUBREG)
-      .addReg(ValVReg, RegState::Define)
-      .addReg(RetTuple)
-      .addImm(CurrentSubRegIndex++);
+  auto *RegClass = MRI.getRegClass(RetTuple);
+  assert(RegClass && "Invalid reg class for return values!");
+  if (RegClass == &MMIX::GPRRegClass) {
+    MIRBuilder.buildCopy(ValVReg, RetTuple);
+  } else {
+    MIRBuilder.buildInstr(TargetOpcode::EXTRACT_SUBREG)
+        .addReg(ValVReg, RegState::Define)
+        .addReg(RetTuple)
+        .addImm(CurrentSubRegIndex++);
+  }
 }
 
 void llvm::MMIXCallLowering::MMIXCallSiteRetValueHandler::assignValueToAddress(
     Register ValVReg, Register Addr, LLT MemTy, MachinePointerInfo &MPO,
-    CCValAssign &VA) {}
+    CCValAssign &VA) {
+  MachineFunction &MF = MIRBuilder.getMF();
+  auto *MMO = MF.getMachineMemOperand(MPO, MachineMemOperand::MOLoad, MemTy,
+                                      inferAlignFromPtrInfo(MF, MPO));
+  MIRBuilder.buildLoad(ValVReg, Addr, *MMO);
+}

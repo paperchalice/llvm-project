@@ -67,7 +67,7 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
     splitToValueTypes(OrigArg, InArgs, DL, Info.CallConv);
   }
 
-  // handle arguments
+  // determine arguments
   MMIXCallSiteArgValueHandler ArgHandler(MIRBuilder, MRI);
   OutgoingValueAssigner ArgAssigner(CC_MMIX_Knuth);
   SmallVector<CCValAssign, 16> ArgLocs;
@@ -80,7 +80,7 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
       ++TupleSize;
   }
 
-  // handle return type
+  // determine return type
   SmallVector<ArgInfo, 8> OutArgs;
   SmallVector<CCValAssign, 16> OutValLocs;
   OutgoingValueAssigner RetAssigner(RetCC_MMIX_Knuth);
@@ -103,35 +103,40 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   // in MMIXRegisterInfo.td, we set the type of register tuples
   // are `untyped` so set the type here
   assert(TupleSize > 0 && "Invalid arg tuple size!");
+  Register ArgReg;
   if (TupleSize > 1) {
-    auto RegTuple = MRI.createVirtualRegister(TRI->getRegClass(TupleSize));
-    MIRBuilder.buildUndef(RegTuple);
+    ArgReg = MRI.createVirtualRegister(TRI->getRegClass(TupleSize));
     MRI.setType(
-        RegTuple,
+        ArgReg,
         LLT::vector(ElementCount::getFixed(TupleSize),
                     LLT::scalar(TRI->getRegSizeInBits(MMIX::GPRRegClass))));
-    ArgHandler.ArgTupleReg = RegTuple;
-    handleAssignments(ArgHandler, InArgs, CCInfo, ArgLocs, MIRBuilder);
-    Call.addReg(ArgHandler.ArgTupleReg);
-    MIRBuilder.insertInstr(Call);
-
-    // handle return value
-    if (!Info.OrigRet.Ty->isVoidTy()) {
-      CCState CCRetInfo(Info.CallConv, Info.IsVarArg, MF, OutValLocs,
-                        MF.getFunction().getContext());
-      MMIXCallSiteRetValueHandler RetHandler(MIRBuilder, MRI);
-      RetHandler.RetTuple = ArgHandler.ArgTupleReg;
-      handleAssignments(RetHandler, OutArgs, CCRetInfo, OutValLocs, MIRBuilder);
-    }
   } else {
-    auto HoleReg = MRI.createVirtualRegister(&MMIX::GPRRegClass);
-    MRI.setType(HoleReg, LLT::scalar(TRI->getRegSizeInBits(MMIX::GPRRegClass)));
-    MIRBuilder.buildUndef(HoleReg);
-    Call.addReg(HoleReg);
-    MIRBuilder.insertInstr(Call);
+    ArgReg = MRI.createVirtualRegister(&MMIX::GPRRegClass);
+    MRI.setType(ArgReg, LLT::scalar(TRI->getRegSizeInBits(MMIX::GPRRegClass)));
+  }
+  MIRBuilder.buildUndef(ArgReg);
+  ArgHandler.ArgTupleReg = ArgReg;
+  handleAssignments(ArgHandler, InArgs, CCInfo, ArgLocs, MIRBuilder);
+
+  // insert pseudo call instruction
+  // %ret_reg_tuple = CALL %arg_reg_tuple, @dest
+  auto RetReg = MRI.cloneVirtualRegister(ArgReg);
+  auto CallInstr = MIRBuilder.buildInstr(MMIX::CALL, {RetReg}, {ArgReg});
+  if (Info.Callee.isReg())
+    CallInstr.addReg(Info.Callee.getReg());
+  else
+    CallInstr.add(Info.Callee);
+
+  // handle return value
+  if (!Info.OrigRet.Ty->isVoidTy()) {
+    CCState CCRetInfo(Info.CallConv, Info.IsVarArg, MF, OutValLocs,
+                      MF.getFunction().getContext());
+    MMIXCallSiteRetValueHandler RetHandler(MIRBuilder, MRI);
+    RetHandler.RetTuple = RetReg;
+    handleAssignments(RetHandler, OutArgs, CCRetInfo, OutValLocs, MIRBuilder);
   }
 
-   // Now that the size of the argument stack region is known, the setup call
+  // Now that the size of the argument stack region is known, the setup call
   // frame pseudo can be given its arguments.
   auto StackSize = std::max(ArgAssigner.StackSize, RetAssigner.StackSize);
   CallSeqStart.addImm(StackSize).addImm(0);

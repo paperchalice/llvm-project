@@ -43,7 +43,9 @@ public:
   struct MMIXOutgoingValueHandler : public OutgoingValueHandler {
     MMIXOutgoingValueHandler(MachineIRBuilder &MIRBuilder,
                              MachineRegisterInfo &MRI);
-
+    
+    // Cache the SP register vreg if we need it more than once in this call site.
+    Register SPReg;
   public:
     Register getStackAddress(uint64_t Size, int64_t Offset,
                              MachinePointerInfo &MPO,
