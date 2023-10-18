@@ -107,7 +107,10 @@ Register MMIXCallLowering::MMIXIncomingValueHandler::getStackAddress(
 void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToReg(
     Register ValVReg, Register PhysReg, CCValAssign VA) {
   Register ExtReg = extendRegister(ValVReg, VA);
-  MIRBuilder.buildCopy(PhysReg, ExtReg);
+  MIRBuilder.buildCopy(ExtReg, PhysReg);
+  // mark PhysReg used
+  MRI.addLiveIn(PhysReg);
+  MIRBuilder.getMBB().addLiveIn(PhysReg);
 }
 
 void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToAddress(

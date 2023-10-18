@@ -221,8 +221,9 @@ bool MMIXCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   if (RegCnt > 1)
     Handler.LastRetReg = MMIX::r0 + RegCnt - 1;
   Ret.addImm(RegCnt).addImm(0);
-  Success = (Handler, Assigner, SplitArgs, MIRBuilder, F.getCallingConv(),
-             F.isVarArg());
+  Success =
+      determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
+                                    F.getCallingConv(), F.isVarArg());
   MIRBuilder.insertInstr(Ret);
   return Success;
 }
