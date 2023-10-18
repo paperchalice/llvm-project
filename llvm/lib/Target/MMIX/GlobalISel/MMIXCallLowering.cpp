@@ -106,10 +106,9 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   Register ArgReg;
   if (TupleSize > 1) {
     ArgReg = MRI.createVirtualRegister(TRI->getRegClass(TupleSize));
-    MRI.setType(
-        ArgReg,
-        LLT::vector(ElementCount::getFixed(TupleSize),
-                    LLT::scalar(TRI->getRegSizeInBits(MMIX::GPRRegClass))));
+    MRI.setType(ArgReg,
+                LLT::fixed_vector(TupleSize, LLT::scalar(TRI->getRegSizeInBits(
+                                                 MMIX::GPRRegClass))));
   } else {
     ArgReg = MRI.createVirtualRegister(&MMIX::GPRRegClass);
     MRI.setType(ArgReg, LLT::scalar(TRI->getRegSizeInBits(MMIX::GPRRegClass)));

@@ -22,7 +22,8 @@
 #include <cstdint>
 
 namespace llvm {
-void initializeMMIXCombinerPass(PassRegistry &);
+void initializeMMIXPreLegalizerCombinerPass(PassRegistry &);
+void initializeMMIXO0PreLegalizerCombinerPass(PassRegistry &);
 
 namespace MMIX::backend {
 
