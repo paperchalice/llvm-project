@@ -36,7 +36,14 @@ MMIXLegalizerInfo::MMIXLegalizerInfo(const MMIXSubtarget &ST) {
       .legalFor({s64})
       .clampScalar(0, s64, s64);
 
-  getActionDefinitionsBuilder({G_IMPLICIT_DEF, G_PHI}).legalFor({s64});
+  {
+    auto &G_IMPLICIT_DEF_Builder =
+        getActionDefinitionsBuilder(G_IMPLICIT_DEF).legalFor({s64});
+    for (int i = 2; i != 64; ++i)
+      G_IMPLICIT_DEF_Builder.legalFor({LLT::fixed_vector(i, s64)});
+  }
+
+  getActionDefinitionsBuilder(G_PHI).legalFor({s64});
 
   getActionDefinitionsBuilder({G_FRAME_INDEX, G_GLOBAL_VALUE}).legalFor({p0});
 
