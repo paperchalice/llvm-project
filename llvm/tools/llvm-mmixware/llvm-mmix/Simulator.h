@@ -10,13 +10,17 @@ namespace mmix {
 
 struct SimulatorContext {
 std::uint32_t CurLoc = 0;
+int ShownLine = 0;
 int CurLine = 0;
+int ShownFile = -1;
 int CurFile = -1;
 std::uint64_t Tmp; // an octabyte of temporary interest
 
 bool Tracing;
 bool StackTracing;
 bool Breakpoint;
+
+void showLine() const;
 };
 
 class Simulator {

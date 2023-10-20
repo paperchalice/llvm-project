@@ -9,6 +9,9 @@ constexpr inline std::uint64_t VERSION_MAJOR = 1;
 constexpr inline std::uint64_t VERSION_MINOR = 0;
 constexpr inline std::uint64_t VERSION_PATCH = 3;
 
+#define GET_MMIXConstant_DECL
+#include "MMIXConstant.inc"
+
 enum {
   trace_bit = 1 << 3,
   read_bit = 1 << 2,
