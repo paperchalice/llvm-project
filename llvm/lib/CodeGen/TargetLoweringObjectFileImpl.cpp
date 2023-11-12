@@ -80,7 +80,7 @@ static void GetObjCImageInfo(Module &M, unsigned &Version, unsigned &Flags,
   SmallVector<Module::ModuleFlagEntry, 8> ModuleFlags;
   M.getModuleFlagsMetadata(ModuleFlags);
 
-  for (const auto &MFE : ModuleFlags) {
+  for (const auto &MFE: ModuleFlags) {
     // Ignore flags with 'Require' behaviour.
     if (MFE.Behavior == Module::Require)
       continue;
@@ -97,8 +97,8 @@ static void GetObjCImageInfo(Module &M, unsigned &Version, unsigned &Flags,
     } else if (Key == "Objective-C Image Info Section") {
       Section = cast<MDString>(MFE.Val)->getString();
     }
-    // Backend generates L_OBJC_IMAGE_INFO from Swift ABI version + major +
-    // minor + "Objective-C Garbage Collection".
+    // Backend generates L_OBJC_IMAGE_INFO from Swift ABI version + major + minor +
+    // "Objective-C Garbage Collection".
     else if (Key == "Swift ABI Version") {
       Flags |= (mdconst::extract<ConstantInt>(MFE.Val)->getZExtValue()) << 8;
     } else if (Key == "Swift Major Version") {
@@ -136,10 +136,11 @@ void TargetLoweringObjectFileELF::Initialize(MCContext &Ctx,
   case Triple::ppc:
   case Triple::ppcle:
   case Triple::x86:
-    PersonalityEncoding = isPositionIndependent() ? dwarf::DW_EH_PE_indirect |
-                                                        dwarf::DW_EH_PE_pcrel |
-                                                        dwarf::DW_EH_PE_sdata4
-                                                  : dwarf::DW_EH_PE_absptr;
+    PersonalityEncoding = isPositionIndependent()
+                              ? dwarf::DW_EH_PE_indirect |
+                                    dwarf::DW_EH_PE_pcrel |
+                                    dwarf::DW_EH_PE_sdata4
+                              : dwarf::DW_EH_PE_absptr;
     LSDAEncoding = isPositionIndependent()
                        ? dwarf::DW_EH_PE_pcrel | dwarf::DW_EH_PE_sdata4
                        : dwarf::DW_EH_PE_absptr;
@@ -151,24 +152,22 @@ void TargetLoweringObjectFileELF::Initialize(MCContext &Ctx,
   case Triple::x86_64:
     if (isPositionIndependent()) {
       PersonalityEncoding = dwarf::DW_EH_PE_indirect | dwarf::DW_EH_PE_pcrel |
-                            ((CM == CodeModel::Small || CM == CodeModel::Medium)
-                                 ? dwarf::DW_EH_PE_sdata4
-                                 : dwarf::DW_EH_PE_sdata8);
+        ((CM == CodeModel::Small || CM == CodeModel::Medium)
+         ? dwarf::DW_EH_PE_sdata4 : dwarf::DW_EH_PE_sdata8);
       LSDAEncoding = dwarf::DW_EH_PE_pcrel |
-                     (CM == CodeModel::Small ? dwarf::DW_EH_PE_sdata4
-                                             : dwarf::DW_EH_PE_sdata8);
+        (CM == CodeModel::Small
+         ? dwarf::DW_EH_PE_sdata4 : dwarf::DW_EH_PE_sdata8);
       TTypeEncoding = dwarf::DW_EH_PE_indirect | dwarf::DW_EH_PE_pcrel |
-                      ((CM == CodeModel::Small || CM == CodeModel::Medium)
-                           ? dwarf::DW_EH_PE_sdata4
-                           : dwarf::DW_EH_PE_sdata8);
+        ((CM == CodeModel::Small || CM == CodeModel::Medium)
+         ? dwarf::DW_EH_PE_sdata4 : dwarf::DW_EH_PE_sdata8);
     } else {
-      PersonalityEncoding = (CM == CodeModel::Small || CM == CodeModel::Medium)
-                                ? dwarf::DW_EH_PE_udata4
-                                : dwarf::DW_EH_PE_absptr;
-      LSDAEncoding = (CM == CodeModel::Small) ? dwarf::DW_EH_PE_udata4
-                                              : dwarf::DW_EH_PE_absptr;
-      TTypeEncoding = (CM == CodeModel::Small) ? dwarf::DW_EH_PE_udata4
-                                               : dwarf::DW_EH_PE_absptr;
+      PersonalityEncoding =
+        (CM == CodeModel::Small || CM == CodeModel::Medium)
+        ? dwarf::DW_EH_PE_udata4 : dwarf::DW_EH_PE_absptr;
+      LSDAEncoding = (CM == CodeModel::Small)
+        ? dwarf::DW_EH_PE_udata4 : dwarf::DW_EH_PE_absptr;
+      TTypeEncoding = (CM == CodeModel::Small)
+        ? dwarf::DW_EH_PE_udata4 : dwarf::DW_EH_PE_absptr;
     }
     break;
   case Triple::hexagon:
@@ -227,19 +226,19 @@ void TargetLoweringObjectFileELF::Initialize(MCContext &Ctx,
   case Triple::ppc64:
   case Triple::ppc64le:
     PersonalityEncoding = dwarf::DW_EH_PE_indirect | dwarf::DW_EH_PE_pcrel |
-                          dwarf::DW_EH_PE_udata8;
+      dwarf::DW_EH_PE_udata8;
     LSDAEncoding = dwarf::DW_EH_PE_pcrel | dwarf::DW_EH_PE_udata8;
     TTypeEncoding = dwarf::DW_EH_PE_indirect | dwarf::DW_EH_PE_pcrel |
-                    dwarf::DW_EH_PE_udata8;
+      dwarf::DW_EH_PE_udata8;
     break;
   case Triple::sparcel:
   case Triple::sparc:
     if (isPositionIndependent()) {
       LSDAEncoding = dwarf::DW_EH_PE_pcrel | dwarf::DW_EH_PE_sdata4;
       PersonalityEncoding = dwarf::DW_EH_PE_indirect | dwarf::DW_EH_PE_pcrel |
-                            dwarf::DW_EH_PE_sdata4;
+        dwarf::DW_EH_PE_sdata4;
       TTypeEncoding = dwarf::DW_EH_PE_indirect | dwarf::DW_EH_PE_pcrel |
-                      dwarf::DW_EH_PE_sdata4;
+        dwarf::DW_EH_PE_sdata4;
     } else {
       LSDAEncoding = dwarf::DW_EH_PE_absptr;
       PersonalityEncoding = dwarf::DW_EH_PE_absptr;
@@ -260,9 +259,9 @@ void TargetLoweringObjectFileELF::Initialize(MCContext &Ctx,
     LSDAEncoding = dwarf::DW_EH_PE_pcrel | dwarf::DW_EH_PE_sdata4;
     if (isPositionIndependent()) {
       PersonalityEncoding = dwarf::DW_EH_PE_indirect | dwarf::DW_EH_PE_pcrel |
-                            dwarf::DW_EH_PE_sdata4;
+        dwarf::DW_EH_PE_sdata4;
       TTypeEncoding = dwarf::DW_EH_PE_indirect | dwarf::DW_EH_PE_pcrel |
-                      dwarf::DW_EH_PE_sdata4;
+        dwarf::DW_EH_PE_sdata4;
     } else {
       PersonalityEncoding = dwarf::DW_EH_PE_absptr;
       TTypeEncoding = dwarf::DW_EH_PE_absptr;
@@ -273,10 +272,10 @@ void TargetLoweringObjectFileELF::Initialize(MCContext &Ctx,
     // values will be in range.
     if (isPositionIndependent()) {
       PersonalityEncoding = dwarf::DW_EH_PE_indirect | dwarf::DW_EH_PE_pcrel |
-                            dwarf::DW_EH_PE_sdata4;
+        dwarf::DW_EH_PE_sdata4;
       LSDAEncoding = dwarf::DW_EH_PE_pcrel | dwarf::DW_EH_PE_sdata4;
       TTypeEncoding = dwarf::DW_EH_PE_indirect | dwarf::DW_EH_PE_pcrel |
-                      dwarf::DW_EH_PE_sdata4;
+        dwarf::DW_EH_PE_sdata4;
     } else {
       PersonalityEncoding = dwarf::DW_EH_PE_absptr;
       LSDAEncoding = dwarf::DW_EH_PE_absptr;
@@ -324,8 +323,7 @@ void TargetLoweringObjectFileELF::emitModuleMetadata(MCStreamer &Streamer,
     }
   }
 
-  if (NamedMDNode *DependentLibraries =
-          M.getNamedMetadata("llvm.dependent-libraries")) {
+  if (NamedMDNode *DependentLibraries = M.getNamedMetadata("llvm.dependent-libraries")) {
     auto *S = C.getELFSection(".deplibs", ELF::SHT_LLVM_DEPENDENT_LIBRARIES,
                               ELF::SHF_MERGE | ELF::SHF_STRINGS, 1);
 
@@ -453,9 +451,9 @@ const MCExpr *TargetLoweringObjectFileELF::getTTypeGlobalReference(
       StubSym = MachineModuleInfoImpl::StubValueTy(Sym, !GV->hasLocalLinkage());
     }
 
-    return TargetLoweringObjectFile::getTTypeReference(
-        MCSymbolRefExpr::create(SSym, getContext()),
-        Encoding & ~DW_EH_PE_indirect, Streamer);
+    return TargetLoweringObjectFile::
+      getTTypeReference(MCSymbolRefExpr::create(SSym, getContext()),
+                        Encoding & ~DW_EH_PE_indirect, Streamer);
   }
 
   return TargetLoweringObjectFile::getTTypeGlobalReference(GV, Encoding, TM,
@@ -477,23 +475,27 @@ static SectionKind getELFKindForNamedSection(StringRef Name, SectionKind K) {
       Name == ".llvmbc" || Name == ".llvmcmd")
     return SectionKind::getMetadata();
 
-  if (Name.empty() || Name[0] != '.')
-    return K;
+  if (Name.empty() || Name[0] != '.') return K;
 
   // Default implementation based on some magic section names.
-  if (Name == ".bss" || Name.startswith(".bss.") ||
+  if (Name == ".bss" ||
+      Name.startswith(".bss.") ||
       Name.startswith(".gnu.linkonce.b.") ||
-      Name.startswith(".llvm.linkonce.b.") || Name == ".sbss" ||
-      Name.startswith(".sbss.") || Name.startswith(".gnu.linkonce.sb.") ||
+      Name.startswith(".llvm.linkonce.b.") ||
+      Name == ".sbss" ||
+      Name.startswith(".sbss.") ||
+      Name.startswith(".gnu.linkonce.sb.") ||
       Name.startswith(".llvm.linkonce.sb."))
     return SectionKind::getBSS();
 
-  if (Name == ".tdata" || Name.startswith(".tdata.") ||
+  if (Name == ".tdata" ||
+      Name.startswith(".tdata.") ||
       Name.startswith(".gnu.linkonce.td.") ||
       Name.startswith(".llvm.linkonce.td."))
     return SectionKind::getThreadData();
 
-  if (Name == ".tbss" || Name.startswith(".tbss.") ||
+  if (Name == ".tbss" ||
+      Name.startswith(".tbss.") ||
       Name.startswith(".gnu.linkonce.tb.") ||
       Name.startswith(".llvm.linkonce.tb."))
     return SectionKind::getThreadBSS();
@@ -664,7 +666,7 @@ getELFSectionNameForGlobal(const GlobalObject *GO, SectionKind Kind,
 
   if (UniqueSectionName) {
     Name.push_back('.');
-    TM.getNameWithPrefix(Name, GO, Mang, /*MayAlwaysUsePrivate*/ true);
+    TM.getNameWithPrefix(Name, GO, Mang, /*MayAlwaysUsePrivate*/true);
   } else if (HasPrefix)
     // For distinguishing between .text.${text-section-prefix}. (with trailing
     // dot) and .text.${function-name}
@@ -682,7 +684,7 @@ public:
       : DiagnosticInfo(DK_Lowering, Severity), Msg(DiagMsg) {}
   void print(DiagnosticPrinter &DP) const override { DP << Msg; }
 };
-} // namespace
+}
 
 /// Calculate an appropriate unique ID for a section, and update Flags,
 /// EntrySize and NextUniqueID where appropriate.
@@ -761,6 +763,25 @@ calcUniqueIDUpdateFlagsAndSize(const GlobalObject *GO, StringRef SectionName,
   return NextUniqueID++;
 }
 
+static std::tuple<StringRef, bool, unsigned>
+getGlobalObjectInfo(const GlobalObject *GO, const TargetMachine &TM) {
+  StringRef Group = "";
+  bool IsComdat = false;
+  unsigned Flags = 0;
+  if (const Comdat *C = getELFComdat(GO)) {
+    Flags |= ELF::SHF_GROUP;
+    Group = C->getName();
+    IsComdat = C->getSelectionKind() == Comdat::Any;
+  }
+  if (auto *GV = dyn_cast<GlobalVariable>(GO)) {
+    if (TM.isLargeData(GV)) {
+      assert(TM.getTargetTriple().getArch() == Triple::x86_64);
+      Flags |= ELF::SHF_X86_64_LARGE;
+    }
+  }
+  return {Group, IsComdat, Flags};
+}
+
 static MCSection *selectExplicitSectionGlobal(
     const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM,
     MCContext &Ctx, Mangler &Mang, unsigned &NextUniqueID,
@@ -777,8 +798,7 @@ static MCSection *selectExplicitSectionGlobal(
       SectionName = Attrs.getAttribute("bss-section").getValueAsString();
     } else if (Attrs.hasAttribute("rodata-section") && Kind.isReadOnly()) {
       SectionName = Attrs.getAttribute("rodata-section").getValueAsString();
-    } else if (Attrs.hasAttribute("relro-section") &&
-               Kind.isReadOnlyWithRel()) {
+    } else if (Attrs.hasAttribute("relro-section") && Kind.isReadOnlyWithRel()) {
       SectionName = Attrs.getAttribute("relro-section").getValueAsString();
     } else if (Attrs.hasAttribute("data-section") && Kind.isData()) {
       SectionName = Attrs.getAttribute("data-section").getValueAsString();
@@ -834,7 +854,7 @@ MCSection *TargetLoweringObjectFileELF::getExplicitSectionGlobal(
     const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const {
   return selectExplicitSectionGlobal(GO, Kind, TM, getContext(), getMangler(),
                                      NextUniqueID, Used.count(GO),
-                                     /* ForceUnique = */ false);
+                                     /* ForceUnique = */false);
 }
 
 static MCSectionELF *selectELFSectionForGlobal(
@@ -889,9 +909,9 @@ static MCSection *selectELFSectionForGlobal(
     }
   }
 
-  MCSectionELF *Section =
-      selectELFSectionForGlobal(Ctx, GO, Kind, Mang, TM, EmitUniqueSection,
-                                Flags, NextUniqueID, LinkedToSym);
+  MCSectionELF *Section = selectELFSectionForGlobal(
+      Ctx, GO, Kind, Mang, TM, EmitUniqueSection, Flags,
+      NextUniqueID, LinkedToSym);
   assert(Section->getLinkedToSymbol() == LinkedToSym);
   return Section;
 }
@@ -922,9 +942,9 @@ MCSection *TargetLoweringObjectFileELF::getUniqueSectionForFunction(
   // If the function's section names is pre-determined via pragma or a
   // section attribute, call selectExplicitSectionGlobal.
   if (F.hasSection() || F.hasFnAttribute("implicit-section-name"))
-    return selectExplicitSectionGlobal(&F, Kind, TM, getContext(), getMangler(),
-                                       NextUniqueID, Used.count(&F),
-                                       /* ForceUnique = */ true);
+    return selectExplicitSectionGlobal(
+        &F, Kind, TM, getContext(), getMangler(), NextUniqueID,
+        Used.count(&F), /* ForceUnique = */true);
   else
     return selectELFSectionForGlobal(
         getContext(), &F, Kind, getMangler(), TM, Used.count(&F),
@@ -974,11 +994,11 @@ MCSection *TargetLoweringObjectFileELF::getSectionForLSDA(
 
   // Append the function name as the suffix like GCC, assuming
   // -funique-section-names applies to .gcc_except_table sections.
-  return getContext().getELFSection((TM.getUniqueSectionNames()
-                                         ? LSDA->getName() + "." + F.getName()
-                                         : LSDA->getName()),
-                                    LSDA->getType(), Flags, 0, Group, IsComdat,
-                                    MCSection::NonUniqueID, LinkedToSym);
+  return getContext().getELFSection(
+      (TM.getUniqueSectionNames() ? LSDA->getName() + "." + F.getName()
+                                  : LSDA->getName()),
+      LSDA->getType(), Flags, 0, Group, IsComdat, MCSection::NonUniqueID,
+      LinkedToSym);
 }
 
 bool TargetLoweringObjectFileELF::shouldPutJumpTableInFunctionSection(
@@ -1152,7 +1172,8 @@ MCSection *TargetLoweringObjectFileELF::getSectionForCommandLines() const {
                                     ELF::SHF_MERGE | ELF::SHF_STRINGS, 1);
 }
 
-void TargetLoweringObjectFileELF::InitializeELF(bool UseInitArray_) {
+void
+TargetLoweringObjectFileELF::InitializeELF(bool UseInitArray_) {
   UseInitArray = UseInitArray_;
   MCContext &Ctx = getContext();
   if (!UseInitArray) {
@@ -1249,8 +1270,8 @@ void TargetLoweringObjectFileMachO::emitModuleMetadata(MCStreamer &Streamer,
   MCSectionMachO *S = getContext().getMachOSection(
       Segment, Section, TAA, StubSize, SectionKind::getData());
   Streamer.switchSection(S);
-  Streamer.emitLabel(
-      getContext().getOrCreateSymbol(StringRef("L_OBJC_IMAGE_INFO")));
+  Streamer.emitLabel(getContext().
+                     getOrCreateSymbol(StringRef("L_OBJC_IMAGE_INFO")));
   Streamer.emitInt32(VersionVal);
   Streamer.emitInt32(ImageInfoFlags);
   Streamer.addBlankLine();
@@ -1277,8 +1298,7 @@ MCSection *TargetLoweringObjectFileMachO::getExplicitSectionGlobal(
       SectionName = Attrs.getAttribute("bss-section").getValueAsString();
     } else if (Attrs.hasAttribute("rodata-section") && Kind.isReadOnly()) {
       SectionName = Attrs.getAttribute("rodata-section").getValueAsString();
-    } else if (Attrs.hasAttribute("relro-section") &&
-               Kind.isReadOnlyWithRel()) {
+    } else if (Attrs.hasAttribute("relro-section") && Kind.isReadOnlyWithRel()) {
       SectionName = Attrs.getAttribute("relro-section").getValueAsString();
     } else if (Attrs.hasAttribute("data-section") && Kind.isData()) {
       SectionName = Attrs.getAttribute("data-section").getValueAsString();
@@ -1332,10 +1352,8 @@ MCSection *TargetLoweringObjectFileMachO::SelectSectionForGlobal(
   checkMachOComdat(GO);
 
   // Handle thread local data.
-  if (Kind.isThreadBSS())
-    return TLSBSSSection;
-  if (Kind.isThreadData())
-    return TLSDataSection;
+  if (Kind.isThreadBSS()) return TLSBSSSection;
+  if (Kind.isThreadData()) return TLSDataSection;
 
   if (Kind.isText())
     return GO->isWeakForLinker() ? TextCoalSection : TextSection;
@@ -1413,7 +1431,7 @@ MCSection *TargetLoweringObjectFileMachO::getSectionForConstant(
     return EightByteConstantSection;
   if (Kind.isMergeableConst16())
     return SixteenByteConstantSection;
-  return ReadOnlySection; // .const
+  return ReadOnlySection;  // .const
 }
 
 MCSection *TargetLoweringObjectFileMachO::getSectionForCommandLines() const {
@@ -1428,7 +1446,7 @@ const MCExpr *TargetLoweringObjectFileMachO::getTTypeGlobalReference(
 
   if (Encoding & DW_EH_PE_indirect) {
     MachineModuleInfoMachO &MachOMMI =
-        MMI->getObjFileInfo<MachineModuleInfoMachO>();
+      MMI->getObjFileInfo<MachineModuleInfoMachO>();
 
     MCSymbol *SSym = getSymbolWithGlobalValueBase(GV, "$non_lazy_ptr", TM);
 
@@ -1440,9 +1458,9 @@ const MCExpr *TargetLoweringObjectFileMachO::getTTypeGlobalReference(
       StubSym = MachineModuleInfoImpl::StubValueTy(Sym, !GV->hasLocalLinkage());
     }
 
-    return TargetLoweringObjectFile::getTTypeReference(
-        MCSymbolRefExpr::create(SSym, getContext()),
-        Encoding & ~DW_EH_PE_indirect, Streamer);
+    return TargetLoweringObjectFile::
+      getTTypeReference(MCSymbolRefExpr::create(SSym, getContext()),
+                        Encoding & ~DW_EH_PE_indirect, Streamer);
   }
 
   return TargetLoweringObjectFile::getTTypeGlobalReference(GV, Encoding, TM,
@@ -1454,7 +1472,7 @@ MCSymbol *TargetLoweringObjectFileMachO::getCFIPersonalitySymbol(
     MachineModuleInfo *MMI) const {
   // The mach-o version of this method defaults to returning a stub reference.
   MachineModuleInfoMachO &MachOMMI =
-      MMI->getObjFileInfo<MachineModuleInfoMachO>();
+    MMI->getObjFileInfo<MachineModuleInfoMachO>();
 
   MCSymbol *SSym = getSymbolWithGlobalValueBase(GV, "$non_lazy_ptr", TM);
 
@@ -1510,7 +1528,7 @@ const MCExpr *TargetLoweringObjectFileMachO::getIndirectSymViaGOTPCRel(
   // Then the linker will notice the constant in the table and will look at the
   // content of the symbol.
   MachineModuleInfoMachO &MachOMMI =
-      MMI->getObjFileInfo<MachineModuleInfoMachO>();
+    MMI->getObjFileInfo<MachineModuleInfoMachO>();
   MCContext &Ctx = getContext();
 
   // The offset must consider the original displacement from the base symbol
@@ -1534,15 +1552,15 @@ const MCExpr *TargetLoweringObjectFileMachO::getIndirectSymViaGOTPCRel(
                                                  !GV->hasLocalLinkage());
 
   const MCExpr *BSymExpr =
-      MCSymbolRefExpr::create(BaseSym, MCSymbolRefExpr::VK_None, Ctx);
+    MCSymbolRefExpr::create(BaseSym, MCSymbolRefExpr::VK_None, Ctx);
   const MCExpr *LHS =
-      MCSymbolRefExpr::create(Stub, MCSymbolRefExpr::VK_None, Ctx);
+    MCSymbolRefExpr::create(Stub, MCSymbolRefExpr::VK_None, Ctx);
 
   if (!Offset)
     return MCBinaryExpr::createSub(LHS, BSymExpr, Ctx);
 
-  const MCExpr *RHS = MCBinaryExpr::createAdd(
-      BSymExpr, MCConstantExpr::create(Offset, Ctx), Ctx);
+  const MCExpr *RHS =
+    MCBinaryExpr::createAdd(BSymExpr, MCConstantExpr::create(Offset, Ctx), Ctx);
   return MCBinaryExpr::createSub(LHS, RHS, Ctx);
 }
 
@@ -1575,30 +1593,42 @@ void TargetLoweringObjectFileMachO::getNameWithPrefix(
 //                                  COFF
 //===----------------------------------------------------------------------===//
 
-static unsigned getCOFFSectionFlags(SectionKind K, const TargetMachine &TM) {
+static unsigned
+getCOFFSectionFlags(SectionKind K, const TargetMachine &TM) {
   unsigned Flags = 0;
   bool isThumb = TM.getTargetTriple().getArch() == Triple::thumb;
 
   if (K.isMetadata())
-    Flags |= COFF::IMAGE_SCN_MEM_DISCARDABLE;
+    Flags |=
+      COFF::IMAGE_SCN_MEM_DISCARDABLE;
   else if (K.isExclude())
-    Flags |= COFF::IMAGE_SCN_LNK_REMOVE | COFF::IMAGE_SCN_MEM_DISCARDABLE;
+    Flags |=
+      COFF::IMAGE_SCN_LNK_REMOVE | COFF::IMAGE_SCN_MEM_DISCARDABLE;
   else if (K.isText())
     Flags |=
-        COFF::IMAGE_SCN_MEM_EXECUTE | COFF::IMAGE_SCN_MEM_READ |
-        COFF::IMAGE_SCN_CNT_CODE |
-        (isThumb ? COFF::IMAGE_SCN_MEM_16BIT : (COFF::SectionCharacteristics)0);
+      COFF::IMAGE_SCN_MEM_EXECUTE |
+      COFF::IMAGE_SCN_MEM_READ |
+      COFF::IMAGE_SCN_CNT_CODE |
+      (isThumb ? COFF::IMAGE_SCN_MEM_16BIT : (COFF::SectionCharacteristics)0);
   else if (K.isBSS())
-    Flags |= COFF::IMAGE_SCN_CNT_UNINITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ |
-             COFF::IMAGE_SCN_MEM_WRITE;
+    Flags |=
+      COFF::IMAGE_SCN_CNT_UNINITIALIZED_DATA |
+      COFF::IMAGE_SCN_MEM_READ |
+      COFF::IMAGE_SCN_MEM_WRITE;
   else if (K.isThreadLocal())
-    Flags |= COFF::IMAGE_SCN_CNT_INITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ |
-             COFF::IMAGE_SCN_MEM_WRITE;
+    Flags |=
+      COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+      COFF::IMAGE_SCN_MEM_READ |
+      COFF::IMAGE_SCN_MEM_WRITE;
   else if (K.isReadOnly() || K.isReadOnlyWithRel())
-    Flags |= COFF::IMAGE_SCN_CNT_INITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ;
+    Flags |=
+      COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+      COFF::IMAGE_SCN_MEM_READ;
   else if (K.isWriteable())
-    Flags |= COFF::IMAGE_SCN_CNT_INITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ |
-             COFF::IMAGE_SCN_MEM_WRITE;
+    Flags |=
+      COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+      COFF::IMAGE_SCN_MEM_READ |
+      COFF::IMAGE_SCN_MEM_WRITE;
 
   return Flags;
 }
@@ -1731,8 +1761,7 @@ MCSection *TargetLoweringObjectFileCOFF::SelectSectionForGlobal(
                                          COMDATSymName, Selection, UniqueID);
     } else {
       SmallString<256> TmpData;
-      getMangler().getNameWithPrefix(TmpData, GO,
-                                     /*CannotUsePrivateLabel=*/true);
+      getMangler().getNameWithPrefix(TmpData, GO, /*CannotUsePrivateLabel=*/true);
       return getContext().getCOFFSection(Name, Characteristics, Kind, TmpData,
                                          Selection, UniqueID);
     }
@@ -1805,7 +1834,7 @@ bool TargetLoweringObjectFileCOFF::shouldPutJumpTableInFunctionSection(
     }
   }
   return TargetLoweringObjectFile::shouldPutJumpTableInFunctionSection(
-      UsesLabelDifference, F);
+    UsesLabelDifference, F);
 }
 
 void TargetLoweringObjectFileCOFF::emitModuleMetadata(MCStreamer &Streamer,
@@ -1833,8 +1862,8 @@ void TargetLoweringObjectFileCOFF::emitModuleMetadata(MCStreamer &Streamer,
   emitCGProfileMetadata(Streamer, M);
 }
 
-void TargetLoweringObjectFileCOFF::emitLinkerDirectives(MCStreamer &Streamer,
-                                                        Module &M) const {
+void TargetLoweringObjectFileCOFF::emitLinkerDirectives(
+    MCStreamer &Streamer, Module &M) const {
   if (NamedMDNode *LinkerOptions = M.getNamedMetadata("llvm.linker.options")) {
     // Emit the linker options to the linker .drectve section.  According to the
     // spec, this section is a space-separated string containing flags for
@@ -1900,24 +1929,22 @@ void TargetLoweringObjectFileCOFF::Initialize(MCContext &Ctx,
   this->TM = &TM;
   const Triple &T = TM.getTargetTriple();
   if (T.isWindowsMSVCEnvironment() || T.isWindowsItaniumEnvironment()) {
-    StaticCtorSection = Ctx.getCOFFSection(
-        ".CRT$XCU",
-        COFF::IMAGE_SCN_CNT_INITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ,
-        SectionKind::getReadOnly());
-    StaticDtorSection = Ctx.getCOFFSection(
-        ".CRT$XTX",
-        COFF::IMAGE_SCN_CNT_INITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ,
-        SectionKind::getReadOnly());
+    StaticCtorSection =
+        Ctx.getCOFFSection(".CRT$XCU", COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+                                           COFF::IMAGE_SCN_MEM_READ,
+                           SectionKind::getReadOnly());
+    StaticDtorSection =
+        Ctx.getCOFFSection(".CRT$XTX", COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+                                           COFF::IMAGE_SCN_MEM_READ,
+                           SectionKind::getReadOnly());
   } else {
     StaticCtorSection = Ctx.getCOFFSection(
-        ".ctors",
-        COFF::IMAGE_SCN_CNT_INITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ |
-            COFF::IMAGE_SCN_MEM_WRITE,
+        ".ctors", COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+                      COFF::IMAGE_SCN_MEM_READ | COFF::IMAGE_SCN_MEM_WRITE,
         SectionKind::getData());
     StaticDtorSection = Ctx.getCOFFSection(
-        ".dtors",
-        COFF::IMAGE_SCN_CNT_INITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ |
-            COFF::IMAGE_SCN_MEM_WRITE,
+        ".dtors", COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+                      COFF::IMAGE_SCN_MEM_READ | COFF::IMAGE_SCN_MEM_WRITE,
         SectionKind::getData());
   }
 }
@@ -1966,10 +1993,9 @@ static MCSectionCOFF *getCOFFStaticStructorSection(MCContext &Ctx,
     raw_string_ostream(Name) << format(".%05u", 65535 - Priority);
 
   return Ctx.getAssociativeCOFFSection(
-      Ctx.getCOFFSection(Name,
-                         COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
-                             COFF::IMAGE_SCN_MEM_READ |
-                             COFF::IMAGE_SCN_MEM_WRITE,
+      Ctx.getCOFFSection(Name, COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+                                   COFF::IMAGE_SCN_MEM_READ |
+                                   COFF::IMAGE_SCN_MEM_WRITE,
                          SectionKind::getData()),
       KeySym, 0);
 }
@@ -2003,9 +2029,9 @@ const MCExpr *TargetLoweringObjectFileCOFF::lowerRelativeReference(
 
   // Both ptrtoint instructions must wrap global objects:
   // - Only global variables are eligible for image relative relocations.
-  // - The subtrahend refers to the special symbol __ImageBase, a
-  // GlobalVariable. We expect __ImageBase to be a global variable without a
-  // section, externally defined.
+  // - The subtrahend refers to the special symbol __ImageBase, a GlobalVariable.
+  // We expect __ImageBase to be a global variable without a section, externally
+  // defined.
   //
   // It should look something like this: @__ImageBase = external constant i8
   if (!isa<GlobalObject>(LHS) || !isa<GlobalVariable>(RHS) ||
@@ -2014,8 +2040,9 @@ const MCExpr *TargetLoweringObjectFileCOFF::lowerRelativeReference(
       cast<GlobalVariable>(RHS)->hasInitializer() || RHS->hasSection())
     return nullptr;
 
-  return MCSymbolRefExpr::create(
-      TM.getSymbol(LHS), MCSymbolRefExpr::VK_COFF_IMGREL32, getContext());
+  return MCSymbolRefExpr::create(TM.getSymbol(LHS),
+                                 MCSymbolRefExpr::VK_COFF_IMGREL32,
+                                 getContext());
 }
 
 static std::string APIntToHexString(const APInt &AI) {
@@ -2107,9 +2134,7 @@ static const Comdat *getWasmComdat(const GlobalValue *GV) {
 
   if (C->getSelectionKind() != Comdat::Any)
     report_fatal_error("WebAssembly COMDATs only support "
-                       "SelectionKind::Any, '" +
-                       C->getName() +
-                       "' cannot be "
+                       "SelectionKind::Any, '" + C->getName() + "' cannot be "
                        "lowered.");
 
   return C;
@@ -2247,10 +2272,10 @@ void TargetLoweringObjectFileWasm::InitializeWasm() {
 
 MCSection *TargetLoweringObjectFileWasm::getStaticCtorSection(
     unsigned Priority, const MCSymbol *KeySym) const {
-  return Priority == UINT16_MAX
-             ? StaticCtorSection
-             : getContext().getWasmSection(".init_array." + utostr(Priority),
-                                           SectionKind::getData());
+  return Priority == UINT16_MAX ?
+         StaticCtorSection :
+         getContext().getWasmSection(".init_array." + utostr(Priority),
+                                     SectionKind::getData());
 }
 
 MCSection *TargetLoweringObjectFileWasm::getStaticDtorSection(
@@ -2480,7 +2505,7 @@ MCSection *TargetLoweringObjectFileXCOFF::SelectSectionForGlobal(
 
 MCSection *TargetLoweringObjectFileXCOFF::getSectionForJumpTable(
     const Function &F, const TargetMachine &TM) const {
-  assert(!F.getComdat() && "Comdat not supported on XCOFF.");
+  assert (!F.getComdat() && "Comdat not supported on XCOFF.");
 
   if (!TM.getFunctionSections())
     return ReadOnlySection;
@@ -2541,12 +2566,12 @@ void TargetLoweringObjectFileXCOFF::Initialize(MCContext &Ctx,
 }
 
 MCSection *TargetLoweringObjectFileXCOFF::getStaticCtorSection(
-    unsigned Priority, const MCSymbol *KeySym) const {
+	unsigned Priority, const MCSymbol *KeySym) const {
   report_fatal_error("no static constructor section on AIX");
 }
 
 MCSection *TargetLoweringObjectFileXCOFF::getStaticDtorSection(
-    unsigned Priority, const MCSymbol *KeySym) const {
+	unsigned Priority, const MCSymbol *KeySym) const {
   report_fatal_error("no static destructor section on AIX");
 }
 
@@ -2666,22 +2691,4 @@ MCSection *TargetLoweringObjectFileGOFF::SelectSectionForGlobal(
                                        nullptr, nullptr);
 
   return getContext().getObjectFileInfo()->getTextSection();
-}
-
-//===----------------------------------------------------------------------===//
-//                                  MMO
-//===----------------------------------------------------------------------===//
-
-TargetLoweringObjectFileMMO::TargetLoweringObjectFileMMO() = default;
-
-TargetLoweringObjectFileMMO::~TargetLoweringObjectFileMMO() = default;
-
-MCSection *TargetLoweringObjectFileMMO::SelectSectionForGlobal(
-    const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const {
-  return getContext().getObjectFileInfo()->getTextSection();
-}
-
-MCSection *TargetLoweringObjectFileMMO::getExplicitSectionGlobal(
-    const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const {
-  SelectSectionForGlobal(GO, Kind, TM);
 }
