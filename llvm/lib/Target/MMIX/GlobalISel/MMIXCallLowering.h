@@ -43,20 +43,22 @@ public:
   struct MMIXOutgoingValueHandler : public OutgoingValueHandler {
     MMIXOutgoingValueHandler(MachineIRBuilder &MIRBuilder,
                              MachineRegisterInfo &MRI);
-    
-    // Cache the SP register vreg if we need it more than once in this call site.
+
+    // Cache the SP register vreg if we need it more than once in this call
+    // site.
     Register SPReg;
 
     Register LastRetReg;
+
   public:
     Register getStackAddress(uint64_t Size, int64_t Offset,
                              MachinePointerInfo &MPO,
                              ISD::ArgFlagsTy Flags) override;
     void assignValueToReg(Register ValVReg, Register PhysReg,
-                          CCValAssign VA) override;
+                          const CCValAssign &VA) override;
     void assignValueToAddress(Register ValVReg, Register Addr, LLT MemTy,
-                              MachinePointerInfo &MPO,
-                              CCValAssign &VA) override;
+                              const MachinePointerInfo &MPO,
+                              const CCValAssign &VA) override;
   };
 
   struct MMIXCallSiteArgValueHandler : public MMIXOutgoingValueHandler {
@@ -68,7 +70,7 @@ public:
     std::uint16_t CurrentSubRegIndex;
 
     void assignValueToReg(Register ValVReg, Register PhysReg,
-                          CCValAssign VA) override;
+                          const CCValAssign &VA) override;
   };
 
   struct MMIXIncomingValueHandler : public IncomingValueHandler {
@@ -80,23 +82,24 @@ public:
                              MachinePointerInfo &MPO,
                              ISD::ArgFlagsTy Flags) override;
     void assignValueToReg(Register ValVReg, Register PhysReg,
-                          CCValAssign VA) override;
+                          const CCValAssign &VA) override;
     void assignValueToAddress(Register ValVReg, Register Addr, LLT MemTy,
-                              MachinePointerInfo &MPO,
-                              CCValAssign &VA) override;
+                              const MachinePointerInfo &MPO,
+                              const CCValAssign &VA) override;
   };
 
   struct MMIXCallSiteRetValueHandler : public MMIXIncomingValueHandler {
     MMIXCallSiteRetValueHandler(MachineIRBuilder &MIRBuilder,
-                             MachineRegisterInfo &MRI);
+                                MachineRegisterInfo &MRI);
     Register RetTuple;
     std::uint16_t CurrentSubRegIndex;
+
   public:
     void assignValueToReg(Register ValVReg, Register PhysReg,
-                          CCValAssign VA) override;
+                          const CCValAssign &VA) override;
     void assignValueToAddress(Register ValVReg, Register Addr, LLT MemTy,
-                              MachinePointerInfo &MPO,
-                              CCValAssign &VA) override;
+                              const MachinePointerInfo &MPO,
+                              const CCValAssign &VA) override;
   };
 };
 

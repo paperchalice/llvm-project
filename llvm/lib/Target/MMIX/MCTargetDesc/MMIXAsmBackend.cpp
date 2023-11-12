@@ -42,7 +42,7 @@ llvm::MMIXAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
 MMIXAsmBackend::MMIXAsmBackend(const MCSubtargetInfo &STI,
                                const MCRegisterInfo &MRI,
                                const MCTargetOptions &Options)
-    : MCAsmBackend(support::big), STI(STI) {}
+    : MCAsmBackend(endianness::big), STI(STI) {}
 
 unsigned MMIXAsmBackend::getNumFixupKinds() const {
   return MMIX::NumTargetFixupKinds;

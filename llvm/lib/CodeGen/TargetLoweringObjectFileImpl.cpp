@@ -1590,6 +1590,23 @@ void TargetLoweringObjectFileMachO::getNameWithPrefix(
 }
 
 //===----------------------------------------------------------------------===//
+//                                 MMO
+//===----------------------------------------------------------------------===//
+TargetLoweringObjectFileMMO::TargetLoweringObjectFileMMO() = default;
+
+TargetLoweringObjectFileMMO::~TargetLoweringObjectFileMMO() = default;
+
+MCSection *TargetLoweringObjectFileMMO::SelectSectionForGlobal(
+    const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const {
+  return getContext().getObjectFileInfo()->getTextSection();
+}
+
+MCSection *TargetLoweringObjectFileMMO::getExplicitSectionGlobal(
+    const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const {
+  SelectSectionForGlobal(GO, Kind, TM);
+}
+
+//===----------------------------------------------------------------------===//
 //                                  COFF
 //===----------------------------------------------------------------------===//
 

@@ -43,7 +43,7 @@ void MMIXMCCodeEmitter::encodeInstruction(const MCInst &Inst,
     CB.append({'\x98', '\x00', '\x00', '\x01'});
   }
   uint32_t Bits = getBinaryCodeForInstr(Inst, Fixups, STI);
-  support::endian::write<uint32_t>(CB, Bits, support::big);
+  support::endian::write<uint32_t>(CB, Bits, endianness::big);
 }
 
 std::uint64_t

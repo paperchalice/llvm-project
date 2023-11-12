@@ -25,7 +25,7 @@ private:
   MMO::MMOTrie SymbolTrie;
 
 public:
-  MMIXObjectWriter(raw_pwrite_stream &OS) : W(OS, support::endianness::big) {}
+  MMIXObjectWriter(raw_pwrite_stream &OS) : W(OS, llvm::endianness::big) {}
   ~MMIXObjectWriter() override {}
 
 public:

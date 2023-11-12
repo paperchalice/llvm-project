@@ -35,7 +35,7 @@ Register MMIXCallLowering::MMIXOutgoingValueHandler::getStackAddress(
 }
 
 void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToReg(
-    Register ValVReg, Register PhysReg, CCValAssign VA) {
+    Register ValVReg, Register PhysReg, const CCValAssign &VA) {
   Register ExtReg = extendRegister(ValVReg, VA);
   if (LastRetReg)
     if (PhysReg == MMIX::r0)
@@ -49,8 +49,8 @@ void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToReg(
 }
 
 void MMIXCallLowering::MMIXOutgoingValueHandler::assignValueToAddress(
-    Register ValVReg, Register Addr, LLT MemTy, MachinePointerInfo &MPO,
-    CCValAssign &VA) {
+    Register ValVReg, Register Addr, LLT MemTy, const MachinePointerInfo &MPO,
+    const CCValAssign &VA) {
   MachineFunction &MF = MIRBuilder.getMF();
   auto *MMO = MF.getMachineMemOperand(MPO, MachineMemOperand::MOStore, MemTy,
                                       inferAlignFromPtrInfo(MF, MPO));
@@ -64,7 +64,7 @@ MMIXCallLowering::MMIXCallSiteArgValueHandler::MMIXCallSiteArgValueHandler(
     : MMIXOutgoingValueHandler(MIRBuilder, MRI), CurrentSubRegIndex(sub1) {}
 
 void MMIXCallLowering::MMIXCallSiteArgValueHandler::assignValueToReg(
-    Register ValVReg, Register PhysReg, CCValAssign VA) {
+    Register ValVReg, Register PhysReg, const CCValAssign &VA) {
   Register ExtReg = extendRegister(ValVReg, VA);
   auto RegClass = MRI.getRegClass(ArgTupleReg);
   assert(RegClass && "Invalid RegisterClass for argument tuple!");
@@ -105,7 +105,7 @@ Register MMIXCallLowering::MMIXIncomingValueHandler::getStackAddress(
 }
 
 void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToReg(
-    Register ValVReg, Register PhysReg, CCValAssign VA) {
+    Register ValVReg, Register PhysReg, const CCValAssign &VA) {
   Register ExtReg = extendRegister(ValVReg, VA);
   MIRBuilder.buildCopy(ExtReg, PhysReg);
   // mark PhysReg used
@@ -114,8 +114,8 @@ void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToReg(
 }
 
 void MMIXCallLowering::MMIXIncomingValueHandler::assignValueToAddress(
-    Register ValVReg, Register Addr, LLT MemTy, MachinePointerInfo &MPO,
-    CCValAssign &VA) {
+    Register ValVReg, Register Addr, LLT MemTy, const MachinePointerInfo &MPO,
+    const CCValAssign &VA) {
   MachineFunction &MF = MIRBuilder.getMF();
   auto *MMO = MF.getMachineMemOperand(
       MPO, MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, MemTy,
@@ -128,7 +128,7 @@ MMIXCallLowering::MMIXCallSiteRetValueHandler::MMIXCallSiteRetValueHandler(
     : MMIXIncomingValueHandler(MIRBuilder, MRI), CurrentSubRegIndex(sub0) {}
 
 void MMIXCallLowering::MMIXCallSiteRetValueHandler::assignValueToReg(
-    Register ValVReg, Register PhysReg, CCValAssign VA) {
+    Register ValVReg, Register PhysReg, const CCValAssign &VA) {
   auto *RegClass = MRI.getRegClass(RetTuple);
   assert(RegClass && "Invalid reg class for return values!");
   if (RegClass == &MMIX::GPRRegClass) {
@@ -142,8 +142,8 @@ void MMIXCallLowering::MMIXCallSiteRetValueHandler::assignValueToReg(
 }
 
 void llvm::MMIXCallLowering::MMIXCallSiteRetValueHandler::assignValueToAddress(
-    Register ValVReg, Register Addr, LLT MemTy, MachinePointerInfo &MPO,
-    CCValAssign &VA) {
+    Register ValVReg, Register Addr, LLT MemTy, const MachinePointerInfo &MPO,
+    const CCValAssign &VA) {
   MachineFunction &MF = MIRBuilder.getMF();
   auto *MMO = MF.getMachineMemOperand(MPO, MachineMemOperand::MOLoad, MemTy,
                                       inferAlignFromPtrInfo(MF, MPO));
