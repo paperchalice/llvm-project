@@ -1,8 +1,8 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MMIXTARGETLOWERING_H
 #define LLVM_LIB_TARGET_MMIX_MMIXTARGETLOWERING_H
 
-#include "llvm/CodeGen/TargetLowering.h"
 #include "MMIXTargetMachine.h"
+#include "llvm/CodeGen/TargetLowering.h"
 
 namespace llvm {
 
@@ -10,12 +10,17 @@ class MMIXSubtarget;
 
 class MMIXTargetLowering : public TargetLowering {
 public:
-explicit MMIXTargetLowering(const MMIXTargetMachine &TM,
-                                    const MMIXSubtarget &STI);
+  explicit MMIXTargetLowering(const MMIXTargetMachine &TM,
+                              const MMIXSubtarget &STI);
+
+public:
+  bool functionArgumentNeedsConsecutiveRegisters(Type *Ty,
+                                                 CallingConv::ID CallConv,
+                                                 bool isVarArg,
+                                                 const DataLayout &DL) const override;
 
 private:
-const MMIXSubtarget &Subtarget;
-
+  const MMIXSubtarget &Subtarget;
 };
 
 } // namespace llvm

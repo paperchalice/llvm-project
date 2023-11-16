@@ -11,3 +11,9 @@ MMIXTargetLowering::MMIXTargetLowering(const MMIXTargetMachine &TM,
   addRegisterClass(MVT::i64, &MMIX::GPRRegClass);
   computeRegisterProperties(Subtarget.getRegisterInfo());
 }
+
+bool MMIXTargetLowering::functionArgumentNeedsConsecutiveRegisters(
+    Type *Ty, CallingConv::ID CallConv, bool isVarArg,
+    const DataLayout &DL) const {
+  return Ty->isAggregateType();
+}

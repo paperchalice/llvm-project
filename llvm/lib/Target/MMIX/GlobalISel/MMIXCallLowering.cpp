@@ -33,7 +33,7 @@ MMIXCallLowering::MMIXCallLowering(const TargetLowering &TLI)
 
 bool MMIXCallLowering::enableBigEndian() const { return true; }
 
-// the calling convention of mmix is somewhat obsecure
+// the calling convention of mmix is somewhat obscure
 // it uses register tuples to pass arguments
 bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
                                  CallLoweringInfo &Info) const {
@@ -145,6 +145,10 @@ bool MMIXCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   return true;
 }
 
+// FIXME: currently, this method still can't handle structure formal argument,
+// in theory, frontend should emit suitable LLVM IR that backend can lowering,
+// thus backend can't put struct into registers when it is possible,
+// fortunatley, there is no formal ABI for MMIX.
 bool MMIXCallLowering::lowerFormalArguments(MachineIRBuilder &MIRBuilder,
                                             const Function &F,
                                             ArrayRef<ArrayRef<Register>> VRegs,
