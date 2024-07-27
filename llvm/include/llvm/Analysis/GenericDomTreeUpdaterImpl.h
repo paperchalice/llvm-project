@@ -359,6 +359,10 @@ void GenericDomTreeUpdater<DerivedT, DomTreeT, PostDomTreeT>::
   if (!DT && !PDT)
     return;
   CriticalEdgesToSplit.push_back({FromBB, ToBB, NewBB});
+  bool Inserted = NewBBs.insert(NewBB).second;
+  (void)Inserted;
+  assert(Inserted &&
+         "A basic block inserted via edge splitting cannot appear twice");
   if (Strategy == UpdateStrategy::Lazy) {
     applyDomTreeUpdates();
     applyPostDomTreeUpdates();
