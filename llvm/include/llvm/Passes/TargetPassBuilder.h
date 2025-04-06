@@ -20,7 +20,10 @@
 #include "llvm/CodeGen/MachinePassManager.h"
 #include "llvm/Target/CGPassBuilderOption.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
+#include <type_traits>
 #include <utility>
+#include <variant>
+#include <vector>
 
 namespace llvm {
 
@@ -34,6 +37,66 @@ public:
   virtual ~TargetPassBuilder() = default;
 
   virtual ModulePassManager buildPipeline();
+
+protected:
+  template <typename PassManagerT, typename... NestedIRPassManagerTs>
+  struct PassManagerWrapperBase {
+    template <typename PassT> void addPass(PassT &&P) {
+      PassNames.push_back(PassT::name());
+      PMs.push_back(PassManagerT().addPass(std::forward<PassT>(P)));
+    }
+
+    template <typename PassManagerWrapperT>
+    void
+    addPassManagerWrapper(std::remove_reference_t<PassManagerWrapperT> &&PMW) {
+      for (auto Name : PMW.PassNames)
+        Names.push_back(Name);
+      for (auto &&VPM : PMW.PassManagers) {
+        std::visit([this](auto &&PM) { PassManagers.addPass(std::move(PM)); },
+                   std::move(VPM));
+      }
+    }
+
+    std::vector<StringRef> Names;
+    std::vector<std::variant<PassManagerT, NestedIRPassManagerTs...>>
+        PassManagers;
+  };
+
+  class ModulePassManagerWrapper;
+  class FunctionPassManagerWrapper;
+  class LoopPassManagerWrapper;
+  class MachineFunctionPassManagerWrapper;
+
+  class MachineFunctionPassManagerWrapper
+      : PassManagerWrapperBase<MachineFunctionPassManager> {};
+
+  class LoopPassManagerWrapper : PassManagerWrapperBase<LoopPassManager> {};
+
+  class FunctionPassManagerWrapper
+      : PassManagerWrapperBase<FunctionPassManager, LoopPassManager,
+                               MachineFunctionPassManager> {
+  public:
+  };
+
+  class ModulePassManagerWrapper
+      : PassManagerWrapperBase<ModulePassManager, FunctionPassManager,
+                               LoopPassManager, MachineFunctionPassManager> {
+  public:
+    void addFunctionPassManagerWrapper(FunctionPassManagerWrapper &FPMW) {
+      addPassManagerWrapper<FunctionPassManagerWrapper>(std::move(FPMW));
+    }
+  };
+
+  class MainModulePassWrapper {
+  public:
+    MainModulePassWrapper(TargetPassBuilder &TPB) : TPB(TPB) {}
+
+    template <typename PassT> void addPass(PassT &&P) {}
+
+  private:
+    TargetPassBuilder &TPB;
+    ModulePassManager MPM;
+  };
 
 protected:
   PassBuilder &PB;
