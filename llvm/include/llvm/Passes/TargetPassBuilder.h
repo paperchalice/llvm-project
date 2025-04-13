@@ -39,19 +39,22 @@ public:
   virtual ModulePassManager buildPipeline();
 
 private:
-  template <typename InternalPassT> struct AdaptorWrapper {
-    InternalPassT P;
+  template <typename InternalPassT> struct AdaptorWrapper : InternalPassT {
+    using InternalPassT::Passes;
   };
   template <> struct AdaptorWrapper<void> {};
 
   template <typename PassManagerT, typename InternalPassT = void>
   class PassManagerWrapper {
+    friend class TargetPassBuilder;
+
   public:
     bool isEmpty() const { return Passes.empty(); }
 
     template <typename PassT> void addPass(PassT &&P) {
-      Passes.emplace_back(PassT::name(),
-                          PassManagerT().addPass(std::forward<PassT>(P)));
+      PassManagerT PM;
+      PM.addPass(std::forward<PassT>(P));
+      Passes.emplace_back(PassT::name(), std::move(PM));
     }
 
     void addPass(PassManagerWrapper &&PM) {
@@ -60,17 +63,19 @@ private:
     }
 
     template <> void addPass(AdaptorWrapper<InternalPassT> &&Adaptor) {
-      Passes.push_back(std::move(Adaptor.P));
+      Passes.insert(Passes.end(),
+                    std::make_move_iterator(Adaptor.Passes.begin()),
+                    std::make_move_iterator(Adaptor.Passes.end()));
     }
 
-    template <> void addPass(AdaptorWrapper<void> &&) = delete;
+    void addPass(AdaptorWrapper<void> &&) = delete;
 
     void addPass(llvm::ModulePassManager &&) = delete;
     void addPass(llvm::FunctionPassManager &&) = delete;
     void addPass(llvm::LoopPassManager &&) = delete;
     void addPass(llvm::MachineFunctionPassManager &&) = delete;
 
-  private:
+  protected:
     std::vector<std::pair<
         StringRef,
         std::variant<llvm::ModulePassManager, llvm::FunctionPassManager,
@@ -78,10 +83,10 @@ private:
         Passes;
   };
 
-  template <typename PassT, typename NestedPassManagerT>
+  template <typename NestedPassManagerT, typename PassT>
   AdaptorWrapper<NestedPassManagerT> createPassAdaptor(PassT &&P) {
     AdaptorWrapper<NestedPassManagerT> Adaptor;
-    Adaptor.P.add_pass(std::forward<PassT>(P));
+    Adaptor.addPass(std::forward<PassT>(P));
     return Adaptor;
   }
 
@@ -94,14 +99,6 @@ protected:
       PassManagerWrapper<llvm::FunctionPassManager, LoopPassManager>;
   using ModulePassManager =
       PassManagerWrapper<llvm::ModulePassManager, FunctionPassManager>;
-
-private:
-  template <typename NestedPassManagerT, typename PassT>
-  AdaptorWrapper<NestedPassManagerT> createPassAdaptor(PassT &&P) {
-    AdaptorWrapper<NestedPassManagerT> Adaptor;
-    Adaptor.P.add_pass(std::forward<PassT>(P));
-    return Adaptor;
-  }
 
 protected:
   template <typename FunctionPassT>
@@ -130,35 +127,31 @@ protected:
 
   void buildCodeGenIRPipeline();
 
-  void buildExceptionHandlingPipeline();
-
-  void buildISelPreparePipeline();
-
-  virtual void addISelIRPasses();
-
-  void addCoreISelPasses();
+  FunctionPassManager buildExceptionHandlingPipeline();
 
   template <typename PassT> void injectBefore(std::function<void()> F) {
-    BeforeAddingCallbacks.push_back([Accessed = false](StringRef Name) mutable {
-      if (Accessed)
-        return true;
-      Accessed = true;
-      if (PassT::name() != Name)
-        return true;
-      F();
-      return true;
-    });
+    BeforeAddingCallbacks.push_back(
+        [Accessed = false, F](StringRef Name) mutable {
+          if (Accessed)
+            return true;
+          Accessed = true;
+          if (PassT::name() != Name)
+            return true;
+          F();
+          return true;
+        });
   }
 
   template <typename PassT> void injectAfter(std::function<void()> F) {
-    AfterAddingCallbacks.push_back([Accessed = false](StringRef Name) mutable {
-      if (Accessed)
-        return;
-      Accessed = true;
-      if (PassT::name() != Name)
-        return;
-      F();
-    });
+    AfterAddingCallbacks.push_back(
+        [Accessed = false, F](StringRef Name) mutable {
+          if (Accessed)
+            return;
+          Accessed = true;
+          if (PassT::name() != Name)
+            return;
+          F();
+        });
   }
 
   template <typename... PassTs> void disablePass() {
@@ -168,51 +161,53 @@ protected:
 private:
   void buildCoreCodeGenPipeline();
 
+  llvm::ModulePassManager constructRealPassManager(ModulePassManager &&MPMW);
+
 private:
   virtual void anchor();
 
   StringSet<> DisabedPasses;
 
-  template <typename PassManagerT, typename PassT>
-  void addPassInternal(PassManagerT &PM, PassT &&P) {
-    if (invokeBeforeAddingCallbacks(PassT::name()))
-      return;
+  // template <typename PassManagerT, typename PassT>
+  // void addPassInternal(PassManagerT &PM, PassT &&P) {
+  //   if (invokeBeforeAddingCallbacks(PassT::name()))
+  //     return;
 
-    if constexpr (isModulePass<PassT>) {
-      if (!FinalLPM.isEmpty()) {
-        FinalFPM.addPass(
-            createFunctionToLoopPassAdaptor(std::move(FinalLPM),
-                                            /*UseMemorySSA=*/true));
-        FinalLPM = LoopPassManager();
-      }
-      if (!FinalMFPM.isEmpty()) {
-        FinalFPM.addPass(
-            createFunctionToMachineFunctionPassAdaptor(std::move(FinalMFPM)));
-        FinalMFPM = MachineFunctionPassManager();
-      }
-      if (!FinalFPM.isEmpty()) {
-        FinalMPM.addPass(
-            createModuleToFunctionPassAdaptor(std::move(FinalFPM)));
-        FinalFPM = FunctionPassManager();
-      }
-    }
-    if constexpr (isFunctionPass<PassT>) {
-      if (!FinalLPM.isEmpty()) {
-        FinalFPM.addPass(
-            createFunctionToLoopPassAdaptor(std::move(FinalLPM),
-                                            /*UseMemorySSA=*/true));
-        FinalLPM = LoopPassManager();
-      }
-      if (!FinalMFPM.isEmpty()) {
-        FinalFPM.addPass(
-            createFunctionToMachineFunctionPassAdaptor(std::move(FinalMFPM)));
-        FinalMFPM = MachineFunctionPassManager();
-      }
-    }
+  //   if constexpr (isModulePass<PassT>) {
+  //     if (!FinalLPM.isEmpty()) {
+  //       FinalFPM.addPass(
+  //           createFunctionToLoopPassAdaptor(std::move(FinalLPM),
+  //                                           /*UseMemorySSA=*/true));
+  //       FinalLPM = LoopPassManager();
+  //     }
+  //     if (!FinalMFPM.isEmpty()) {
+  //       FinalFPM.addPass(
+  //           createFunctionToMachineFunctionPassAdaptor(std::move(FinalMFPM)));
+  //       FinalMFPM = MachineFunctionPassManager();
+  //     }
+  //     if (!FinalFPM.isEmpty()) {
+  //       FinalMPM.addPass(
+  //           createModuleToFunctionPassAdaptor(std::move(FinalFPM)));
+  //       FinalFPM = FunctionPassManager();
+  //     }
+  //   }
+  //   if constexpr (isFunctionPass<PassT>) {
+  //     if (!FinalLPM.isEmpty()) {
+  //       FinalFPM.addPass(
+  //           createFunctionToLoopPassAdaptor(std::move(FinalLPM),
+  //                                           /*UseMemorySSA=*/true));
+  //       FinalLPM = LoopPassManager();
+  //     }
+  //     if (!FinalMFPM.isEmpty()) {
+  //       FinalFPM.addPass(
+  //           createFunctionToMachineFunctionPassAdaptor(std::move(FinalMFPM)));
+  //       FinalMFPM = MachineFunctionPassManager();
+  //     }
+  //   }
 
-    PM.addPass(std::forward<PassT>(P));
-    invokeAfterAddingCallbacks(PassT::name());
-  }
+  //   PM.addPass(std::forward<PassT>(P));
+  //   invokeAfterAddingCallbacks(PassT::name());
+  // }
 
   SmallVector<std::function<bool(StringRef)>, 3> BeforeAddingCallbacks;
   SmallVector<std::function<void(StringRef)>, 2> AfterAddingCallbacks;
