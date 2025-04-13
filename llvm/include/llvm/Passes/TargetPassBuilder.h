@@ -38,65 +38,91 @@ public:
 
   virtual ModulePassManager buildPipeline();
 
-protected:
-  template <typename PassManagerT, typename... NestedIRPassManagerTs>
-  struct PassManagerWrapperBase {
+private:
+  template <typename InternalPassT> struct AdaptorWrapper {
+    InternalPassT P;
+  };
+  template <> struct AdaptorWrapper<void> {};
+
+  template <typename PassManagerT, typename InternalPassT = void>
+  class PassManagerWrapper {
+  public:
+    bool isEmpty() const { return Passes.empty(); }
+
     template <typename PassT> void addPass(PassT &&P) {
-      PassNames.push_back(PassT::name());
-      PMs.push_back(PassManagerT().addPass(std::forward<PassT>(P)));
+      Passes.emplace_back(PassT::name(),
+                          PassManagerT().addPass(std::forward<PassT>(P)));
     }
 
-    template <typename PassManagerWrapperT>
-    void
-    addPassManagerWrapper(std::remove_reference_t<PassManagerWrapperT> &&PMW) {
-      for (auto Name : PMW.PassNames)
-        Names.push_back(Name);
-      for (auto &&VPM : PMW.PassManagers) {
-        std::visit([this](auto &&PM) { PassManagers.addPass(std::move(PM)); },
-                   std::move(VPM));
-      }
+    void addPass(PassManagerWrapper &&PM) {
+      Passes.insert(Passes.end(), std::make_move_iterator(PM.Passes.begin()),
+                    std::make_move_iterator(PM.Passes.end()));
     }
 
-    std::vector<StringRef> Names;
-    std::vector<std::variant<PassManagerT, NestedIRPassManagerTs...>>
-        PassManagers;
-  };
-
-  class ModulePassManagerWrapper;
-  class FunctionPassManagerWrapper;
-  class LoopPassManagerWrapper;
-  class MachineFunctionPassManagerWrapper;
-
-  class MachineFunctionPassManagerWrapper
-      : PassManagerWrapperBase<MachineFunctionPassManager> {};
-
-  class LoopPassManagerWrapper : PassManagerWrapperBase<LoopPassManager> {};
-
-  class FunctionPassManagerWrapper
-      : PassManagerWrapperBase<FunctionPassManager, LoopPassManager,
-                               MachineFunctionPassManager> {
-  public:
-  };
-
-  class ModulePassManagerWrapper
-      : PassManagerWrapperBase<ModulePassManager, FunctionPassManager,
-                               LoopPassManager, MachineFunctionPassManager> {
-  public:
-    void addFunctionPassManagerWrapper(FunctionPassManagerWrapper &FPMW) {
-      addPassManagerWrapper<FunctionPassManagerWrapper>(std::move(FPMW));
+    template <> void addPass(AdaptorWrapper<InternalPassT> &&Adaptor) {
+      Passes.push_back(std::move(Adaptor.P));
     }
-  };
 
-  class MainModulePassWrapper {
-  public:
-    MainModulePassWrapper(TargetPassBuilder &TPB) : TPB(TPB) {}
+    template <> void addPass(AdaptorWrapper<void> &&) = delete;
 
-    template <typename PassT> void addPass(PassT &&P) {}
+    void addPass(llvm::ModulePassManager &&) = delete;
+    void addPass(llvm::FunctionPassManager &&) = delete;
+    void addPass(llvm::LoopPassManager &&) = delete;
+    void addPass(llvm::MachineFunctionPassManager &&) = delete;
 
   private:
-    TargetPassBuilder &TPB;
-    ModulePassManager MPM;
+    std::vector<std::pair<
+        StringRef,
+        std::variant<llvm::ModulePassManager, llvm::FunctionPassManager,
+                     llvm::LoopPassManager, llvm::MachineFunctionPassManager>>>
+        Passes;
   };
+
+  template <typename PassT, typename NestedPassManagerT>
+  AdaptorWrapper<NestedPassManagerT> createPassAdaptor(PassT &&P) {
+    AdaptorWrapper<NestedPassManagerT> Adaptor;
+    Adaptor.P.add_pass(std::forward<PassT>(P));
+    return Adaptor;
+  }
+
+protected:
+  // Shadow real pass managers intentionally.
+  using MachineFunctionPassManager =
+      PassManagerWrapper<llvm::MachineFunctionPassManager>;
+  using LoopPassManager = PassManagerWrapper<llvm::LoopPassManager>;
+  using FunctionPassManager =
+      PassManagerWrapper<llvm::FunctionPassManager, LoopPassManager>;
+  using ModulePassManager =
+      PassManagerWrapper<llvm::ModulePassManager, FunctionPassManager>;
+
+private:
+  template <typename NestedPassManagerT, typename PassT>
+  AdaptorWrapper<NestedPassManagerT> createPassAdaptor(PassT &&P) {
+    AdaptorWrapper<NestedPassManagerT> Adaptor;
+    Adaptor.P.add_pass(std::forward<PassT>(P));
+    return Adaptor;
+  }
+
+protected:
+  template <typename FunctionPassT>
+  AdaptorWrapper<FunctionPassManager>
+  createModuleToFunctionPassAdaptor(FunctionPassT &&P) {
+    return createPassAdaptor<FunctionPassManager>(
+        std::forward<FunctionPassT>(P));
+  }
+
+  template <typename LoopPassT>
+  AdaptorWrapper<LoopPassManager>
+  createFunctionToLoopPassAdaptor(LoopPassT &&P) {
+    return createPassAdaptor<LoopPassManager>(std::forward<LoopPassT>(P));
+  }
+
+  template <typename MachineFunctionPassT>
+  AdaptorWrapper<MachineFunctionPassManager>
+  createFunctionToMachineFunctionPassAdaptor(MachineFunctionPassT &&P) {
+    return createPassAdaptor<MachineFunctionPassManager>(
+        std::forward<MachineFunctionPassManager>(P));
+  }
 
 protected:
   PassBuilder &PB;
@@ -111,45 +137,6 @@ protected:
   virtual void addISelIRPasses();
 
   void addCoreISelPasses();
-
-  /// \defgroup AddPass Helper method to add passes
-  /// @{
-  template <typename... PassTs>
-  TargetPassBuilder &addModulePass(PassTs &&...Passes) {
-    static_assert(!(isPassManager<PassTs> || ...), "");
-    static_assert((isModulePass<PassTs> && ...),
-                  "All passes should be module pass!");
-    (addPassInteral(FinalMPM, std::forward<PassTs>(Passes)), ...);
-    return *this;
-  }
-
-  template <typename... PassTs>
-  TargetPassBuilder &addFunctionPass(PassTs &&...Passes) {
-    static_assert(!(isPassManager<PassTs> || ...), "");
-    static_assert((isFunctionPass<PassTs> && ...),
-                  "All passes should be function pass!");
-    (addPassInternal(FinalFPM, std::forward<PassTs>(Passes)), ...);
-    return *this;
-  }
-
-  template <typename... PassTs>
-  TargetPassBuilder &addLoopPass(PassTs &&...Passes) {
-    static_assert(!(isPassManager<PassTs> || ...), "");
-    static_assert((isLoopPass<PassTs> && ...),
-                  "All passes should be loop pass!");
-    (addPassInternal(FinalLPM, std::forward<PassTs>(Passes)), ...);
-    return *this;
-  }
-
-  template <typename... PassTs>
-  TargetPassBuilder &addMachineFunctionPass(PassTs &&...Passes) {
-    static_assert(!(isPassManager<PassTs> || ...), "");
-    static_assert((isMachineFunctionPass<PassTs> && ...),
-                  "All passes should be machine function pass!");
-    (addPassInternal(FinalMFPM, std::forward<PassTs>(Passes)), ...);
-    return *this;
-  }
-  /// @}
 
   template <typename PassT> void injectBefore(std::function<void()> F) {
     BeforeAddingCallbacks.push_back([Accessed = false](StringRef Name) mutable {
@@ -185,62 +172,6 @@ private:
   virtual void anchor();
 
   StringSet<> DisabedPasses;
-
-  template <typename PassT, typename IRUnitT,
-            typename AnalysisManagerT = AnalysisManager<IRUnitT>,
-            typename = void, typename... ExtraArgTs>
-  struct IsIRUnitPass : std::false_type {};
-  template <typename PassT, typename IRUnitT, typename AnalysisManagerT,
-            typename... ExtraArgTs>
-  struct IsIRUnitPass<
-      IRUnitT, AnalysisManagerT, PassT,
-      std::void_t<decltype(std::declval<PassT>().run(
-          std::declval<IRUnitT>(), std::declval<AnalysisManagerT>(),
-          std::declval<ExtraArgTs>()...))>> : std::true_type {};
-
-  template <typename PassT>
-  static constexpr bool isPassManager =
-      std::is_same_v<PassT, ModulePassManager> ||
-      std::is_same_v<PassT, FunctionPassManager> ||
-      std::is_same_v<PassT, LoopPassManager> ||
-      std::is_same_v<PassT, MachineFunctionPassManager>;
-
-  template <typename PassT>
-  static constexpr bool isPassAdaptor =
-      std::is_same_v<PassT, ModuleToFunctionPassAdaptor> ||
-      std::is_same_v<PassT, FunctionToLoopPassAdaptor> ||
-      std::is_same_v<PassT, FunctionToMachineFunctionPassAdaptor>;
-
-  template <typename PassT>
-  static constexpr bool isModulePass = IsIRUnitPass<PassT, Module>::value;
-
-  template <typename PassT>
-  static constexpr bool isFunctionPass = IsIRUnitPass<PassT, Function>::value;
-
-  template <typename PassT>
-  static constexpr bool isLoopPass =
-      IsIRUnitPass<PassT, Loop, LoopAnalysisManager,
-                   LoopStandardAnalysisResults &, LPMUpdater &>::value;
-
-  template <typename PassT>
-  static constexpr bool isMachineFunctionPass =
-      IsIRUnitPass<PassT, MachineFunction>::value;
-
-  ModulePassManager FinalMPM;
-  FunctionPassManager FinalFPM;
-  LoopPassManager FinalLPM;
-  MachineFunctionPassManager FinalMFPM;
-
-  ModulePassManager getFinalPM() {
-    if (!FinalMFPM.isEmpty()) {
-      FinalFPM.addPass(
-          createFunctionToMachineFunctionPassAdaptor(std::move(FinalMFPM)));
-    }
-    if (!FinalFPM.isEmpty()) {
-      FinalMPM.addPass(createModuleToFunctionPassAdaptor(std::move(FinalFPM)));
-    }
-    return std::move(FinalMPM);
-  }
 
   template <typename PassManagerT, typename PassT>
   void addPassInternal(PassManagerT &PM, PassT &&P) {
