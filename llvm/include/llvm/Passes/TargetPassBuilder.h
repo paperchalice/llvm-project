@@ -125,10 +125,6 @@ protected:
   PassBuilder &PB;
   CGPassBuilderOption CGPBO = getCGPassBuilderOption();
 
-  void buildCodeGenIRPipeline();
-
-  FunctionPassManager buildExceptionHandlingPipeline();
-
   template <typename PassT> void injectBefore(std::function<void()> F) {
     BeforeAddingCallbacks.push_back(
         [Accessed = false, F](StringRef Name) mutable {
@@ -158,8 +154,32 @@ protected:
     (DisabedPasses.insert(PassTs::name()), ...);
   }
 
+  void disablePass(StringRef Name) { DisabedPasses.insert(Name); }
+
+  template <typename PassT> bool isPassDisabled() const {
+    return DisabedPasses.contains(PassT::name());
+  }
+
+  bool isPassDisabled(StringRef Name) const {
+    return DisabedPasses.contains(Name);
+  }
+
+  template <typename PassT> bool isPassEnabled() const {
+    return !isPassDisabled<PassT>();
+  }
+
+  bool isPassEnabled(StringRef Name) const { return !isPassDisabled(Name); }
+
 private:
   void buildCoreCodeGenPipeline();
+
+  void buildCodeGenIRPipeline();
+
+  void buildISelPipeline();
+
+  void buildCodeGenMIRPipeline();
+
+  FunctionPassManager buildExceptionHandlingPipeline();
 
   llvm::ModulePassManager constructRealPassManager(ModulePassManager &&MPMW);
 
