@@ -21,6 +21,7 @@
 #include "llvm/Target/CGPassBuilderOption.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -42,7 +43,6 @@ private:
   template <typename InternalPassT> struct AdaptorWrapper : InternalPassT {
     using InternalPassT::Passes;
   };
-  template <> struct AdaptorWrapper<void> {};
 
   template <typename PassManagerT, typename InternalPassT = void>
   class PassManagerWrapper {
@@ -58,17 +58,14 @@ private:
     }
 
     void addPass(PassManagerWrapper &&PM) {
-      Passes.insert(Passes.end(), std::make_move_iterator(PM.Passes.begin()),
-                    std::make_move_iterator(PM.Passes.end()));
+      for (auto &P : PM.Passes)
+        Passes.push_back(std::move(P));
     }
 
-    template <> void addPass(AdaptorWrapper<InternalPassT> &&Adaptor) {
-      Passes.insert(Passes.end(),
-                    std::make_move_iterator(Adaptor.Passes.begin()),
-                    std::make_move_iterator(Adaptor.Passes.end()));
+    void addPass(AdaptorWrapper<InternalPassT> &&Adaptor) {
+      for (auto &P : Adaptor.Passes)
+        Passes.push_back(std::move(P));
     }
-
-    void addPass(AdaptorWrapper<void> &&) = delete;
 
     void addPass(llvm::ModulePassManager &&) = delete;
     void addPass(llvm::FunctionPassManager &&) = delete;
@@ -108,6 +105,15 @@ protected:
         std::forward<FunctionPassT>(P));
   }
 
+  template <typename FunctionPassT>
+  AdaptorWrapper<FunctionPassManager>
+  createModuleToPostOrderCGSCCPassAdaptor(FunctionPassManager &&PM) {
+    assert(CGPBO.RequiresCodeGenSCCOrder &&
+           "Target must set RequiresCodeGenSCCOrder!");
+    return createPassAdaptor<FunctionPassManager>(
+        std::forward<FunctionPassT>(P));
+  }
+
   template <typename LoopPassT>
   AdaptorWrapper<LoopPassManager>
   createFunctionToLoopPassAdaptor(LoopPassT &&P) {
@@ -127,6 +133,7 @@ protected:
 
   template <typename PassT> void injectBefore(std::function<void()> F) {
     BeforeAddingCallbacks.push_back(
+        InjectionPoints.insert(PassT::name());
         [Accessed = false, F](StringRef Name) mutable {
           if (Accessed)
             return true;
@@ -139,19 +146,21 @@ protected:
   }
 
   template <typename PassT> void injectAfter(std::function<void()> F) {
+    InjectionPoints.insert(PassT::name());
     AfterAddingCallbacks.push_back(
         [Accessed = false, F](StringRef Name) mutable {
           if (Accessed)
             return;
           Accessed = true;
+          InjectionPoints.erase(PassT::name());
           if (PassT::name() != Name)
             return;
           F();
         });
   }
 
-  template <typename... PassTs> void disablePass() {
-    (DisabedPasses.insert(PassTs::name()), ...);
+  template <typename PassTs> void disablePass() {
+    DisabedPasses.insert(PassTs::name());
   }
 
   void disablePass(StringRef Name) { DisabedPasses.insert(Name); }
@@ -177,6 +186,8 @@ private:
 
   void buildISelPipeline();
 
+  /// Add passes that optimize machine instructions in SSA form.
+  void addMachineSSAOptimizationPasses(MachineFunctionPassManager &MFPM);
   void buildCodeGenMIRPipeline();
 
   FunctionPassManager buildExceptionHandlingPipeline();
@@ -187,6 +198,7 @@ private:
   virtual void anchor();
 
   StringSet<> DisabedPasses;
+  std::unordered_multiset<StringRef> InjectionPoints;
 
   // template <typename PassManagerT, typename PassT>
   // void addPassInternal(PassManagerT &PM, PassT &&P) {
