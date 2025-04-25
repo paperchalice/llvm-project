@@ -44,7 +44,7 @@ void X86CodeGenPassBuilder::addAsmPrinter(AddMachinePass &addPass,
 
 Error X86CodeGenPassBuilder::addInstSelector(AddMachinePass &addPass) const {
   // TODO: Add instruction selector related passes.
-  addPass(X86ISelDAGToDAGPass(TM));
+  addPass(SelectionDAGISelPass(createX86SelectionDAGISel(TM)));
   return Error::success();
 }
 

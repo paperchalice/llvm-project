@@ -95,6 +95,9 @@ public:
   void initializeAnalysisResults(MachineFunctionPass &MFP);
 
   virtual bool runOnMachineFunction(MachineFunction &mf);
+  /// Targets should migrate to this method when porting to new pass manager.
+  virtual PreservedAnalyses run(MachineFunction &MF,
+                                MachineFunctionAnalysisManager &MFAM);
 
   virtual void emitFunctionEntryCode() {}
 
@@ -553,11 +556,10 @@ public:
 class SelectionDAGISelPass : public PassInfoMixin<SelectionDAGISelPass> {
   std::unique_ptr<SelectionDAGISel> Selector;
 
-protected:
+public:
   SelectionDAGISelPass(std::unique_ptr<SelectionDAGISel> Selector)
       : Selector(std::move(Selector)) {}
 
-public:
   PreservedAnalyses run(MachineFunction &MF,
                         MachineFunctionAnalysisManager &MFAM);
   static bool isRequired() { return true; }

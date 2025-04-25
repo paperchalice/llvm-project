@@ -420,13 +420,18 @@ void SelectionDAGISelLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
 PreservedAnalyses
 SelectionDAGISelPass::run(MachineFunction &MF,
                           MachineFunctionAnalysisManager &MFAM) {
+  return Selector->run(MF, MFAM);
+}
+
+PreservedAnalyses SelectionDAGISel::run(MachineFunction &MF,
+                                        MachineFunctionAnalysisManager &MFAM) {
   // If we already selected that function, we do not need to run SDISel.
   if (MF.getProperties().hasProperty(
           MachineFunctionProperties::Property::Selected))
     return PreservedAnalyses::all();
 
   // Do some sanity-checking on the command-line options.
-  if (EnableFastISelAbort && !Selector->TM.Options.EnableFastISel)
+  if (EnableFastISelAbort && !TM.Options.EnableFastISel)
     report_fatal_error("-fast-isel-abort > 0 requires -fast-isel");
 
   // Decide what flavour of variable location debug-info will be used, before
@@ -438,19 +443,18 @@ SelectionDAGISelPass::run(MachineFunction &MF,
   // FIXME: This is a horrible hack and should be processed via
   // codegen looking at the optimization level explicitly when
   // it wants to look at it.
-  Selector->TM.resetTargetOptions(MF.getFunction());
+  TM.resetTargetOptions(MF.getFunction());
   // Reset OptLevel to None for optnone functions.
   // TODO: Add a function analysis to handle this.
-  Selector->MF = &MF;
+  this->MF = &MF;
   // Reset OptLevel to None for optnone functions.
-  CodeGenOptLevel NewOptLevel = MF.getFunction().hasOptNone()
-                                    ? CodeGenOptLevel::None
-                                    : Selector->OptLevel;
+  CodeGenOptLevel NewOptLevel =
+      MF.getFunction().hasOptNone() ? CodeGenOptLevel::None : OptLevel;
 
-  OptLevelChanger OLC(*Selector, NewOptLevel);
-  Selector->initializeAnalysisResults(MFAM);
-  Selector->runOnMachineFunction(MF);
-
+  OptLevelChanger OLC(*this, NewOptLevel);
+  // TODO: Expand these functions when migration is finished.
+  initializeAnalysisResults(MFAM);
+  runOnMachineFunction(MF);
   return getMachineFunctionPassPreservedAnalyses();
 }
 

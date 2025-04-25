@@ -21,6 +21,7 @@ namespace llvm {
 class FunctionPass;
 class InstructionSelector;
 class PassRegistry;
+class SelectionDAGISel;
 class X86RegisterBankInfo;
 class X86Subtarget;
 class X86TargetMachine;
@@ -28,6 +29,8 @@ class X86TargetMachine;
 /// This pass converts a legalized DAG into a X86-specific DAG, ready for
 /// instruction scheduling.
 FunctionPass *createX86ISelDag(X86TargetMachine &TM, CodeGenOptLevel OptLevel);
+std::unique_ptr<SelectionDAGISel>
+createX86SelectionDAGISel(X86TargetMachine &TM);
 
 /// This pass initializes a global base register for PIC on x86-32.
 FunctionPass *createX86GlobalBaseRegPass();

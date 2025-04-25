@@ -187,6 +187,11 @@ namespace {
       return SelectionDAGISel::runOnMachineFunction(MF);
     }
 
+    PreservedAnalyses run(MachineFunction &MF,
+                          MachineFunctionAnalysisManager) override {
+      runOn
+    }
+
     void emitFunctionEntryCode() override;
 
     bool IsProfitableToFold(SDValue N, SDNode *U, SDNode *Root) const override;
@@ -6765,9 +6770,10 @@ bool X86DAGToDAGISel::SelectInlineAsmMemoryOperand(
   return false;
 }
 
-X86ISelDAGToDAGPass::X86ISelDAGToDAGPass(X86TargetMachine &TM)
-    : SelectionDAGISelPass(
-          std::make_unique<X86DAGToDAGISel>(TM, TM.getOptLevel())) {}
+std::unique_ptr<SelectionDAGISel>
+llvm::createX86SelectionDAGISel(X86TargetMachine &TM) {
+  return std::make_unique<X86DAGToDAGISel>(TM, TM.getOptLevel());
+}
 
 /// This pass converts a legalized DAG into a X86-specific DAG,
 /// ready for instruction scheduling.
