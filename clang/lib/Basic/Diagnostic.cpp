@@ -29,6 +29,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Config/config.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/CrashRecoveryContext.h"
 #include "llvm/Support/Error.h"
@@ -37,6 +38,11 @@
 #include "llvm/Support/Unicode.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#if HAVE_ICU
+#include <map>
+#include <unicode/messageformat2.h>
+#include <unicode/regex.h>
+#endif
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -995,9 +1001,271 @@ void Diagnostic::FormatDiagnostic(SmallVectorImpl<char> &OutStr) const {
     return;
   }
 
-  StringRef Diag = getDiags()->getDiagnosticIDs()->getDescription(getID());
+  StringRef Diag = getDiags()->getDiagnosticIDs()->getI18nDescription(getID());
+  if (!Diag.empty()) {
+    FormatI18nDiagnostic(Diag, OutStr);
+    return;
+  }
+
+  Diag = getDiags()->getDiagnosticIDs()->getDescription(getID());
 
   FormatDiagnostic(Diag.begin(), Diag.end(), OutStr);
+}
+
+#if HAVE_ICU
+namespace {
+// Format {$achoice0,choice1,choice2 :choose $arg0}
+class SelectFormatter : public icu::message2::Formatter {
+public:
+  icu::message2::FormattedPlaceholder
+  format(icu::message2::FormattedPlaceholder &&Arg,
+         icu::message2::FunctionOptions &&Opts, UErrorCode &EC) const override {
+    using namespace icu::message2;
+    using icu::RegexMatcher;
+    using icu::UnicodeString;
+
+    if (U_FAILURE(EC)) {
+      return {};
+    }
+
+    FormattedPlaceholder ErrorVal = FormattedPlaceholder("can't choose");
+    if (!Arg.canFormat() || Arg.asFormattable().getType() != UFMT_INT64)
+      return ErrorVal;
+    FunctionOptionsMap Opt = Opts.getOptions();
+
+    auto Index = Arg.asFormattable().getInt64Value(EC);
+    auto Key = 's' + UnicodeString::fromUTF8(std::to_string(Index));
+    if (Opt.find(Key) == Opt.end())
+      return ErrorVal;
+    return FormattedPlaceholder(Arg,
+                                FormattedValue(Opt[Key].getString(EC)));
+  }
+};
+
+// Custom function classes, implement `choose` function.
+class SelectFormatterFactory : public icu::message2::FormatterFactory {
+
+public:
+  icu::message2::Formatter *createFormatter(const icu::Locale &,
+                                            UErrorCode &EC) override {
+    if (U_FAILURE(EC)) {
+      return nullptr;
+    }
+    return new SelectFormatter;
+  }
+};
+
+class QuoteFormatter : public icu::message2::Formatter {
+public:
+  icu::message2::FormattedPlaceholder
+  format(icu::message2::FormattedPlaceholder &&Arg,
+         icu::message2::FunctionOptions &&, UErrorCode &EC) const override {
+    using namespace icu::message2;
+    using icu::RegexMatcher;
+    using icu::UnicodeString;
+
+    if (U_FAILURE(EC)) {
+      return {};
+    }
+
+    FormattedPlaceholder ErrorVal = FormattedPlaceholder("can't quote!");
+    if (!Arg.canFormat() || Arg.asFormattable().getType() != UFMT_STRING)
+      return ErrorVal;
+
+    std::string U8Str;
+    SmallString<0> OutU8Str;
+    auto Str = Arg.asFormattable().getString(EC).toUTF8String(U8Str);
+    EscapeStringForDiagnostic(U8Str, OutU8Str);
+    auto Result = UnicodeString::fromUTF8(
+        '\'' + static_cast<std::string>(OutU8Str) + '\'');
+    return FormattedPlaceholder(Arg, FormattedValue(std::move(Result)));
+  }
+};
+
+class QuoteFormatterFactory : public icu::message2::FormatterFactory {
+
+public:
+  icu::message2::Formatter *createFormatter(const icu::Locale &,
+                                            UErrorCode &EC) override {
+    if (U_FAILURE(EC)) {
+      return nullptr;
+    }
+    return new QuoteFormatter;
+  }
+};
+
+class QualifiedObject : public icu::message2::FormattableObject {
+public:
+  const DiagnosticsEngine *Engine;
+  DiagnosticsEngine::ArgumentKind Kind;
+  uint64_t RawArg;
+  llvm::ArrayRef<intptr_t> QualTypeVals;
+
+  QualifiedObject(const DiagnosticsEngine *Engine,
+                  DiagnosticsEngine::ArgumentKind Kind, uint64_t RawArg,
+                  llvm::ArrayRef<intptr_t> QualTypeVals)
+      : Engine(Engine), Kind(Kind), RawArg(RawArg),
+        QualTypeVals(QualTypeVals) {};
+  void
+  convertArgToString(StringRef Modifier, StringRef Argument,
+                     ArrayRef<DiagnosticsEngine::ArgumentValue> FormattedArgs,
+                     SmallVectorImpl<char> &OutStr) const {
+    Engine->ConvertArgToString(Kind, RawArg, Modifier, Argument, FormattedArgs,
+                               OutStr, QualTypeVals);
+  }
+  const icu::UnicodeString &tag() const override { return Tag; }
+  static inline icu::UnicodeString Tag = "QualifiedObject";
+};
+class QFormatter : public icu::message2::Formatter {
+public:
+  icu::message2::FormattedPlaceholder
+  format(icu::message2::FormattedPlaceholder &&Arg,
+         icu::message2::FunctionOptions &&, UErrorCode &EC) const override {
+    using namespace icu::message2;
+    using icu::RegexMatcher;
+    using icu::UnicodeString;
+
+    if (U_FAILURE(EC)) {
+      return {};
+    }
+
+    FormattedPlaceholder ErrorVal =
+        FormattedPlaceholder("Can't format this object!");
+    if (!Arg.canFormat() || Arg.asFormattable().getType() != UFMT_OBJECT)
+      return ErrorVal;
+
+    const Formattable &ToFormat = Arg.asFormattable();
+    const FormattableObject *FObj = ToFormat.getObject(EC);
+    if (FObj == nullptr || FObj->tag() != QualifiedObject::Tag)
+      return ErrorVal;
+    auto QObj = static_cast<const QualifiedObject *>(FObj);
+
+    assert(U_SUCCESS(EC) && "Not a formattable object!");
+
+    /// FormattedArgs - Keep track of all of the arguments formatted by
+    /// ConvertArgToString and pass them into subsequent calls to
+    /// ConvertArgToString, allowing the implementation to avoid redundancies
+    /// in obvious cases. But here it is unused.
+    SmallVector<DiagnosticsEngine::ArgumentValue, 8> FormattedArgs;
+    SmallString<8> OutStr;
+    QObj->convertArgToString("q", StringRef(), FormattedArgs, OutStr);
+    return FormattedPlaceholder(
+        Arg, FormattedValue(UnicodeString::fromUTF8(OutStr.c_str())));
+  }
+};
+class QFormatterFactory : public icu::message2::FormatterFactory {
+
+public:
+  icu::message2::Formatter *createFormatter(const icu::Locale &,
+                                            UErrorCode &EC) override {
+    if (U_FAILURE(EC)) {
+      return nullptr;
+    }
+    return new QFormatter;
+  }
+};
+
+icu::message2::MFFunctionRegistry &getCustomFunctionRegistry() {
+  using namespace icu;
+  using namespace icu::message2;
+  UErrorCode EC = U_ZERO_ERROR;
+  static auto CustomRegistry =
+      MFFunctionRegistry::Builder(EC)
+          .adoptFormatter(FunctionName("select"), new SelectFormatterFactory,
+                          EC)
+                
+          .adoptFormatter(FunctionName("quote"), new QuoteFormatterFactory, EC)
+          .adoptFormatter(FunctionName("q"), new QFormatterFactory, EC)
+          .build();
+  return CustomRegistry;
+}
+
+} // namespace
+#endif
+
+void Diagnostic::FormatI18nDiagnostic(StringRef MF2Str,
+                                      SmallVectorImpl<char> &OutStr) const {
+#if HAVE_ICU
+  UErrorCode Status = U_ZERO_ERROR;
+  UParseError PE = {0, 0, {0}, {0}};
+  namespace mf2 = icu::message2;
+  using namespace icu;
+  using namespace icu::message2;
+  auto Str = UnicodeString::fromUTF8(MF2Str.begin());
+  MessageFormatter MF = MessageFormatter::Builder(Status)
+                            .setPattern(Str, PE, Status)
+                            .setFunctionRegistry(getCustomFunctionRegistry())
+                            .build(Status);
+  std::map<icu::UnicodeString, mf2::Formattable> ArgsBuilder;
+  /// QualTypeVals - Pass a vector of arrays so that QualType names can be
+  /// compared to see if more information is needed to be printed.
+  SmallVector<intptr_t, 2> QualTypeVals;
+  SmallString<64> Tree;
+
+  for (unsigned I = 0, E = getNumArgs(); I < E; ++I)
+    if (getArgKind(I) == DiagnosticsEngine::ak_qualtype)
+      QualTypeVals.push_back(getRawArg(I));
+
+  /// Tracking our custom objects.
+  SmallVector<std::unique_ptr<QualifiedObject>, 8> CustomObjects;
+
+  for (unsigned I = 0, E = getNumArgs(); I < E; ++I) {
+    DiagnosticsEngine::ArgumentKind Kind = getArgKind(I);
+
+    auto &ArgI = ArgsBuilder[icu::UnicodeString::fromUTF8(std::string("arg") +
+                                                          std::to_string(I))];
+    switch (Kind) {
+    // ---- STRINGS ----
+    case DiagnosticsEngine::ak_c_string:
+      ArgI = mf2::Formattable(icu::UnicodeString::fromUTF8(
+          getArgCStr(I) ? getArgCStr(I) : "(null)"));
+      break;
+    case DiagnosticsEngine::ak_std_string:
+      ArgI = mf2::Formattable(icu::UnicodeString::fromUTF8(getArgStdStr(I)));
+      break;
+    case DiagnosticsEngine::ak_sint:
+      ArgI = mf2::Formattable(getArgSInt(I));
+      break;
+    case DiagnosticsEngine::ak_uint:
+      ArgI = mf2::Formattable(static_cast<int64_t>(getArgUInt(I)));
+      break;
+    // ---- NAMES and TYPES ----
+    case DiagnosticsEngine::ak_identifierinfo: {
+      const IdentifierInfo *II = getArgIdentifier(I);
+
+      // Don't crash if get passed a null pointer by accident.
+      if (!II) {
+        ArgI = UnicodeString("null");
+        continue;
+      }
+
+      ArgI = UnicodeString::fromUTF8('\'' + II->getName().str() + '\'');
+      break;
+    }
+    case DiagnosticsEngine::ak_addrspace:
+    case DiagnosticsEngine::ak_qual:
+    case DiagnosticsEngine::ak_qualtype:
+    case DiagnosticsEngine::ak_declarationname:
+    case DiagnosticsEngine::ak_nameddecl:
+    case DiagnosticsEngine::ak_nestednamespec:
+    case DiagnosticsEngine::ak_declcontext:
+    case DiagnosticsEngine::ak_attr:
+    case DiagnosticsEngine::ak_expr: {
+      uint64_t RawArg = getRawArg(I);
+      auto Obj = std::make_unique<QualifiedObject>(getDiags(), Kind, RawArg,
+                                                   QualTypeVals);
+      ArgI = Obj.get();
+      CustomObjects.push_back(std::move(Obj));
+    } break;
+    default:
+      break;
+    }
+  }
+  mf2::MessageArguments Arguments(ArgsBuilder, Status);
+  std::string Out;
+  MF.formatToString(Arguments, Status).toUTF8String(Out);
+  OutStr.append(Out.begin(), Out.end());
+#endif
 }
 
 /// EscapeStringForDiagnostic - Append Str to the diagnostic buffer,

@@ -1638,6 +1638,8 @@ public:
   ///
   /// The result is appended onto the \p OutStr array.
   void FormatDiagnostic(SmallVectorImpl<char> &OutStr) const;
+  void FormatI18nDiagnostic(StringRef MF2Str,
+                            SmallVectorImpl<char> &OutStr) const;
 
   /// Format the given format-string into the output buffer using the
   /// arguments stored in this diagnostic.

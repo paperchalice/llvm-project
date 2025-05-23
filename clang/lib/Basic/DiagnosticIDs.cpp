@@ -18,9 +18,16 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringTable.h"
+#include "llvm/Config/config.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Path.h"
+#if HAVE_ICU
+#include "llvm/Support/CommandLine.h"
+#include <unicode/messageformat2.h>
+#include <unicode/resbund.h>
+#include <unicode/udata.h>
+#endif
 #include <map>
 #include <optional>
 using namespace clang;
@@ -72,6 +79,51 @@ enum DiagnosticClass {
   CLASS_ERROR = DiagnosticIDs::CLASS_ERROR,
 };
 
+#if HAVE_ICU
+
+struct ICULocaleParser : public llvm::cl::parser<icu::Locale> {
+  using llvm::cl::parser<icu::Locale>::parser;
+
+  // parse - Return true on error.
+  bool parse(llvm::cl::Option &, StringRef, StringRef &Arg,
+             icu::Locale &Value) {
+    if (Arg.empty()) {
+      Value = icu::Locale::getDefault();
+      return false;
+    }
+    Value = icu::Locale(Arg.begin());
+    return Value.isBogus();
+  }
+};
+
+static llvm::cl::opt<std::string>
+    ICULocale("icu-locale", llvm::cl::init(""),
+              llvm::cl::desc("ICU locale code."));
+struct ICUContext {
+  UErrorCode EC = U_ZERO_ERROR;
+  icu::ResourceBundle RB;
+  std::unique_ptr<llvm::MemoryBuffer> Buffer;
+  ICUContext() : RB(EC) {
+    using namespace icu;
+    using namespace icu::message2;
+    u_setDataDirectory(".");
+    auto Locale = icu::Locale();
+    if (ICULocale != "") {
+      auto L = icu::Locale(ICULocale.c_str());
+      if (!L.isBogus())
+        Locale = L;
+    }
+
+    RB = icu::ResourceBundle("clang", Locale, EC).get("Basic", EC);
+  }
+};
+
+ICUContext &getICUContext() {
+  static ICUContext Ctx;
+  return Ctx;
+}
+#endif
+
 struct StaticDiagInfoRec {
   uint16_t DiagID;
   LLVM_PREFERRED_TYPE(diag::Severity)
@@ -105,6 +157,23 @@ struct StaticDiagInfoRec {
     uint32_t StringOffset = StaticDiagInfoDescriptionOffsets[MyIndex];
     const char* Table = reinterpret_cast<const char*>(&StaticDiagInfoDescriptions);
     return StringRef(&Table[StringOffset], DescriptionLen);
+  }
+
+  StringRef getI18nDescription() const {
+#if HAVE_ICU
+    size_t MyIndex = this - &StaticDiagInfo[0];
+    UErrorCode Err = U_ZERO_ERROR;
+    auto &RB = getICUContext().RB;
+    auto ST = RB.get("DiagInfoDescriptionStringTable", Err);
+    if (Err)
+      return StringRef();
+    int32_t Len = 0;
+    return StringRef(reinterpret_cast<const char *>(
+                         ST.get(MyIndex, Err).getBinary(Len, Err)),
+                     Len - 1);
+#else
+    return StringRef();
+#endif
   }
 
   diag::Flavor getFlavor() const {
@@ -429,6 +498,11 @@ StringRef DiagnosticIDs::getDescription(unsigned DiagID) const {
     return Info->getDescription();
   assert(CustomDiagInfo && "Invalid CustomDiagInfo");
   return CustomDiagInfo->getDescription(DiagID).GetDescription();
+}
+StringRef DiagnosticIDs::getI18nDescription(unsigned DiagID) const {
+  if (const StaticDiagInfoRec *Info = GetDiagInfo(DiagID))
+    return Info->getI18nDescription();
+  return StringRef();
 }
 
 static DiagnosticIDs::Level toLevel(diag::Severity SV) {
