@@ -106,6 +106,9 @@ void EmitClangDiagsIndexName(const llvm::RecordKeeper &Records,
                              llvm::raw_ostream &OS);
 void EmitClangDiagsInterface(llvm::raw_ostream &OS,
                              const std::string &Component);
+void EmitClangDiagsXliffTemplate(const llvm::RecordKeeper &Records,
+                                 llvm::raw_ostream &OS,
+                                 const std::string &Component);
 
 void EmitClangSACheckers(const llvm::RecordKeeper &Records,
                          llvm::raw_ostream &OS);

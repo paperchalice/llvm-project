@@ -54,6 +54,7 @@ enum ActionType {
   GenClangDiagGroups,
   GenClangDiagsIndexName,
   GenClangDiagsInterface,
+  GenClangDiagsXliffTemplate,
   GenClangCommentNodes,
   GenClangDeclNodes,
   GenClangStmtNodes,
@@ -194,6 +195,8 @@ cl::opt<ActionType> Action(
                    "Generate Clang diagnostic name index"),
         clEnumValN(GenClangDiagsInterface, "gen-clang-diags-iface",
                    "Generate Clang diagnostic interface headers"),
+        clEnumValN(GenClangDiagsXliffTemplate, "gen-clang-diags-xliff-template",
+                   "Generate clang diagnostic xliff template"),
         clEnumValN(GenClangBasicReader, "gen-clang-basic-reader",
                    "Generate Clang BasicReader classes"),
         clEnumValN(GenClangBasicWriter, "gen-clang-basic-writer",
@@ -440,6 +443,9 @@ bool ClangTableGenMain(raw_ostream &OS, const RecordKeeper &Records) {
     break;
   case GenClangDiagsInterface:
     EmitClangDiagsInterface(OS, ClangComponent);
+    break;
+  case GenClangDiagsXliffTemplate:
+    EmitClangDiagsXliffTemplate(Records, OS, ClangComponent);
     break;
   case GenClangCommentNodes:
     EmitClangASTNodes(Records, OS, CommentNodeClassName, "");

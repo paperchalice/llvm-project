@@ -18,8 +18,21 @@ macro(clang_diag_gen component)
     -gen-clang-diags-iface -clang-component=${component}
     SOURCE Diagnostic.td
     TARGET ClangDiagnostic${component}Interface)
+  
+  clang_tablegen(Diagnostic${component}Kinds.xlf
+    -gen-clang-diags-xliff-template -clang-component=${component}
+    SOURCE Diagnostic.td
+    TARGET ClangDiagnostic${component}XliffTemplate)
+  set_target_properties(ClangDiagnostic${component}XliffTemplate
+    PROPERTIES EXCLUDE_FROM_ALL ON
+  )
+  add_dependencies(ClangDiagnosticAllXliffTemplate
+    ClangDiagnostic${component}XliffTemplate
+  )
 endmacro(clang_diag_gen)
 
+add_custom_target(ClangDiagnosticAllXliffTemplate)
+set_target_properties(ClangDiagnosticAllXliffTemplate PROPERTIES FOLDER Clang/Tablegenning)
 clang_diag_gen(Analysis)
 clang_diag_gen(AST)
 clang_diag_gen(Comment)
