@@ -130,6 +130,9 @@ public:
   /// whether -Wsystem-headers is enabled on a per-module basis.
   std::vector<std::string> SystemHeaderWarningsModules;
 
+  /// The ICU supported locale code.
+  std::string ICULocale;
+
 public:
   // Define accessors/mutators for diagnostic options of enumeration type.
 #define DIAGOPT(Name, Bits, Default)

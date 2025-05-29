@@ -142,3 +142,12 @@ target_link_libraries(clangBasic
   PRIVATE
   ${LLVM_ATOMIC_LIB}
 )
+
+if(LLVM_ENABLE_ICU)
+  target_link_libraries(clangBasic
+    PRIVATE
+    ICU::i18n
+    ICU::data
+    ICU::uc
+  )
+endif()

@@ -286,6 +286,14 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
 
   // Compute the path to the resource directory.
   ResourceDir = GetResourcesPath(ClangExecutable);
+
+  // Set i18n resource directory
+  {
+    StringRef Prefix = llvm::sys::path::parent_path(Dir); // prefix
+    SmallString<128> LocaleDir(Prefix);
+    llvm::sys::path::append(LocaleDir, "locale", "clang");
+    Diags.getDiagnosticIDs()->setI18nResourceDir(LocaleDir.str());
+  }
 }
 
 void Driver::setDriverMode(StringRef Value) {

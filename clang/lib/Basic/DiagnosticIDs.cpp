@@ -18,8 +18,14 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringTable.h"
+#include "llvm/Config/config.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
+#if HAVE_ICU
+#include <unicode/messageformat2.h>
+#include <unicode/resbund.h>
+#include <unicode/udata.h>
+#endif
 #include <map>
 #include <optional>
 using namespace clang;
@@ -63,6 +69,14 @@ const uint32_t StaticDiagInfoDescriptionOffsets[] = {
 #undef DIAG
 };
 
+constexpr const char *StaticDiagNames[] = {
+#define DIAG(ENUM, CLASS, DEFAULT_SEVERITY, DESC, GROUP, SFINAE, NOWERROR,     \
+             SHOWINSYSHEADER, SHOWINSYSMACRO, DEFERRABLE, CATEGORY)            \
+  #ENUM,
+#include "clang/Basic/AllDiagnosticKinds.inc"
+#undef DIAG
+};
+
 enum DiagnosticClass {
   CLASS_NOTE = DiagnosticIDs::CLASS_NOTE,
   CLASS_REMARK = DiagnosticIDs::CLASS_REMARK,
@@ -70,6 +84,65 @@ enum DiagnosticClass {
   CLASS_EXTENSION = DiagnosticIDs::CLASS_EXTENSION,
   CLASS_ERROR = DiagnosticIDs::CLASS_ERROR,
 };
+
+} // namespace
+class DiagnosticIDs::I18nContext {
+#if HAVE_ICU
+  UErrorCode EC = U_ZERO_ERROR;
+  icu::ResourceBundle SubstTable;
+  icu::ResourceBundle DiagTable;
+
+public:
+  I18nContext(StringRef ICULocale) : SubstTable(EC), DiagTable(EC) {
+    using namespace icu;
+    using namespace icu::message2;
+
+    auto Locale = icu::Locale();
+    if (ICULocale != "") {
+      auto L = icu::Locale(ICULocale.data());
+      if (!L.isBogus())
+        Locale = L;
+    }
+
+    SubstTable = icu::ResourceBundle("clang", Locale, EC)
+                     .get("Basic", EC)
+                     .get("SubstString", EC);
+    DiagTable = icu::ResourceBundle("clang", Locale, EC)
+                    .get("Basic", EC)
+                    .get("DiagString", EC);
+  }
+
+  StringRef getDiagString(const char *ID) {
+    int32_t Len;
+    auto Data = DiagTable.get(ID, EC).getBinary(Len, EC);
+    return StringRef(reinterpret_cast<const char *>(Data), Len - 1);
+  }
+  StringRef getSubstString(const char *ID) {
+    int32_t Len;
+    auto Data = SubstTable.get(ID, EC).getBinary(Len, EC);
+    return StringRef(reinterpret_cast<const char *>(Data), Len - 1);
+  }
+#else
+public:
+  I18nContext(StringRef) {}
+  StringRef getDiagString(const char *) { return StringRef(); }
+  StringRef getSubstString(const char *) { return StringRef(); }
+#endif
+};
+
+DiagnosticIDs::I18nContext &DiagnosticIDs::getI18nContext() const {
+  if (!I18nCtx)
+    I18nCtx.reset(new I18nContext(Locale));
+  return *I18nCtx;
+}
+
+void DiagnosticIDs::setI18nResourceDir(StringRef Dirs) const {
+#if HAVE_ICU
+  u_setDataDirectory(Dirs.data());
+#endif
+}
+
+namespace {
 
 struct StaticDiagInfoRec {
   uint16_t DiagID;
@@ -104,6 +177,11 @@ struct StaticDiagInfoRec {
     uint32_t StringOffset = StaticDiagInfoDescriptionOffsets[MyIndex];
     const char* Table = reinterpret_cast<const char*>(&StaticDiagInfoDescriptions);
     return StringRef(&Table[StringOffset], DescriptionLen);
+  }
+
+  const char *getDiagName() const {
+    size_t MyIndex = this - &StaticDiagInfo[0];
+    return StaticDiagNames[MyIndex];
   }
 
   diag::Flavor getFlavor() const {
@@ -428,6 +506,20 @@ StringRef DiagnosticIDs::getDescription(unsigned DiagID) const {
     return Info->getDescription();
   assert(CustomDiagInfo && "Invalid CustomDiagInfo");
   return CustomDiagInfo->getDescription(DiagID).GetDescription();
+}
+StringRef DiagnosticIDs::getI18nDescription(unsigned DiagID) const {
+#if HAVE_ICU
+  if (const StaticDiagInfoRec *Info = GetDiagInfo(DiagID))
+    return getI18nContext().getDiagString(Info->getDiagName());
+#endif
+  return StringRef();
+}
+StringRef DiagnosticIDs::getI18nSubst(StringRef Subst) const {
+#if HAVE_ICU
+  return getI18nContext().getSubstString(Subst.data());
+#else
+  return StringRef();
+#endif
 }
 
 static DiagnosticIDs::Level toLevel(diag::Severity SV) {

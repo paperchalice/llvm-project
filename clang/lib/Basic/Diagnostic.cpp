@@ -27,6 +27,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Config/config.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/CrashRecoveryContext.h"
 #include "llvm/Support/Error.h"
@@ -35,6 +36,12 @@
 #include "llvm/Support/Unicode.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#if HAVE_ICU
+#include "clang/Basic/AllDiagnostics.h"
+#include <map>
+#include <unicode/messageformat2.h>
+#include <unicode/regex.h>
+#endif
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -81,6 +88,7 @@ DiagnosticsEngine::DiagnosticsEngine(IntrusiveRefCntPtr<DiagnosticIDs> diags,
     : Diags(std::move(diags)), DiagOpts(DiagOpts) {
   setClient(client, ShouldOwnClient);
   ArgToStringFn = DummyArgToStringFn;
+  Diags->Locale = DiagOpts.ICULocale;
 
   Reset();
 }
@@ -997,9 +1005,565 @@ void Diagnostic::FormatDiagnostic(SmallVectorImpl<char> &OutStr) const {
     return;
   }
 
-  StringRef Diag = getDiags()->getDiagnosticIDs()->getDescription(getID());
+  StringRef Diag = getDiags()->getDiagnosticIDs()->getI18nDescription(getID());
+  if (!Diag.empty()) {
+    FormatI18nDiagnostic(Diag, OutStr);
+    return;
+  }
+
+  Diag = getDiags()->getDiagnosticIDs()->getDescription(getID());
 
   FormatDiagnostic(Diag.begin(), Diag.end(), OutStr);
+}
+
+#if HAVE_ICU
+namespace {
+// Format {$achoice0,choice1,choice2 :choose $arg0}
+class SelectFormatter : public icu::message2::Formatter {
+public:
+  icu::message2::FormattedPlaceholder
+  format(icu::message2::FormattedPlaceholder &&Arg,
+         icu::message2::FunctionOptions &&Opts, UErrorCode &EC) const override {
+    using namespace icu::message2;
+    using icu::RegexMatcher;
+    using icu::UnicodeString;
+
+    if (U_FAILURE(EC)) {
+      return {};
+    }
+
+    FormattedPlaceholder ErrorVal = FormattedPlaceholder("can't select");
+    if (!Arg.canFormat() || Arg.asFormattable().getType() != UFMT_INT64)
+      return ErrorVal;
+    FunctionOptionsMap Opt = Opts.getOptions();
+
+    auto Index = Arg.asFormattable().getInt64(EC);
+    auto Key = 's' + UnicodeString::fromUTF8(std::to_string(Index));
+    if (Opt.find(Key) == Opt.end())
+      return ErrorVal;
+    return FormattedPlaceholder(Arg, FormattedValue(Opt[Key].getString(EC)));
+  }
+};
+
+// Custom function classes, implement `choose` function.
+class SelectFormatterFactory : public icu::message2::FormatterFactory {
+
+public:
+  icu::message2::Formatter *createFormatter(const icu::Locale &,
+                                            UErrorCode &EC) override {
+    if (U_FAILURE(EC)) {
+      return nullptr;
+    }
+    return new SelectFormatter;
+  }
+};
+
+class QuoteFormatter : public icu::message2::Formatter {
+public:
+  icu::message2::FormattedPlaceholder
+  format(icu::message2::FormattedPlaceholder &&Arg,
+         icu::message2::FunctionOptions &&, UErrorCode &EC) const override {
+    using namespace icu::message2;
+    using icu::RegexMatcher;
+    using icu::UnicodeString;
+
+    if (U_FAILURE(EC)) {
+      return {};
+    }
+
+    FormattedPlaceholder ErrorVal = FormattedPlaceholder("can't quote!");
+    if (!Arg.canFormat() || Arg.asFormattable().getType() != UFMT_STRING)
+      return ErrorVal;
+
+    std::string U8Str;
+    SmallString<0> OutU8Str;
+    auto Str = Arg.asFormattable().getString(EC).toUTF8String(U8Str);
+    EscapeStringForDiagnostic(U8Str, OutU8Str);
+    auto Result = UnicodeString::fromUTF8(
+        '\'' + static_cast<std::string>(OutU8Str) + '\'');
+    return FormattedPlaceholder(Arg, FormattedValue(std::move(Result)));
+  }
+};
+
+class QuoteFormatterFactory : public icu::message2::FormatterFactory {
+
+public:
+  icu::message2::Formatter *createFormatter(const icu::Locale &,
+                                            UErrorCode &EC) override {
+    if (U_FAILURE(EC)) {
+      return nullptr;
+    }
+    return new QuoteFormatter;
+  }
+};
+
+enum class ASTNodeFormatterKind {
+  ObjCClass,
+  ObjCInstance,
+  Q,
+};
+
+class ASTNodeObject : public icu::message2::FormattableObject {
+public:
+  const DiagnosticsEngine *Engine;
+  DiagnosticsEngine::ArgumentKind Kind;
+  uint64_t RawArg;
+  llvm::ArrayRef<intptr_t> QualTypeVals;
+
+  ASTNodeObject(const DiagnosticsEngine *Engine,
+                DiagnosticsEngine::ArgumentKind Kind, uint64_t RawArg,
+                llvm::ArrayRef<intptr_t> QualTypeVals)
+      : Engine(Engine), Kind(Kind), RawArg(RawArg),
+        QualTypeVals(QualTypeVals) {};
+  void
+  convertArgToString(StringRef Modifier, StringRef Argument,
+                     ArrayRef<DiagnosticsEngine::ArgumentValue> FormattedArgs,
+                     SmallVectorImpl<char> &OutStr) const {
+    Engine->ConvertArgToString(Kind, RawArg, Modifier, Argument, FormattedArgs,
+                               OutStr, QualTypeVals);
+  }
+  const icu::UnicodeString &tag() const override { return Tag; }
+  static inline icu::UnicodeString Tag = "ASTNodeObject";
+};
+class ASTNodeFormatter : public icu::message2::Formatter {
+  ASTNodeFormatterKind K;
+
+public:
+  ASTNodeFormatter(ASTNodeFormatterKind K) : K(K) {}
+  icu::message2::FormattedPlaceholder
+  format(icu::message2::FormattedPlaceholder &&Arg,
+         icu::message2::FunctionOptions &&, UErrorCode &EC) const override {
+    using namespace icu::message2;
+    using icu::RegexMatcher;
+    using icu::UnicodeString;
+
+    if (U_FAILURE(EC)) {
+      return {};
+    }
+
+    FormattedPlaceholder ErrorVal =
+        FormattedPlaceholder("Can't format this object!");
+    if (!Arg.canFormat() || Arg.asFormattable().getType() != UFMT_OBJECT)
+      return ErrorVal;
+
+    const Formattable &ToFormat = Arg.asFormattable();
+    const FormattableObject *FObj = ToFormat.getObject(EC);
+    if (FObj == nullptr || FObj->tag() != ASTNodeObject::Tag)
+      return ErrorVal;
+    auto QObj = static_cast<const ASTNodeObject *>(FObj);
+
+    assert(U_SUCCESS(EC) && "Not a formattable object!");
+
+    /// FormattedArgs - Keep track of all of the arguments formatted by
+    /// ConvertArgToString and pass them into subsequent calls to
+    /// ConvertArgToString, allowing the implementation to avoid redundancies
+    /// in obvious cases. But here it is unused.
+    SmallVector<DiagnosticsEngine::ArgumentValue, 8> FormattedArgs;
+    SmallString<8> OutStr;
+    StringRef Modifier;
+    switch (K) {
+    case ASTNodeFormatterKind::ObjCClass:
+      Modifier = "objcclass";
+      break;
+    case ASTNodeFormatterKind::ObjCInstance:
+      Modifier = "objcinstance";
+      break;
+    case ASTNodeFormatterKind::Q:
+      Modifier = "q";
+      break;
+    }
+    QObj->convertArgToString(Modifier, StringRef(), FormattedArgs, OutStr);
+    return FormattedPlaceholder(Arg, FormattedValue(UnicodeString::fromUTF8(
+                                         static_cast<std::string>(OutStr))));
+  }
+};
+class ASTNodeFormatterFactory : public icu::message2::FormatterFactory {
+  ASTNodeFormatterKind K;
+
+public:
+  ASTNodeFormatterFactory(ASTNodeFormatterKind K) : K(K) {}
+  icu::message2::Formatter *createFormatter(const icu::Locale &,
+                                            UErrorCode &EC) override {
+    if (U_FAILURE(EC)) {
+      return nullptr;
+    }
+
+    return new ASTNodeFormatter(K);
+  }
+};
+
+class FormatFormatter : public icu::message2::Formatter {
+  const DiagnosticIDs &IDs;
+
+public:
+  FormatFormatter(const DiagnosticIDs &IDs) : IDs(IDs) {}
+  icu::message2::FormattedPlaceholder
+  format(icu::message2::FormattedPlaceholder &&Arg,
+         icu::message2::FunctionOptions &&Opts, UErrorCode &EC) const override {
+    using namespace icu::message2;
+    using icu::RegexMatcher;
+    using icu::UnicodeString;
+
+    if (U_FAILURE(EC))
+      return {};
+
+    FormattedPlaceholder ErrorVal = FormattedPlaceholder("can't format it!");
+
+    UnicodeString FmtStr;
+    auto Options = Opts.getOptions();
+    if (Arg.isNullOperand()) {
+      auto IDIter = Options.find("id");
+      if (IDIter == Options.end())
+        return ErrorVal;
+      std::string Key;
+      auto Subst = std::move(IDIter->second.getString(EC)).toUTF8String(Key);
+      auto U8FmtString = IDs.getI18nSubst(Subst);
+      if (U8FmtString.empty())
+        return FormattedPlaceholder("no such substitution!");
+      FmtStr = UnicodeString::fromUTF8(U8FmtString.data());
+    } else if (!Arg.canFormat() ||
+               Arg.asFormattable().getType() != UFMT_STRING) {
+      return ErrorVal;
+    } else {
+      FmtStr = std::move(Arg.asFormattable().getString(EC));
+    }
+
+    icu::message2::MFFunctionRegistry &getCustomFunctionRegistry(
+        const DiagnosticIDs &);
+    UParseError PE = {0, 0, {0}, {0}};
+    MessageFormatter MF =
+        MessageFormatter::Builder(EC)
+            .setPattern(FmtStr, PE, EC)
+            .setFunctionRegistry(getCustomFunctionRegistry(IDs))
+            .build(EC);
+    MessageArguments Arguments(Opts.getOptions(), EC);
+    return FormattedPlaceholder(
+        Arg, FormattedValue(MF.formatToString(Arguments, EC)));
+  }
+};
+
+class DiffFormatter : public icu::message2::Formatter {
+public:
+  // {:diff from=$arg0 to=$arg1 }
+  icu::message2::FormattedPlaceholder
+  format(icu::message2::FormattedPlaceholder &&Arg,
+         icu::message2::FunctionOptions &&Opts, UErrorCode &EC) const override {
+    using namespace icu::message2;
+    using icu::RegexMatcher;
+    using icu::UnicodeString;
+
+    if (U_FAILURE(EC))
+      return {};
+    auto Options = Opts.getOptions();
+    const UnicodeString &NormalStr = Options["normal"].getString(EC),
+                        &TreeStr = Options["tree"].getString(EC);
+    auto *FromObj =
+        static_cast<const ASTNodeObject *>(Options["from"].getObject(EC));
+    auto *ToObj =
+        static_cast<const ASTNodeObject *>(Options["to"].getObject(EC));
+
+    // Create a struct with all the info needed for printing.
+    if (FromObj->Kind == DiagnosticsEngine::ak_qualtype &&
+        ToObj->Kind == DiagnosticsEngine::ak_qualtype) {
+      auto &Diags = *const_cast<DiagnosticsEngine *>(FromObj->Engine);
+      TemplateDiffTypes TDT;
+      TDT.FromType = FromObj->RawArg;
+      TDT.ToType = ToObj->RawArg;
+      TDT.ElideType = Diags.getElideType();
+      TDT.ShowColors = Diags.getShowColors();
+      TDT.TemplateDiffUsed = false;
+
+      intptr_t Val = reinterpret_cast<intptr_t>(&TDT);
+      SmallVector<DiagnosticsEngine::ArgumentValue, 8> FormattedArgs;
+
+      if (Diags.getPrintTemplateTree()) {
+        TDT.PrintFromType = true;
+        TDT.PrintTree = true;
+        SmallString<64> OutTree;
+        Diags.ConvertArgToString(DiagnosticsEngine::ak_qualtype_pair, Val, "",
+                                 "", FormattedArgs, OutTree,
+                                 FromObj->QualTypeVals);
+        // If there is no tree information, fall back to regular printing.
+        if (!OutTree.empty()) {
+          return FormattedPlaceholder(
+              Arg, FormattedValue(TreeStr +
+                                  UnicodeString::fromUTF8(OutTree.c_str())));
+        }
+      }
+      UParseError PE = {0, 0, {0}, {0}};
+      MessageFormatter MF =
+          MessageFormatter::Builder(EC).setPattern(NormalStr, PE, EC).build(EC);
+      std::map<UnicodeString, Formattable> Args;
+      SmallString<8> FromStr, ToStr;
+      FromObj->convertArgToString("", "", FormattedArgs, FromStr);
+      ToObj->convertArgToString("", "", FormattedArgs, FromStr);
+      Args["from"] = UnicodeString::fromUTF8(FromStr.c_str());
+      Args["to"] = UnicodeString::fromUTF8(ToStr.c_str());
+      MessageArguments Arguments(Args, EC);
+      return FormattedPlaceholder(
+          Arg, FormattedValue(MF.formatToString(Arguments, EC)));
+    }
+  }
+};
+class DiffFormatterFactory : public icu::message2::FormatterFactory {
+public:
+  icu::message2::Formatter *createFormatter(const icu::Locale &locale,
+                                            UErrorCode &EC) override {
+    if (U_FAILURE(EC))
+      return nullptr;
+    return new DiffFormatter;
+  }
+};
+
+class FormatFormatterFactory : public icu::message2::FormatterFactory {
+  const DiagnosticIDs &IDs;
+
+public:
+  FormatFormatterFactory(const DiagnosticIDs &IDs) : IDs(IDs) {}
+  icu::message2::Formatter *createFormatter(const icu::Locale &,
+                                            UErrorCode &EC) override {
+    if (U_FAILURE(EC))
+      return nullptr;
+
+    return new FormatFormatter(IDs);
+  }
+};
+
+#define DIAG_ENUM(ENUM_NAME)                                                   \
+  class ENUM_NAME##Selector : public icu::message2::Selector {                 \
+  public:                                                                      \
+    void selectKey(icu::message2::FormattedPlaceholder &&Arg,                  \
+                   icu::message2::FunctionOptions &&Options,                   \
+                   const icu::UnicodeString *Keys, int32_t KeysLen,            \
+                   icu::UnicodeString *Prefs, int32_t &PrefsLen,               \
+                   UErrorCode &EC) const override {                            \
+      using namespace icu::message2;                                           \
+      using icu::UnicodeString;                                                \
+      namespace EnumName = diag::ENUM_NAME;                                    \
+      if (U_FAILURE(EC))                                                       \
+        return;                                                                \
+      using namespace icu::message2;                                           \
+      if (!Arg.canFormat() || Arg.asFormattable().getType() != UFMT_INT64) {   \
+        EC = U_INVALID_FORMAT_ERROR;                                           \
+        return;                                                                \
+      }                                                                        \
+      int64_t Val = Arg.asFormattable().getInt64(EC);                          \
+      switch (Val) {                                                           \
+      default:                                                                 \
+        EC = U_INVALID_FORMAT_ERROR;                                           \
+        break;
+#define DIAG_ENUM_ITEM(IDX, NAME)                                              \
+  case EnumName::NAME:                                                         \
+    Prefs[0] = UnicodeString(u"" #NAME);                                       \
+    PrefsLen = 1;                                                              \
+    return;
+#define DIAG_ENUM_END()                                                        \
+  }                                                                            \
+  }                                                                            \
+  }                                                                            \
+  ;
+#include "clang/Basic/DiagnosticASTEnums.inc"
+#include "clang/Basic/DiagnosticAnalysisEnums.inc"
+#include "clang/Basic/DiagnosticCommentEnums.inc"
+#include "clang/Basic/DiagnosticCrossTUEnums.inc"
+#include "clang/Basic/DiagnosticDriverEnums.inc"
+#include "clang/Basic/DiagnosticFrontendEnums.inc"
+#include "clang/Basic/DiagnosticInstallAPIEnums.inc"
+#include "clang/Basic/DiagnosticLexEnums.inc"
+#include "clang/Basic/DiagnosticParseEnums.inc"
+#include "clang/Basic/DiagnosticRefactoringEnums.inc"
+#include "clang/Basic/DiagnosticSemaEnums.inc"
+#include "clang/Basic/DiagnosticSerializationEnums.inc"
+#undef DIAG_ENUM
+#undef DIAG_ENUM_ITEM
+#undef DIAG_ENUM_END
+
+#define DIAG_ENUM(ENUM_NAME)                                                   \
+  class ENUM_NAME##SelectorFactory : public icu::message2::SelectorFactory {   \
+  public:                                                                      \
+    icu::message2::Selector *createSelector(const icu::Locale &,               \
+                                            UErrorCode &EC) const override {   \
+      if (U_FAILURE(EC))                                                       \
+        return nullptr;                                                        \
+      return new ENUM_NAME##Selector;                                          \
+    }                                                                          \
+  };
+#define DIAG_ENUM_ITEM(...)
+#define DIAG_ENUM_END()
+#include "clang/Basic/DiagnosticASTEnums.inc"
+#include "clang/Basic/DiagnosticAnalysisEnums.inc"
+#include "clang/Basic/DiagnosticCommentEnums.inc"
+#include "clang/Basic/DiagnosticCrossTUEnums.inc"
+#include "clang/Basic/DiagnosticDriverEnums.inc"
+#include "clang/Basic/DiagnosticFrontendEnums.inc"
+#include "clang/Basic/DiagnosticInstallAPIEnums.inc"
+#include "clang/Basic/DiagnosticLexEnums.inc"
+#include "clang/Basic/DiagnosticParseEnums.inc"
+#include "clang/Basic/DiagnosticRefactoringEnums.inc"
+#include "clang/Basic/DiagnosticSemaEnums.inc"
+#include "clang/Basic/DiagnosticSerializationEnums.inc"
+#undef DIAG_ENUM
+#undef DIAG_ENUM_ITEM
+#undef DIAG_ENUM
+
+icu::message2::MFFunctionRegistry &
+getCustomFunctionRegistry(const DiagnosticIDs &IDs) {
+  using namespace icu;
+  using namespace icu::message2;
+  UErrorCode EC = U_ZERO_ERROR;
+
+  static auto CustomRegistry =
+      MFFunctionRegistry::Builder(EC)
+          .adoptFormatter(FunctionName("select"), new SelectFormatterFactory,
+                          EC)
+
+          .adoptFormatter(FunctionName("quote"), new QuoteFormatterFactory, EC)
+          .adoptFormatter(
+              FunctionName("objcclass"),
+              new ASTNodeFormatterFactory(ASTNodeFormatterKind::ObjCClass), EC)
+          .adoptFormatter(
+              FunctionName("objcinstance"),
+              new ASTNodeFormatterFactory(ASTNodeFormatterKind::ObjCInstance),
+              EC)
+          .adoptFormatter(FunctionName("q"),
+                          new ASTNodeFormatterFactory(ASTNodeFormatterKind::Q),
+                          EC)
+          .adoptFormatter(FunctionName("format"),
+                          new FormatFormatterFactory(IDs), EC)
+#define DIAG_ENUM(ENUM_NAME)                                                   \
+  .adoptSelector(FunctionName(#ENUM_NAME), new ENUM_NAME##SelectorFactory, EC)
+#define DIAG_ENUM_ITEM(...)
+#define DIAG_ENUM_END()
+#include "clang/Basic/DiagnosticASTEnums.inc"
+#include "clang/Basic/DiagnosticAnalysisEnums.inc"
+#include "clang/Basic/DiagnosticCommentEnums.inc"
+#include "clang/Basic/DiagnosticCrossTUEnums.inc"
+#include "clang/Basic/DiagnosticDriverEnums.inc"
+#include "clang/Basic/DiagnosticFrontendEnums.inc"
+#include "clang/Basic/DiagnosticInstallAPIEnums.inc"
+#include "clang/Basic/DiagnosticLexEnums.inc"
+#include "clang/Basic/DiagnosticParseEnums.inc"
+#include "clang/Basic/DiagnosticRefactoringEnums.inc"
+#include "clang/Basic/DiagnosticSemaEnums.inc"
+#include "clang/Basic/DiagnosticSerializationEnums.inc"
+#undef DIAG_ENUM
+#undef DIAG_ENUM_ITEM
+#undef DIAG_ENUM
+          .build();
+  return CustomRegistry;
+}
+
+} // namespace
+#endif
+
+void Diagnostic::FormatI18nDiagnostic(StringRef MF2Str,
+                                      SmallVectorImpl<char> &OutStr) const {
+#if HAVE_ICU
+  UErrorCode Status = U_ZERO_ERROR;
+  UParseError PE = {0, 0, {0}, {0}};
+  namespace mf2 = icu::message2;
+  using namespace icu;
+  using namespace icu::message2;
+  auto Str = UnicodeString::fromUTF8(MF2Str.begin());
+  MessageFormatter MF = MessageFormatter::Builder(Status)
+                            .setPattern(Str, PE, Status)
+                            .setFunctionRegistry(getCustomFunctionRegistry(
+                                *getDiags()->getDiagnosticIDs()))
+                            .build(Status);
+  std::map<icu::UnicodeString, mf2::Formattable> ArgsBuilder;
+  /// QualTypeVals - Pass a vector of arrays so that QualType names can be
+  /// compared to see if more information is needed to be printed.
+  SmallVector<intptr_t, 2> QualTypeVals;
+  SmallString<64> Tree;
+
+  for (unsigned I = 0, E = getNumArgs(); I < E; ++I)
+    if (getArgKind(I) == DiagnosticsEngine::ak_qualtype)
+      QualTypeVals.push_back(getRawArg(I));
+
+  /// Tracking our custom objects.
+  SmallVector<std::unique_ptr<ASTNodeObject>, 8> CustomObjects;
+
+  for (unsigned I = 0, E = getNumArgs(); I < E; ++I) {
+    DiagnosticsEngine::ArgumentKind Kind = getArgKind(I);
+
+    auto &ArgI = ArgsBuilder[icu::UnicodeString::fromUTF8(std::string("arg") +
+                                                          std::to_string(I))];
+    switch (Kind) {
+    // ---- STRINGS ----
+    case DiagnosticsEngine::ak_c_string:
+      ArgI = mf2::Formattable(icu::UnicodeString::fromUTF8(
+          getArgCStr(I) ? getArgCStr(I) : "(null)"));
+      break;
+    case DiagnosticsEngine::ak_std_string:
+      ArgI = mf2::Formattable(icu::UnicodeString::fromUTF8(getArgStdStr(I)));
+      break;
+    // ---- INTEGERS ----
+    case DiagnosticsEngine::ak_sint:
+      ArgI = mf2::Formattable(getArgSInt(I));
+      break;
+    case DiagnosticsEngine::ak_uint:
+      ArgI = mf2::Formattable(static_cast<int64_t>(getArgUInt(I)));
+      break;
+    // ---- TOKEN SPELLINGS ----
+    case DiagnosticsEngine::ak_tokenkind: {
+      tok::TokenKind Kind = static_cast<tok::TokenKind>(getRawArg(I));
+
+      SmallString<0> U8Str;
+      llvm::raw_svector_ostream Out(U8Str);
+      if (const char *S = tok::getPunctuatorSpelling(Kind))
+        // Quoted token spelling for punctuators.
+        Out << '\'' << S << '\'';
+      else if ((S = tok::getKeywordSpelling(Kind)))
+        // Unquoted token spelling for keywords.
+        Out << S;
+      else if ((S = getTokenDescForDiagnostic(Kind)))
+        // Unquoted translatable token name.
+        Out << S;
+      else if ((S = tok::getTokenName(Kind)))
+        // Debug name, shouldn't appear in user-facing diagnostics.
+        Out << '<' << S << '>';
+      else
+        Out << "(null)";
+      ArgI = UnicodeString::fromUTF8(static_cast<std::string>(U8Str));
+      break;
+    }
+    // ---- NAMES and TYPES ----
+    case DiagnosticsEngine::ak_identifierinfo: {
+      const IdentifierInfo *II = getArgIdentifier(I);
+
+      // Don't crash if get passed a null pointer by accident.
+      if (!II) {
+        ArgI = UnicodeString("null");
+        continue;
+      }
+
+      ArgI = UnicodeString::fromUTF8('\'' + II->getName().str() + '\'');
+      break;
+    }
+    case DiagnosticsEngine::ak_addrspace:
+    case DiagnosticsEngine::ak_qual:
+    case DiagnosticsEngine::ak_qualtype:
+    case DiagnosticsEngine::ak_declarationname:
+    case DiagnosticsEngine::ak_nameddecl:
+    case DiagnosticsEngine::ak_nestednamespec:
+    case DiagnosticsEngine::ak_declcontext:
+    case DiagnosticsEngine::ak_attr:
+    case DiagnosticsEngine::ak_expr: {
+      uint64_t RawArg = getRawArg(I);
+      auto Obj = std::make_unique<ASTNodeObject>(getDiags(), Kind, RawArg,
+                                                 QualTypeVals);
+      ArgI = Obj.get();
+      CustomObjects.push_back(std::move(Obj));
+    } break;
+    default:
+      break;
+    }
+  }
+  mf2::MessageArguments Arguments(ArgsBuilder, Status);
+  std::string Out;
+  MF.formatToString(Arguments, Status).toUTF8String(Out);
+  OutStr.append(Out.begin(), Out.end());
+#endif
 }
 
 /// EscapeStringForDiagnostic - Append Str to the diagnostic buffer,

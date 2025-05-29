@@ -268,9 +268,16 @@ private:
     return GIs;
   }();
 
+  class I18nContext;
+  mutable std::unique_ptr<I18nContext> I18nCtx;
+  I18nContext &getI18nContext() const;
+  StringRef Locale;
+
 public:
   DiagnosticIDs();
   ~DiagnosticIDs();
+
+  void setI18nResourceDir(StringRef Dir) const;
 
   /// Return an ID for a diagnostic with the specified format string and
   /// level.
@@ -317,6 +324,8 @@ public:
 
   /// Given a diagnostic ID, return a description of the issue.
   StringRef getDescription(unsigned DiagID) const;
+  StringRef getI18nDescription(unsigned DiagID) const;
+  StringRef getI18nSubst(StringRef SubstID) const;
 
   /// Return true if the unmapped diagnostic levelof the specified
   /// diagnostic ID is a Warning or Extension.

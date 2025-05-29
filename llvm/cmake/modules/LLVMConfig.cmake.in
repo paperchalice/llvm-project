@@ -90,6 +90,11 @@ if(LLVM_ENABLE_HTTPLIB)
   find_package(httplib)
 endif()
 
+set(LLVM_ENABLE_ICU @LLVM_ENABLE_ICU@)
+if(LLVM_ENABLE_ICU)
+  find_package(ICU)
+endif()
+
 set(LLVM_WITH_Z3 @LLVM_WITH_Z3@)
 
 set(LLVM_ENABLE_DIA_SDK @LLVM_ENABLE_DIA_SDK@)
