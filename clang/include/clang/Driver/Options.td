@@ -1044,6 +1044,11 @@ defm cx_fortran_rules: BoolOptionWithoutMarshalling<"f", "cx-fortran-rules",
   NegFlag<SetFalse, [], [ClangOption, CC1Option], "Range reduction is disabled "
   "for complex arithmetic operations">>;
 
+def icu_locale : Joined<["--"], "icu-locale=">,
+  HelpText<"The ICU supported locale code.">,
+  Visibility<[ClangOption, CC1Option, CC1AsOption, FlangOption, FC1Option]>,
+  MarshallingInfoString<DiagnosticOpts<"ICULocale">>;
+
 // OpenCL-only Options
 def cl_opt_disable : Flag<["-"], "cl-opt-disable">, Group<opencl_Group>,
   Visibility<[ClangOption, CC1Option]>,
@@ -9219,6 +9224,10 @@ def _SLASH_Ze : CLFlag<"Ze">;
 def _SLASH_Zg : CLFlag<"Zg">;
 def _SLASH_ZI : CLFlag<"ZI">;
 def _SLASH_ZW : CLJoined<"ZW">;
+
+def _SLASH_icu_locale : CLJoined<"icu-locale", [CLOption, DXCOption]>,
+  HelpText<"The ICU supported locale code.">,
+  MarshallingInfoString<DiagnosticOpts<"ICULocale">>;
 
 //===----------------------------------------------------------------------===//
 // clang-dxc Options

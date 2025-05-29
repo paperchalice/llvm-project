@@ -187,6 +187,35 @@ TEST(DiagnosticTest, storedDiagEmptyWarning) {
   Diags.Report(CaptureConsumer.StoredDiags.front());
 }
 
+TEST(DiagnosticTest, i18n) {
+  class CaptureDiagnosticConsumer : public DiagnosticConsumer {
+  public:
+    SmallVector<StoredDiagnostic> StoredDiags;
+
+    void HandleDiagnostic(DiagnosticsEngine::Level level,
+                          const Diagnostic &Info) override {
+      StoredDiags.push_back(StoredDiagnostic(level, Info));
+    }
+  };
+
+  DiagnosticsEngine Diags(new DiagnosticIDs(), new DiagnosticOptions);
+  CaptureDiagnosticConsumer CaptureConsumer;
+  Diags.setClient(&CaptureConsumer, /*ShouldOwnClient=*/false);
+  auto &DID = *Diags.getDiagnosticIDs();
+  auto Builder = Diags.Report(diag::err_integer_literal_too_large);
+  Builder << 1 << "blah";
+  Diagnostic D(&Diags, Builder);
+  llvm::SmallString<0> Formatted;
+  D.FormatI18nDiagnostic(R"(
+    .match {$arg0 :test}
+    a {{ this is a }}
+    b {{ this is b }}
+    * {{ others... }}
+  )",
+                         Formatted);
+  llvm::errs() << Formatted;
+}
+
 class SuppressionMappingTest : public testing::Test {
 public:
   SuppressionMappingTest() {
