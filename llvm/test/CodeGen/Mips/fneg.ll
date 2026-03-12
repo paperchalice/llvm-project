@@ -1,4 +1,4 @@
-; Check that abs.[ds] is selected and does not depend on -enable-no-nans-fp-math
+; Check that abs.[ds] is selected and does not depend on
 ; They obey the Has2008 and ABS2008 configuration bits which govern the
 ; conformance to IEEE 754 (1985) and IEEE 754 (2008). When these bits are not
 ; present, they confirm to 1985.
@@ -8,10 +8,10 @@
 
 ; RUN: llc  < %s -mtriple=mipsel-linux-gnu -mcpu=mips32 | FileCheck %s
 ; RUN: llc  < %s -mtriple=mipsel-linux-gnu -mcpu=mips32r2 | FileCheck %s
-; RUN: llc  < %s -mtriple=mipsel-linux-gnu -mcpu=mips32 -enable-no-nans-fp-math | FileCheck %s
+; RUN: llc  < %s -mtriple=mipsel-linux-gnu -mcpu=mips32 | FileCheck %s
 
 ; RUN: llc  < %s -mtriple=mips64el-linux-gnu -mcpu=mips64 | FileCheck %s
-; RUN: llc  < %s -mtriple=mips64el-linux-gnu -mcpu=mips64 -enable-no-nans-fp-math | FileCheck %s
+; RUN: llc  < %s -mtriple=mips64el-linux-gnu -mcpu=mips64 | FileCheck %s
 
 define float @foo0(float %d) nounwind readnone {
 entry:
