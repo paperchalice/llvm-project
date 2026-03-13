@@ -8,9 +8,7 @@
 
 ; RUN: llc  < %s -mtriple=mipsel-linux-gnu -mcpu=mips32 | FileCheck %s
 ; RUN: llc  < %s -mtriple=mipsel-linux-gnu -mcpu=mips32r2 | FileCheck %s
-; RUN: llc  < %s -mtriple=mipsel-linux-gnu -mcpu=mips32 | FileCheck %s
 
-; RUN: llc  < %s -mtriple=mips64el-linux-gnu -mcpu=mips64 | FileCheck %s
 ; RUN: llc  < %s -mtriple=mips64el-linux-gnu -mcpu=mips64 | FileCheck %s
 
 define float @foo0(float %d) nounwind readnone {

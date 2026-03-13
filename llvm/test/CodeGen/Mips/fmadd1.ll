@@ -19,9 +19,6 @@
 ; RUN: llc < %s -mtriple=mipsel   -mcpu=mips32r2            -mattr=+nomadd4 | FileCheck %s -check-prefixes=ALL,32-NOMADD
 ; RUN: llc < %s -mtriple=mips64el -mcpu=mips64   -target-abi=n64 -mattr=+nomadd4 | FileCheck %s -check-prefixes=ALL,64R6-NOMADD
 ; RUN: llc < %s -mtriple=mips64el -mcpu=mips64r2 -target-abi=n64 -mattr=+nomadd4 | FileCheck %s -check-prefixes=ALL,64R6-NOMADD
-; RUN: llc < %s -mtriple=mipsel   -mcpu=mips32r2            -mattr=+nomadd4 | FileCheck %s -check-prefixes=ALL,32-NOMADD
-; RUN: llc < %s -mtriple=mips64el -mcpu=mips64   -target-abi=n64 -mattr=+nomadd4 | FileCheck %s -check-prefixes=ALL,64R6-NOMADD
-; RUN: llc < %s -mtriple=mips64el -mcpu=mips64r2 -target-abi=n64 -mattr=+nomadd4 | FileCheck %s -check-prefixes=ALL,64R6-NOMADD
 
 define float @FOO0float(float %a, float %b, float %c) nounwind readnone {
 entry:
