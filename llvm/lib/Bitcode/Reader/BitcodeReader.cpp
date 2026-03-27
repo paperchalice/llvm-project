@@ -1427,6 +1427,7 @@ static Comdat::SelectionKind getDecodedComdatSelectionKind(unsigned Val) {
 }
 
 static FastMathFlags getDecodedFastMathFlags(unsigned Val) {
+  Val >>= 8;
   FastMathFlags FMF;
   if (0 != (Val & bitc::UnsafeAlgebra))
     FMF.setFast();

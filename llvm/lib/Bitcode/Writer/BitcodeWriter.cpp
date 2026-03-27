@@ -1730,6 +1730,7 @@ void ModuleBitcodeWriter::writeModuleInfo() {
 
 static uint64_t getOptimizationFlags(const Value *V) {
   uint64_t Flags = 0;
+  uint32_t FMF = 0;
 
   if (const auto *OBO = dyn_cast<OverflowingBinaryOperator>(V)) {
     if (OBO->hasNoSignedWrap())
@@ -1744,19 +1745,19 @@ static uint64_t getOptimizationFlags(const Value *V) {
       Flags |= 1 << bitc::PDI_DISJOINT;
   } else if (const auto *FPMO = dyn_cast<FPMathOperator>(V)) {
     if (FPMO->hasAllowReassoc())
-      Flags |= bitc::AllowReassoc;
+      FMF |= bitc::AllowReassoc;
     if (FPMO->hasNoNaNs())
-      Flags |= bitc::NoNaNs;
+      FMF |= bitc::NoNaNs;
     if (FPMO->hasNoInfs())
-      Flags |= bitc::NoInfs;
+      FMF |= bitc::NoInfs;
     if (FPMO->hasNoSignedZeros())
-      Flags |= bitc::NoSignedZeros;
+      FMF |= bitc::NoSignedZeros;
     if (FPMO->hasAllowReciprocal())
-      Flags |= bitc::AllowReciprocal;
+      FMF |= bitc::AllowReciprocal;
     if (FPMO->hasAllowContract())
-      Flags |= bitc::AllowContract;
+      FMF |= bitc::AllowContract;
     if (FPMO->hasApproxFunc())
-      Flags |= bitc::ApproxFunc;
+      FMF |= bitc::ApproxFunc;
   } else if (const auto *NNI = dyn_cast<PossiblyNonNegInst>(V)) {
     if (NNI->hasNonNeg())
       Flags |= 1 << bitc::PNNI_NON_NEG;
@@ -1776,6 +1777,8 @@ static uint64_t getOptimizationFlags(const Value *V) {
     if (ICmp->hasSameSign())
       Flags |= 1 << bitc::ICMP_SAME_SIGN;
   }
+
+  Flags |= (FMF << 8);
 
   return Flags;
 }
@@ -4026,7 +4029,7 @@ void ModuleBitcodeWriter::writeBlockInfo() {
     Abbv->Add(BitCodeAbbrevOp(bitc::FUNC_CODE_INST_UNOP));
     Abbv->Add(ValAbbrevOp); // LHS
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 4)); // opc
-    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 8)); // flags
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 16)); // flags
     if (Stream.EmitBlockInfoAbbrev(bitc::FUNCTION_BLOCK_ID, Abbv) !=
         FUNCTION_INST_UNOP_FLAGS_ABBREV)
       llvm_unreachable("Unexpected abbrev ordering!");
@@ -4047,7 +4050,7 @@ void ModuleBitcodeWriter::writeBlockInfo() {
     Abbv->Add(ValAbbrevOp); // LHS
     Abbv->Add(ValAbbrevOp); // RHS
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 4)); // opc
-    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 8)); // flags
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 16)); // flags
     if (Stream.EmitBlockInfoAbbrev(bitc::FUNCTION_BLOCK_ID, Abbv) !=
         FUNCTION_INST_BINOP_FLAGS_ABBREV)
       llvm_unreachable("Unexpected abbrev ordering!");
@@ -4068,7 +4071,7 @@ void ModuleBitcodeWriter::writeBlockInfo() {
     Abbv->Add(ValAbbrevOp); // OpVal
     Abbv->Add(TypeAbbrevOp); // dest ty
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 4)); // opc
-    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 8)); // flags
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 16)); // flags
     if (Stream.EmitBlockInfoAbbrev(bitc::FUNCTION_BLOCK_ID, Abbv) !=
         FUNCTION_INST_CAST_FLAGS_ABBREV)
       llvm_unreachable("Unexpected abbrev ordering!");
@@ -4143,7 +4146,7 @@ void ModuleBitcodeWriter::writeBlockInfo() {
     Abbv->Add(ValAbbrevOp);                                // op0
     Abbv->Add(ValAbbrevOp);                                // op1
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 6)); // pred
-    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 8)); // flags
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 16)); // flags
     if (Stream.EmitBlockInfoAbbrev(bitc::FUNCTION_BLOCK_ID, Abbv) !=
         FUNCTION_INST_CMP_FLAGS_ABBREV)
       llvm_unreachable("Unexpected abbrev ordering!");
