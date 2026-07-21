@@ -530,16 +530,25 @@ Error CodeGenPassBuilder<Derived, TargetMachineT>::buildPipeline(
     derived().addAsmPrinter(CGMFPM);
     CGFPM.addCodeGenMachineFunctionPassManager(std::move(CGMFPM));
     CGFPM.addPass(FreeMachineFunctionPass());
-    CGMPM.addCodeGenFunctionPassManager(std::move(CGFPM));
+    if (Opt.RequiresCodeGenSCCOrder)
+      CGMPM.addCodeGenFunctionPassManagerInCGSCCOrder(std::move(CGFPM));
+    else
+      CGMPM.addCodeGenFunctionPassManager(std::move(CGFPM));
     derived().addAsmPrinterEnd(CGMPM);
   } else if (PrintMIR) {
     CGMFPM.addPass(PrintMIRPass(Out));
     CGFPM.addCodeGenMachineFunctionPassManager(std::move(CGMFPM));
     CGFPM.addPass(FreeMachineFunctionPass());
-    CGMPM.addCodeGenFunctionPassManager(std::move(CGFPM));
+    if (Opt.RequiresCodeGenSCCOrder)
+      CGMPM.addCodeGenFunctionPassManagerInCGSCCOrder(std::move(CGFPM));
+    else
+      CGMPM.addCodeGenFunctionPassManager(std::move(CGFPM));
   } else {
     CGFPM.addPass(FreeMachineFunctionPass());
-    CGMPM.addCodeGenFunctionPassManager(std::move(CGFPM));
+    if (Opt.RequiresCodeGenSCCOrder)
+      CGMPM.addCodeGenFunctionPassManagerInCGSCCOrder(std::move(CGFPM));
+    else
+      CGMPM.addCodeGenFunctionPassManager(std::move(CGFPM));
   }
 
   // Build the final pass manager.

@@ -102,7 +102,7 @@ public:
   void addPass(CodeGenLoopPassManager &&CGPM) {
     for (auto &P : CGPM.PassList)
       PassList.push_back(std::move(P));
-    CGPM.PassList.clear();
+    CGPM.reset();
   }
 
   bool isEmpty() const { return PassList.empty(); }
@@ -114,6 +114,11 @@ private:
 
   bool isSimilarWith(const CodeGenLoopPassManager &CGLPM) const {
     return UseMemorySSA == CGLPM.UseMemorySSA;
+  }
+
+  void reset() {
+    UseMemorySSA = false;
+    PassList.clear();
   }
 
 private:
@@ -139,21 +144,23 @@ public:
     Passes.pop_back();
   }
 
-  void addPass(CodeGenFunctionPassManager &&CGPM) {
-    for (auto &P : CGPM.PassList)
+  void addPass(CodeGenFunctionPassManager &&CGFPM) {
+    for (auto &P : CGFPM.PassList)
       PassList.push_back(std::move(P));
-    CGPM.PassList.clear();
+    CGFPM.reset();
   }
 
   void addCodeGenLoopPassManager(CodeGenLoopPassManager &&CGLPM,
                                  bool UseMemorySSA = false) {
     CGLPM.UseMemorySSA = UseMemorySSA;
     PassList.push_back(std::move(CGLPM));
+    CGLPM.reset();
   }
 
   void addCodeGenMachineFunctionPassManager(
       CodeGenMachineFunctionPassManager &&CGMFPM) {
     PassList.push_back(std::move(CGMFPM));
+    CGMFPM.PassList.clear();
   }
 
   bool isEmpty() const { return PassList.empty(); }
@@ -168,6 +175,12 @@ private:
   bool isSimilarWith(const CodeGenFunctionPassManager &CGFPM) const {
     return EagerlyInvalidate == CGFPM.EagerlyInvalidate &&
            RequireCGSCCOrder == CGFPM.RequireCGSCCOrder;
+  }
+
+  void reset() {
+    EagerlyInvalidate = false;
+    RequireCGSCCOrder = false;
+    PassList.clear();
   }
 
 private:
@@ -205,12 +218,14 @@ public:
                                      bool EagerlyInvalidate = false) {
     CGFPM.EagerlyInvalidate = EagerlyInvalidate;
     PassList.push_back(std::move(CGFPM));
+    CGFPM.reset();
   }
 
   void addCodeGenFunctionPassManagerInCGSCCOrder(
       CodeGenFunctionPassManager &&CGFPM) {
     CGFPM.RequireCGSCCOrder = true;
     PassList.push_back(std::move(CGFPM));
+    CGFPM.reset();
   }
 
   bool isEmpty() const { return PassList.empty(); }
