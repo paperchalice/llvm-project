@@ -2208,6 +2208,12 @@ TEST(TripleTest, BitWidthChecks) {
   EXPECT_TRUE(T.isArch64Bit());
   EXPECT_EQ(T.getArchPointerBitWidth(), 64U);
 
+  T.setArch(Triple::mmix);
+  EXPECT_FALSE(T.isArch16Bit());
+  EXPECT_FALSE(T.isArch32Bit());
+  EXPECT_TRUE(T.isArch64Bit());
+  EXPECT_EQ(T.getArchPointerBitWidth(), 64U);
+
   T.setArch(Triple::msp430);
   EXPECT_TRUE(T.isArch16Bit());
   EXPECT_FALSE(T.isArch32Bit());
