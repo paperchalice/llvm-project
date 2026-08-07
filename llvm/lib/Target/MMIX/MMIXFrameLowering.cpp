@@ -1,0 +1,46 @@
+//===-- MMIXFrameLowering.cpp - MMIX Frame Information ------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the MMIX implementation of TargetFrameLowering class.
+//
+//===----------------------------------------------------------------------===//
+
+#include "MMIXFrameLowering.h"
+
+#include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/RegisterScavenging.h"
+
+using namespace llvm;
+
+MMIXFrameLowering::MMIXFrameLowering(const MMIXSubtarget &STI)
+    : TargetFrameLowering(StackGrowsDown,
+                          /*StackAlignment=*/Align(8),
+                          /*LocalAreaOffset=*/0),
+      STI(STI) {}
+
+void MMIXFrameLowering::emitPrologue(MachineFunction &MF,
+                                     MachineBasicBlock &MBB) const {
+  outs() << "TODO: implement " << __func__ << '\n';
+}
+void MMIXFrameLowering::emitEpilogue(MachineFunction &MF,
+                                     MachineBasicBlock &MBB) const {
+  outs() << "TODO: implement " << __func__ << '\n';
+}
+
+bool MMIXFrameLowering::spillCalleeSavedRegisters(
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
+    ArrayRef<CalleeSavedInfo> CSI, const TargetRegisterInfo *TRI) const {
+  return false;
+}
+
+bool MMIXFrameLowering::hasFPImpl(const MachineFunction &MF) const {
+  return false;
+}
