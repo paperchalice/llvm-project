@@ -11,10 +11,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXMCTargetDesc.h"
+#include "MMIXAsmBackend.h"
+#include "MMIXAsmStreamer.h"
+#include "MMIXELFStreamer.h"
 #include "MMIXInstPrinter.h"
 #include "MMIXMCAsmInfo.h"
+#include "MMIXMCCodeEmitter.h"
 #include "TargetInfo/MMIXTargetInfo.h"
 
+#include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
@@ -63,8 +68,47 @@ static MCInstPrinter *createMMIXMCInstPrinter(const Triple &T,
                                               const MCAsmInfo &MAI,
                                               const MCInstrInfo &MII,
                                               const MCRegisterInfo &MRI) {
-  // return new MMIXInstPrinter(MAI, MII, MRI);
-  return nullptr;
+  return new MMIXInstPrinter(MAI, MII, MRI);
+}
+
+static MCTargetStreamer *createMMIXNullTargetStreamer(MCStreamer &S) {
+  return new MMIXTargetStreamer(S);
+}
+
+static MCTargetStreamer *createMMIXAsmTargetStreamer(MCStreamer &S,
+                                                     formatted_raw_ostream &OS,
+                                                     MCInstPrinter *InstPrint) {
+  return new MMIXTargetAsmStreamer(S, OS);
+}
+
+static MCStreamer *
+createMMIXELFStreamer(const Triple &T, MCContext &Ctx,
+                      std::unique_ptr<MCAsmBackend> &&TAB,
+                      std::unique_ptr<MCObjectWriter> &&OW,
+                      std::unique_ptr<MCCodeEmitter> &&Emitter) {
+  return new MMIXELFStreamer(Ctx, std::move(TAB), std::move(OW),
+                             std::move(Emitter));
+}
+
+static MCAsmBackend *createMMIXAsmBackend(const Target &T,
+                                          const MCSubtargetInfo &STI,
+                                          const MCRegisterInfo &MRI,
+                                          const MCTargetOptions &Options) {
+  return new MMIXAsmBackend(STI, MRI, Options);
+}
+
+MCStreamer *createMMIXAsmStreamer(MCContext &Ctx,
+                                  std::unique_ptr<formatted_raw_ostream> OS,
+                                  std::unique_ptr<MCInstPrinter> IP,
+                                  std::unique_ptr<MCCodeEmitter> CE,
+                                  std::unique_ptr<MCAsmBackend> MAB) {
+  return createAsmStreamer(Ctx, std::move(OS), std::move(IP), std::move(CE),
+                           std::move(MAB));
+}
+
+static MCCodeEmitter *createMMIXMCCodeEmitter(const MCInstrInfo &MCII,
+                                              MCContext &Ctx) {
+  return new MMIXMCCodeEmitter(MCII, Ctx);
 }
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXTargetMC() {
@@ -84,4 +128,26 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXTargetMC() {
 
   // Register the MCInstPrinter.
   TargetRegistry::RegisterMCInstPrinter(T, createMMIXMCInstPrinter);
+
+  // Register the null TargetStreamer.
+  TargetRegistry::RegisterNullTargetStreamer(T, createMMIXNullTargetStreamer);
+
+  // Register MMIX style AsmStreamer.
+  TargetRegistry::RegisterAsmStreamer(T, createMMIXAsmStreamer);
+
+  // Register the asm target streamer.
+  TargetRegistry::RegisterAsmTargetStreamer(T, createMMIXAsmTargetStreamer);
+
+  // Register the obj target streamer.
+  TargetRegistry::RegisterObjectTargetStreamer(T,
+                                               createMMIXObjectTargetStreamer);
+
+  // Register the ELF streamer.
+  TargetRegistry::RegisterELFStreamer(T, createMMIXELFStreamer);
+
+  // Register the asm backend.
+  TargetRegistry::RegisterMCAsmBackend(T, createMMIXAsmBackend);
+
+  // Register the MC Code Emitter
+  TargetRegistry::RegisterMCCodeEmitter(T, createMMIXMCCodeEmitter);
 }

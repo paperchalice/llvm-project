@@ -18,4 +18,9 @@
 #define GET_REGINFO_ENUM
 #include "MMIXGenRegisterInfo.inc"
 
+// Defines symbolic names for LoongArch instructions.
+#define GET_INSTRINFO_ENUM
+#define GET_INSTRINFO_MC_HELPER_DECLS
+#include "MMIXGenInstrInfo.inc"
+
 #endif // LLVM_LIB_TARGET_MMIX_MCTARGETDESC_MMIXMCTARGETDESC_H

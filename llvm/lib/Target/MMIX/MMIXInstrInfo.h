@@ -16,9 +16,6 @@
 #include "MMIXRegisterInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 
-#define GET_INSTRINFO_ENUM
-#include "MMIXGenInstrInfo.inc"
-
 #define GET_INSTRINFO_HEADER
 #include "MMIXGenInstrInfo.inc"
 
