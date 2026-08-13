@@ -17,4 +17,5 @@ using namespace llvm;
 MMIXMCAsmInfoELF::MMIXMCAsmInfoELF(const MCTargetOptions &Options)
     : MCAsmInfoELF(Options) {
   CommentString = "%";
+  AllowAdditionalComments = false;
 }
