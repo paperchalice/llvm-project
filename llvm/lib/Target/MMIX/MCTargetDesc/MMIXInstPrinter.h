@@ -17,6 +17,7 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstPrinter.h"
 #include "llvm/TargetParser/Triple.h"
+
 namespace llvm {
 
 class MMIXInstPrinter : public MCInstPrinter {
@@ -30,10 +31,20 @@ public:
   getMnemonic(const MCInst &MI) const override;
   void printInstruction(const MCInst *MI, uint64_t Address, raw_ostream &O);
   bool printAliasInstr(const MCInst *MI, uint64_t Address, raw_ostream &O);
+  void printCustomAliasOperand(const MCInst *MI, uint64_t Address,
+                               unsigned OpIdx, unsigned PrintMethodIdx,
+                               raw_ostream &O);
 
 public:
   // Necessary hooks.
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printBranchDestOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printJmpDestOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printRoundingModeOperand(const MCInst *MI, unsigned OpNo,
+                                raw_ostream &O);
+  void printTrapYOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printTrapZOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printSPRImmOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
 
 public:
   void printInst(const MCInst *MI, uint64_t Address, StringRef Annot,

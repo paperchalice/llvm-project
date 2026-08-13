@@ -1,0 +1,15 @@
+# RUN: llvm-mc -triple=mmix %s --show-encoding 2>&1 | FileCheck %s
+
+# CHECK: encoding: [0x00,0x00,0xff,0xee]
+  TRAP 0,0xFFEE
+
+# CHECK: encoding: [0x00,0xaa,0xbb,0xcc]
+  TRAP 0xAABBCC
+
+# CHECK: PUT rA,$0
+# CHECK: encoding: [0xf6,0x15,0x00,0x00]
+  PUT 21,$0
+
+# CHECK: GET $0,rA
+# CHECK: encoding: [0xfe,0x00,0x00,0x15]
+  GET $0,21

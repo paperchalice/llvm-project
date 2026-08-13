@@ -19,8 +19,12 @@ class MMIXReg<bits<16> enc, string n, list<string> alt = []>
   let HWEncoding = enc;
 }
 
-class MMIXGPR<bits<16> enc> : MMIXReg<enc, "" #enc> {
+class MMIXGPR<bits<16> enc> : MMIXReg<enc, "$"#enc> {
   let DwarfNumbers = [enc];
+}
+
+class MMIXSR<bits<16> enc, string n = NAME> : MMIXReg<enc, n> {
+  let DwarfNumbers = [!add(enc, 0x100)];
 }
 
 // define general purpose registers, on MMIX, just a 8-bit number
@@ -29,8 +33,55 @@ foreach i = {0...255} in {
   def r#i : MMIXGPR<i>;
 }
 
+def rB  : MMIXSR<0>;    // bootstrap register (trip)
+def rD  : MMIXSR<1>;    // dividend register
+def rE  : MMIXSR<2>;    // epsilon register
+def rH  : MMIXSR<3>;    // himult register
+def rJ  : MMIXSR<4>;    // return-jump register
+def rM  : MMIXSR<5>;    // multiplex mask register
+def rR  : MMIXSR<6>;    // remainder register
+def rBB : MMIXSR<7>;    // bootstrap register (trap)
+def rC  : MMIXSR<8>;    // continuation register
+def rN  : MMIXSR<9>;    // serial number
+def rO  : MMIXSR<10>;   // register stack offset
+def rS  : MMIXSR<11>;   // register stack pointer
+def rI  : MMIXSR<12>;   // interval counter
+def rT  : MMIXSR<13>;   // trap address register
+def rTT : MMIXSR<14>;   // dynamic trap address register
+def rK  : MMIXSR<15>;   // interrupt mask register
+def rQ  : MMIXSR<16>;   // interrupt request register
+def rU  : MMIXSR<17>;   // usage counter
+def rV  : MMIXSR<18>;   // virtual translation register
+def rG  : MMIXSR<19>;   // global threshold register
+def rL  : MMIXSR<20>;   // local threshold register
+def rA  : MMIXSR<21>;   // arithmetic status register
+def rF  : MMIXSR<22>;   // failure location register
+def rP  : MMIXSR<23>;   // prediction register
+def rW  : MMIXSR<24>;   // where-interrupted register (trip)
+def rX  : MMIXSR<25>;   // execution register (trip)
+def rY  : MMIXSR<26>;   // Y operand (trip)
+def rZ  : MMIXSR<27>;   // Z operand (trip)
+def rWW : MMIXSR<28>;   // where-interrupted register (trap)
+def rXX : MMIXSR<29>;   // execution register (trap)
+def rYY : MMIXSR<30>;   // Y operand (trap)
+def rZZ : MMIXSR<31>;   // Z operand (trap)
+
+let DecoderMethod = "DecodeMMIXRegisterClass<MMIX::GPRRegClassID>" in
 def GPR : RegisterClass<"MMIX", [v8i8, v4i16, v2i32, i64, f64], 64,
                         (add(sequence "r%u", 0, 255))>;
+def SPR : RegisterClass<"MMIX", [i64], 64,
+                       (add(sequence "r%c", 0x41, 0x5a),
+                        rBB, rTT, rWW, rXX, rYY, rZZ)> {
+  let isAllocatable = false;
+  let DecoderMethod = "DecodeMMIXRegisterClass<MMIX::SPRRegClassID>";
+}
+
+//===----------------------------------------------------------------------===//
+// Register categories.
+//
+
+def GeneralPurposeRegisters : RegisterCategory<[GPR]>;
+def FixedRegisters : RegisterCategory<[SPR]>;
 
 // Map the pointer-like operands of the target-independent pseudo instructions
 // (STACKMAP, PATCHPOINT, ...) onto a concrete MMIX register class.
