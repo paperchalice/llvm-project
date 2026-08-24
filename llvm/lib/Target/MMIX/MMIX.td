@@ -15,6 +15,7 @@ include "llvm/Target/Target.td"
 // Registers, calling conventions.
 //===----------------------------------------------------------------------===//
 include "MMIXRegisterInfo.td"
+include "MMIXCallingConvention.td"
 
 //===----------------------------------------------------------------------===//
 // Instruction Descriptions
