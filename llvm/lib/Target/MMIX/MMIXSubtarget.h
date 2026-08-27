@@ -13,6 +13,7 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MMIXSUBTARGET_H
 #define LLVM_LIB_TARGET_MMIX_MMIXSUBTARGET_H
 
+#include "MMIXCallLowering.h"
 #include "MMIXFrameLowering.h"
 #include "MMIXTargetLowering.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -24,7 +25,7 @@ namespace llvm {
 
 class MMIXTargetMachine;
 
-class MMIXSubtarget : public MMIXGenSubtargetInfo {
+class LLVM_LIBRARY_VISIBILITY MMIXSubtarget : public MMIXGenSubtargetInfo {
   // Bool members of the SubtargetFeatures defined in tablegen.
 #define GET_SUBTARGETINFO_MACRO(ATTRIBUTE, DEFAULT, GETTER)                    \
   bool ATTRIBUTE = DEFAULT;
@@ -61,7 +62,7 @@ private:
   MMIXFrameLowering FrameLowering;
   MMIXInstrInfo InstrInfo;
   MMIXTargetLowering TL;
-  MMIXCallLowering CL(&TL);
+  MMIXCallLowering CL = MMIXCallLowering(&TL);
 };
 
 } // namespace llvm

@@ -537,4 +537,6 @@ def : Inst_X_YZ<0xFF, (outs), (ins u8imm:$X, u16imm:$YZ), "TRIP">;
 def : Inst_XYZ<0xFF, (outs), (ins u24imm:$XYZ), "TRIP">;
 }
 
+include "MMIXInstrCompiler.td"
+
 #endif // LLVM_LIB_TARGET_MMIX_MMIXINSTRINFO_TD

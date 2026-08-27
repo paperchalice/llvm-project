@@ -14,6 +14,16 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MMIXCALLINGCONVENTION_H
 #define LLVM_LIB_TARGET_MMIX_MMIXCALLINGCONVENTION_H
 
-namespace llvm {}
+#include "llvm/CodeGen/CallingConvLower.h"
+
+namespace llvm {
+
+LLVM_LIBRARY_VISIBILITY CCAssignFn CC_MMIX_Caller;
+
+LLVM_LIBRARY_VISIBILITY CCAssignFn CC_MMIX_Callee;
+
+LLVM_LIBRARY_VISIBILITY CCAssignFn RetCC_MMIX;
+
+} // namespace llvm
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXCALLINGCONVENTION_H

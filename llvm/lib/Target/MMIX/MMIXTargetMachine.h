@@ -23,7 +23,8 @@
 
 namespace llvm {
 
-class MMIXTargetMachine : public CodeGenTargetMachineImpl {
+class LLVM_LIBRARY_VISIBILITY MMIXTargetMachine
+    : public CodeGenTargetMachineImpl {
 public:
   MMIXTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
                     StringRef FS, const TargetOptions &Options,
@@ -37,6 +38,12 @@ public:
   TargetLoweringObjectFile *getObjFileLowering() const override {
     return TLOF.get();
   }
+
+  Error buildCodeGenPipeline(ModulePassManager &MPM, ModuleAnalysisManager &MAM,
+                             raw_pwrite_stream &Out, raw_pwrite_stream *DwoOut,
+                             CodeGenFileType FileType,
+                             const CGPassBuilderOption &Opt, MCContext &Ctx,
+                             PassInstrumentationCallbacks *PIC) override;
 
 private:
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
