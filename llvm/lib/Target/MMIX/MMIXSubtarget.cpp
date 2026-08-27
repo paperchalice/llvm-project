@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXSubtarget.h"
+#include "MMIXTargetMachine.h"
 
 #define DEBUG_TYPE "mmix-subtarget"
 

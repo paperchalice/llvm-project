@@ -14,10 +14,35 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MMIXCALLINGCONVENTION_TD
 #define LLVM_LIB_TARGET_MMIX_MMIXCALLINGCONVENTION_TD
 
-let Entry = 1 in
+defvar ArgRegs = [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15];
+
+let Entry = 1 in {
 def RetCC_MMIX : CallingConv<[
   CCIfType<[iPTR], CCBitConvertToType<i64>>,
-  CCIfType<[i64], CCAssignToReg<[r0]>>,
+  CCIfType<[i8], CCBitConvertToType<i64>>,
+  CCIfType<[i16], CCBitConvertToType<i64>>,
+  CCIfType<[i32], CCBitConvertToType<i64>>,
+  CCIfType<[i64], CCCustom<"assignToRegCustom<&MMIXRegisterInfo::getReturnThreshold>">>,
+  CCIfType<[i64], CCAssignToStack<8, 8>>,
 ]>;
+
+def CC_MMIX_Callee : CallingConv<[
+  CCIfType<[iPTR], CCBitConvertToType<i64>>,
+  CCIfType<[i8], CCBitConvertToType<i64>>,
+  CCIfType<[i16], CCBitConvertToType<i64>>,
+  CCIfType<[i32], CCBitConvertToType<i64>>,
+  CCIfType<[i64], CCCustom<"assignToRegCustom<&MMIXRegisterInfo::getParamThreshold>">>,
+  CCIfType<[i64], CCAssignToStack<8, 8>>,
+]>;
+
+def CC_MMIX_Caller : CallingConv<[
+  CCIfType<[iPTR], CCBitConvertToType<i64>>,
+  CCIfType<[i8], CCBitConvertToType<i64>>,
+  CCIfType<[i16], CCBitConvertToType<i64>>,
+  CCIfType<[i32], CCBitConvertToType<i64>>,
+  CCIfType<[i64], CCCustom<"assignToRegCustom<&MMIXRegisterInfo::getParamThreshold>">>, // in fact, use vregs
+  CCIfType<[i64], CCAssignToStack<8, 8>>,
+]>;
+}
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXCALLINGCONVENTION_TD

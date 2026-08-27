@@ -15,12 +15,31 @@
 #include "MMIXFrameLowering.h"
 #include "MMIXSubtarget.h"
 
+#include "llvm/Support/CommandLine.h"
+
 #define GET_REGINFO_TARGET_DESC
 #include "MMIXGenRegisterInfo.inc"
 
 using namespace llvm;
 
-MMIXRegisterInfo::MMIXRegisterInfo() : MMIXGenRegisterInfo(MMIX::r0) {}
+static cl::opt<unsigned>
+    OptLocalThreshold("mmix-local-threshold",
+                      cl::desc("initial value of rL local threshold register"),
+                      cl::init(32), cl::Hidden);
+
+static cl::opt<unsigned>
+    OptReturnThreshold("mmix-return-threshold",
+                       cl::desc("number of registers to store return value"),
+                       cl::init(2), cl::Hidden);
+
+static cl::opt<unsigned> OptParamThreshold(
+    "mmix-param-threshold",
+    cl::desc("number of registers to store function parameters"), cl::init(16),
+    cl::Hidden);
+
+MMIXRegisterInfo::MMIXRegisterInfo()
+    : MMIXGenRegisterInfo(MMIX::r0), LocalThreshold(OptLocalThreshold),
+      ReturnThreshold(OptReturnThreshold), ParamThreshold(OptParamThreshold) {}
 
 const MCPhysReg *
 MMIXRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {

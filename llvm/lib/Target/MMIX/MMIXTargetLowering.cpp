@@ -13,5 +13,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXTargetLowering.h"
+#include "MCTargetDesc/MMIXMCTargetDesc.h"
+#include "MMIXRegisterInfo.h"
 
 using namespace llvm;
+
+MMIXTargetLowering::MMIXTargetLowering(const TargetMachine &TM,
+                                       const TargetSubtargetInfo &STI)
+    : TargetLowering(TM, STI) {
+  setStackPointerRegisterToSaveRestore(MMIX::r254);
+  addRegisterClass(MVT::i64, &MMIX::GPRRegClass);
+
+  computeRegisterProperties(STI.getRegisterInfo());
+}

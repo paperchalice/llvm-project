@@ -14,6 +14,7 @@ add_public_tablegen_target(MMIXCommonTableGen)
 add_llvm_target(MMIXCodeGen
   MMIXCallingConvention.cpp
   MMIXCallLowering.cpp
+  MMIXCodeGenPassBuilder.cpp
   MMIXFrameLowering.cpp
   MMIXInstrInfo.cpp
   MMIXRegisterInfo.cpp
@@ -26,7 +27,9 @@ add_llvm_target(MMIXCodeGen
   CodeGen
   CodeGenTypes
   Core
+  GlobalISel
   MC
+  Passes
   SelectionDAG
   Support
   Target
