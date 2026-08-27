@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXTargetMachine.h"
+#include "MMIXCodeGenPassBuilder.h"
 #include "TargetInfo/MMIXTargetInfo.h"
 
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
@@ -58,4 +59,13 @@ MMIXTargetMachine::getSubtargetImpl(const Function &F) const {
   if (!I)
     I = std::make_unique<MMIXSubtarget>(TargetTriple, CPU, TuneCPU, FS, *this);
   return I.get();
+}
+
+Error MMIXTargetMachine::buildCodeGenPipeline(
+    ModulePassManager &MPM, ModuleAnalysisManager &MAM, raw_pwrite_stream &Out,
+    raw_pwrite_stream *DwoOut, CodeGenFileType FileType,
+    const CGPassBuilderOption &Opt, MCContext &Ctx,
+    PassInstrumentationCallbacks *PIC) {
+  auto CGPB = MMIXCodeGenPassBuilder(*this, Opt, PIC);
+  return CGPB.buildPipeline(MPM, MAM, Out, DwoOut, FileType, Ctx);
 }

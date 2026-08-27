@@ -31,6 +31,14 @@ public:
                            unsigned FIOperandNum,
                            RegScavenger *RS = nullptr) const override;
   Register getFrameRegister(const MachineFunction &MF) const override;
+
+public:
+  unsigned getLocalThreshold() const { return LocalThreshold; }
+  unsigned getReturnThreshold() const { return ReturnThreshold; }
+  unsigned getParamThreshold() const { return ParamThreshold; }
+
+private:
+  unsigned LocalThreshold, ReturnThreshold, ParamThreshold;
 };
 
 } // namespace llvm

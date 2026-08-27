@@ -19,9 +19,9 @@
 
 namespace llvm {
 
-class MMIXTargetLowering : public TargetLowering {
+class LLVM_LIBRARY_VISIBILITY MMIXTargetLowering : public TargetLowering {
 public:
-  using TargetLowering::TargetLowering;
+  MMIXTargetLowering(const TargetMachine &TM, const TargetSubtargetInfo &STI);
 
 public:
 };
