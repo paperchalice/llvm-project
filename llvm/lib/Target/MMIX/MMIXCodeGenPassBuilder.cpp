@@ -14,6 +14,7 @@
 #include "MMIXCodeGenPassBuilder.h"
 
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
+#include "llvm/CodeGen/GlobalISel/Legalizer.h"
 
 using namespace llvm;
 
@@ -23,6 +24,7 @@ Error MMIXCodeGenPassBuilder::addIRTranslator(PassManagerWrapper &PMW) {
 }
 
 Error MMIXCodeGenPassBuilder::addLegalizeMachineIR(PassManagerWrapper &PMW) {
+  addMachineFunctionPass(LegalizerPass(), PMW);
   return Error::success();
 }
 
