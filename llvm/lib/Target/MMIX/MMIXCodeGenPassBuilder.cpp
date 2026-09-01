@@ -15,6 +15,7 @@
 
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
 #include "llvm/CodeGen/GlobalISel/Legalizer.h"
+#include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
 
 using namespace llvm;
 
@@ -29,6 +30,17 @@ Error MMIXCodeGenPassBuilder::addLegalizeMachineIR(PassManagerWrapper &PMW) {
 }
 
 Error MMIXCodeGenPassBuilder::addRegBankSelect(PassManagerWrapper &PMW) {
+  RegBankSelectMode Mode;
+  switch (Opt.RegAlloc) {
+  default:
+  case RegAllocType::Fast:
+    Mode = Fast;
+    break;
+  case RegAllocType::Greedy:
+    Mode = Greedy;
+    break;
+  }
+  addMachineFunctionPass(RegBankSelectPass(Mode), PMW);
   return Error::success();
 }
 
