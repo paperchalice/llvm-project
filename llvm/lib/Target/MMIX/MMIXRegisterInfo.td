@@ -87,4 +87,6 @@ def FixedRegisters : RegisterCategory<[SPR]>;
 // (STACKMAP, PATCHPOINT, ...) onto a concrete MMIX register class.
 defm : RemapAllTargetPseudoPointerOperands<GPR>;
 
+include "MMIXRegisterBanks.td"
+
 #endif // LLVM_LIB_TARGET_MMIX_MMIXREGISTERINFO_TD
