@@ -25,6 +25,13 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
   getActionDefinitionsBuilder({G_ANYEXT, G_SEXT, G_ZEXT})
       .legalForCartesianProduct({s64}, {s8, s16, s32});
 
+  getActionDefinitionsBuilder(G_TRUNC)
+    .legalForCartesianProduct({s8, s16, s32, s64}, {s8, s16, s32, s64})
+    .clampScalar(0, s8, s64)
+    .clampScalar(1, s8, s64)
+    .widenScalarToNextPow2(0)
+    .widenScalarToNextPow2(1);
+
   getActionDefinitionsBuilder({G_TRUNC_SSAT_S, G_TRUNC_SSAT_U, G_TRUNC_USAT_U})
       .unsupported();
 
@@ -45,6 +52,15 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
   // TODO: lower G_ROTR like to Knuth style MOR
 
   getActionDefinitionsBuilder(G_CONSTANT)
-      .legalFor({s8, s64, p0})
+      .legalFor({s64, p0})
+      .clampScalar(0, s64, s64);
+  getActionDefinitionsBuilder(G_FCONSTANT).legalFor({s64, s32});
+
+  getActionDefinitionsBuilder({G_LOAD, G_SEXTLOAD, G_ZEXTLOAD})
+      .legalForCartesianProduct({s64, p0}, {p0})
+      .clampScalar(0, s64, s64);
+
+  getActionDefinitionsBuilder(G_STORE)
+      .legalForCartesianProduct({s64, p0}, {p0})
       .clampScalar(0, s64, s64);
 }

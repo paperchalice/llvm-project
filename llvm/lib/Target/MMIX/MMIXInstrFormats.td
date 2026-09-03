@@ -81,7 +81,7 @@ def i25imm : Operand<i32>;
 foreach j = !range(1,4) in {
   defvar N = !mul(8, j);
   let ParserMatchClass = UImmAsmOperand<N> in
-  def u#N#imm : Operand<!cast<VTInt>("i"#N)>;
+  def u#N#imm : Operand<i64>, ImmLeaf<i64, "return isUInt<"#N#">(Imm);">;
 }
 let ParserMatchClass = SImmAsmOperand<17> in
 def s17imm : Operand<i32>;
@@ -169,6 +169,7 @@ class InstJMP<string opstr = NAME> :
 // helper records
 
 defvar SizeSuffixList = ["B", "W", "T", "O"];
+defvar SizeVTIntList = [i8, i16, i32, i64];
 
 defvar PosCondList = ["N", "Z", "P", "OD"];
 defvar NegCondList = !foreach(c, PosCondList, !if(!ne(c, "OD"), "N"#c, "EV"));
