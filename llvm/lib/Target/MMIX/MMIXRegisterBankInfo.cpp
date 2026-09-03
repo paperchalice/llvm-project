@@ -65,6 +65,7 @@ MMIXRegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
 
   switch (Opc) {
   case TargetOpcode::G_CONSTANT:
+  case TargetOpcode::G_FCONSTANT:
     return getInstructionMapping(DefaultMappingID, /*Cost*/ 1,
                                  &MMIX::ValMappings[MMIX::GConstantMappingIdx],
                                  2);

@@ -24,7 +24,8 @@ using namespace llvm;
 MMIXSubtarget::MMIXSubtarget(const Triple &TT, StringRef CPU, StringRef TuneCPU,
                              StringRef FS, const MMIXTargetMachine &TM)
     : MMIXGenSubtargetInfo(TT, CPU, TuneCPU, FS), FrameLowering(*this),
-      InstrInfo(initSubtargetDependencies(CPU, FS)), TL(TM, *this) {}
+      InstrInfo(initSubtargetDependencies(CPU, FS)), TL(TM, *this),
+      InstSelector(*this, InstrInfo, InstrInfo.getRegisterInfo(), RBI) {}
 
 MMIXSubtarget &MMIXSubtarget::initSubtargetDependencies(StringRef CPU,
                                                         StringRef FS) {

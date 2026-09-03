@@ -41,6 +41,7 @@ def FEQL : Inst_X_Y_Z<0x03, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
 
 def FADD : Inst_X_Y_Z<0x04, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
   let isAdd = true;
+  let Pattern = [(set f64:$X, (fadd f64:$Y, f64:$Z))];
 }
 
 def FIX : Inst_X_Y_Z<0x05, (outs GPR:$X), (ins rounding_mode:$Y, GPR:$Z)> {
@@ -48,7 +49,9 @@ def FIX : Inst_X_Y_Z<0x05, (outs GPR:$X), (ins rounding_mode:$Y, GPR:$Z)> {
 }
 def : InstAlias<"FIX\t$X,$Z", (FIX GPR:$X, 0, GPR:$Z)>;
 
-def FSUB : Inst_X_Y_Z<0x06, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
+def FSUB : Inst_X_Y_Z<0x06, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set f64:$X, (fsub f64:$Y, f64:$Z))];
+}
 
 def FIXU : Inst_X_Y_Z<0x07, (outs GPR:$X), (ins rounding_mode:$Y, GPR:$Z)>;
 def : InstAlias<"FIXU\t$X,$Z", (FIXU GPR:$X, 0, GPR:$Z)>;
@@ -79,6 +82,7 @@ def : InstAlias<"SFLOTU\t$X,$Y,$Z", (SFLOTUI GPR:$X, rounding_mode:$Y, i8imm:$Z)
 
 def FMUL : Inst_X_Y_Z<0x10, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
   let mayRaiseFPException = true;
+  let Pattern = [(set f64:$X, (fmul f64:$Y, f64:$Z))];
 }
 
 def FCMPE : Inst_X_Y_Z<0x11, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
@@ -103,7 +107,8 @@ let mayRaiseFPException = true in
 def FDIV : Inst_X_Y_Z<0x14, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
 
 let mayRaiseFPException = true in
-def FSQRT : Inst_X_Y_Z<0x15, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
+def FSQRT : Inst_X_Y_Z<0x15, (outs GPR:$X), (ins rounding_mode:$Y, GPR:$Z)>;
+def : InstAlias<"FSQRT\t$X,$Z", (FSQRT GPR:$X, 0, GPR:$Z)>;
 
 let mayRaiseFPException = true in
 def FREM : Inst_X_Y_Z<0x16, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
@@ -116,20 +121,32 @@ def MULI : Inst_X_Y_Z<0x19, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
 def : InstAlias<"MUL\t$X,$Y,$Z", (MULI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let Defs = [rH] in {
-def MULU : Inst_X_Y_Z<0x1A, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def MULUI : Inst_X_Y_Z<0x1B, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def MULU : Inst_X_Y_Z<0x1A, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>  {
+  let Pattern = [(set i64:$X, (mul i64:$Y, i64:$Z))];
+}
+def MULUI : Inst_X_Y_Z<0x1B, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (mul i64:$Y, (i64 u8imm:$Z)))];
+}
 }
 def : InstAlias<"MULU\t$X,$Y,$Z", (MULUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let Defs = [rR] in {
-def DIV : Inst_X_Y_Z<0x1C, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def DIVI : Inst_X_Y_Z<0x1D, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def DIV : Inst_X_Y_Z<0x1C, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (sdiv i64:$Y, i64:$Z))];
+}
+def DIVI : Inst_X_Y_Z<0x1D, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (sdiv i64:$Y, (i64 u8imm:$Z)))];
+}
 }
 def : InstAlias<"DIV\t$X,$Y,$Z", (DIVI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let Defs = [rR], Uses=[rD] in {
-def DIVU : Inst_X_Y_Z<0x1E, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def DIVUI : Inst_X_Y_Z<0x1F, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def DIVU : Inst_X_Y_Z<0x1E, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (udiv i64:$Y, i64:$Z))];
+}
+def DIVUI : Inst_X_Y_Z<0x1F, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (udiv i64:$Y, (i64 u8imm:$Z)))];
+}
 }
 def : InstAlias<"DIVU\t$X,$Y,$Z", (DIVUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
@@ -140,8 +157,12 @@ def ADDI : Inst_X_Y_Z<0x21, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
 def : InstAlias<"ADD\t$X,$Y,$Z", (ADDI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let isAdd = true in {
-def ADDU : Inst_X_Y_Z<0x22, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def ADDUI : Inst_X_Y_Z<0x23, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def ADDU : Inst_X_Y_Z<0x22, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (add i64:$Y, i64:$Z))];
+}
+def ADDUI : Inst_X_Y_Z<0x23, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (add i64:$Y, (i64 u8imm:$Z)))];
+}
 }
 def : InstAlias<"ADDU\t$X,$Y,$Z", (ADDUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
@@ -149,24 +170,44 @@ def SUB : Inst_X_Y_Z<0x24, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
 def SUBI : Inst_X_Y_Z<0x25, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
 def : InstAlias<"SUB\t$X,$Y,$Z", (SUBI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def SUBU : Inst_X_Y_Z<0x26, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def SUBUI : Inst_X_Y_Z<0x27, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def SUBU : Inst_X_Y_Z<0x26, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>  {
+  let Pattern = [(set i64:$X, (sub i64:$Y, i64:$Z))];
+}
+def SUBUI : Inst_X_Y_Z<0x27, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>  {
+  let Pattern = [(set i64:$X, (sub i64:$Y, (i64 u8imm:$Z)))];
+}
 def : InstAlias<"SUBU\t$X,$Y,$Z", (SUBUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def ADD2U : Inst_X_Y_Z<0x28, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def ADD2UI : Inst_X_Y_Z<0x29, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def ADD2U : Inst_X_Y_Z<0x28, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (add (mul i64:$Y, 2), i64:$Z))];
+}
+def ADD2UI : Inst_X_Y_Z<0x29, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (add (mul i64:$Y, 2), (i64 u8imm:$Z)))];
+}
 def : InstAlias<"ADD2U\t$X,$Y,$Z", (ADD2UI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def ADD4U : Inst_X_Y_Z<0x2A, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def ADD4UI : Inst_X_Y_Z<0x2B, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def ADD4U : Inst_X_Y_Z<0x2A, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (add (mul i64:$Y, 4), i64:$Z))];
+}
+def ADD4UI : Inst_X_Y_Z<0x2B, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (add (mul i64:$Y, 4), (i64 u8imm:$Z)))];
+}
 def : InstAlias<"ADD4U\t$X,$Y,$Z", (ADD4UI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def ADD8U : Inst_X_Y_Z<0x2C, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def ADD8UI : Inst_X_Y_Z<0x2D, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def ADD8U : Inst_X_Y_Z<0x2C, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (add (mul i64:$Y, 8), i64:$Z))];
+}
+def ADD8UI : Inst_X_Y_Z<0x2D, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (add (mul i64:$Y, 8), (i64 u8imm:$Z)))];
+}
 def : InstAlias<"ADD8U\t$X,$Y,$Z", (ADD8UI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def ADD16U : Inst_X_Y_Z<0x2E, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def ADD16UI : Inst_X_Y_Z<0x2F, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def ADD16U : Inst_X_Y_Z<0x2E, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (add (mul i64:$Y, 16), i64:$Z))];
+}
+def ADD16UI : Inst_X_Y_Z<0x2F, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (add (mul i64:$Y, 16), (i64 u8imm:$Z)))];
+}
 def : InstAlias<"ADD16U\t$X,$Y,$Z", (ADD16UI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let isCompare = true in {
@@ -193,16 +234,28 @@ def SL : Inst_X_Y_Z<0x38, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
 def SLI : Inst_X_Y_Z<0x39, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
 def : InstAlias<"SL\t$X,$Y,$Z", (SLI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def SLU : Inst_X_Y_Z<0x3A, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def SLUI : Inst_X_Y_Z<0x3B, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def SLU : Inst_X_Y_Z<0x3A, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (shl i64:$Y, i64:$Z))];
+}
+def SLUI : Inst_X_Y_Z<0x3B, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (or i64:$Y, (i64 u8imm:$Z)))];
+}
 def : InstAlias<"SLU\t$X,$Y,$Z", (SLUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def SR : Inst_X_Y_Z<0x3C, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def SRI : Inst_X_Y_Z<0x3D, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def SR : Inst_X_Y_Z<0x3C, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (sra i64:$Y, i64:$Z))];
+}
+def SRI : Inst_X_Y_Z<0x3D, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (sra i64:$Y, (i64 u8imm:$Z)))];
+}
 def : InstAlias<"SR\t$X,$Y,$Z", (SRI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def SRU : Inst_X_Y_Z<0x3E, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def SRUI : Inst_X_Y_Z<0x3F, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def SRU : Inst_X_Y_Z<0x3E, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (srl i64:$Y, i64:$Z))];
+}
+def SRUI : Inst_X_Y_Z<0x3F, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (srl i64:$Y, (i64 u8imm:$Z)))];
+}
 def : InstAlias<"SRU\t$X,$Y,$Z", (SRUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 foreach i = !range(!size(CondList)) in {
@@ -243,6 +296,7 @@ foreach i = !range(!size(CondList)) in {
 foreach i = !range(!size(SizeSuffixList)) in {
   defvar s = SizeSuffixList[i];
   defvar opc = !add(0x80, !mul(i, 4));
+  defvar width = !mul(!shl(1, i), 8);
   let mayLoad = true in {
   def LD#s : Inst_X_Y_Z<opc, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
   def LD#s#I : Inst_X_Y_Z<!add(opc, 1), (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
@@ -299,16 +353,20 @@ def : InstAlias<"GO\t$X,$Y,$Z", (GOI GPR:$X, GPR:$Y, u8imm:$Z)>;
 foreach i = !range(!size(SizeSuffixList)) in {
   defvar s = SizeSuffixList[i];
   defvar opc = !add(0xA0, !mul(i, 4));
+  defvar width = !mul(!shl(1, i), 8);
   let mayStore = true in {
   def ST#s : Inst_X_Y_Z<opc,
                         (outs), (ins GPR:$X, GPR:$Y, GPR:$Z)>;
-  defvar st = !cast<Inst_X_Y_Z>("ST"#s);
   def ST#s#I : Inst_X_Y_Z<!add(opc, 1),
                             (outs), (ins GPR:$X, GPR:$Y, u8imm:$Z)>;
   def ST#s#U : Inst_X_Y_Z<!add(opc, 2),
-                        (outs), (ins GPR:$X, GPR:$Y, GPR:$Z)>;
+                        (outs), (ins GPR:$X, GPR:$Y, GPR:$Z)> {
+    let Pattern = [(st !cast<VTInt>("i"#width):$X, (iPTR (add i64:$Y, i64:$Z)))];
+  }
   def ST#s#UI : Inst_X_Y_Z<!add(opc, 3),
-                        (outs), (ins GPR:$X, GPR:$Y, u8imm:$Z)>;
+                        (outs), (ins GPR:$X, GPR:$Y, u8imm:$Z)> {
+    let Pattern = [(st !cast<VTInt>("i"#width):$X, (iPTR (add i64:$Y, (i64 u8imm:$Z))))];
+  }
   }
   def : InstAlias<"ST"#s#"\t$X,$Y,$Z", (!cast<Inst_X_Y_Z>("ST"#s#"I") GPR:$X, GPR:$Y, u8imm:$Z)>;
   def : InstAlias<"ST"#s#"U\t$X,$Y,$Z", (!cast<Inst_X_Y_Z>("ST"#s#"UI") GPR:$X, GPR:$Y, u8imm:$Z)>;
@@ -366,37 +424,69 @@ def PUSHGOIIdiosyncratic: Inst_X_Y_Z<0xBF, (outs),
 def : InstAlias<"PUSHGO\t$X,$Y,$Z", (PUSHGOI GPR:$X, GPR:$Y, u8imm:$Z)>;
 def : InstAlias<"PUSHGO\t$X,$Y,$Z", (PUSHGOIIdiosyncratic u8imm:$X, GPR:$Y, u8imm:$Z)>;
 
-def OR : Inst_X_Y_Z<0xC0, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def ORI : Inst_X_Y_Z<0xC1, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def OR : Inst_X_Y_Z<0xC0, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (or i64:$Y, i64:$Z))];
+}
+def ORI : Inst_X_Y_Z<0xC1, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (or i64:$Y, (i64 u8imm:$Z)))];
+}
 def : InstAlias<"OR\t$X,$Y,$Z", (ORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 def : InstAlias<"SET\t$X,$Y", (ORI GPR:$X, GPR:$Y, 0), 2>;
 
-def ORN : Inst_X_Y_Z<0xC2, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def ORNI : Inst_X_Y_Z<0xC3, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def ORN : Inst_X_Y_Z<0xC2, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (or i64:$Y, (xor i64:$Z, -1)))];
+}
+def ORNI : Inst_X_Y_Z<0xC3, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (or i64:$Y, (xor (i64 u8imm:$Z), -1)))];
+}
 def : InstAlias<"ORN\t$X,$Y,$Z", (ORNI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def NOR : Inst_X_Y_Z<0xC4, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def NORI : Inst_X_Y_Z<0xC5, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def NOR : Inst_X_Y_Z<0xC4, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (xor (or i64:$Y, i64:$Z), -1))];
+}
+def NORI : Inst_X_Y_Z<0xC5, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (xor (and i64:$Y, (i64 u8imm:$Z)), -1))];
+}
 def : InstAlias<"NOR\t$X,$Y,$Z", (NORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def XOR : Inst_X_Y_Z<0xC6, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def XORI : Inst_X_Y_Z<0xC7, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def XOR : Inst_X_Y_Z<0xC6, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (xor i64:$Y, i64:$Z))];
+}
+def XORI : Inst_X_Y_Z<0xC7, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (xor i64:$Y, (i64 u8imm:$Z)))];
+}
 def : InstAlias<"XOR\t$X,$Y,$Z", (XORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def AND : Inst_X_Y_Z<0xC8, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def ANDI : Inst_X_Y_Z<0xC9, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def AND : Inst_X_Y_Z<0xC8, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (and i64:$Y, i64:$Z))];
+}
+def ANDI : Inst_X_Y_Z<0xC9, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (and i64:$Y, (i64 u8imm:$Z)))];
+}
 def : InstAlias<"AND\t$X,$Y,$Z", (ANDI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def ANDN : Inst_X_Y_Z<0xCA, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def ANDNI : Inst_X_Y_Z<0xCB, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def ANDN : Inst_X_Y_Z<0xCA, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (and i64:$Y, (xor i64:$Z, -1)))];
+}
+def ANDNI : Inst_X_Y_Z<0xCB, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (and i64:$Y, (xor (i64 u8imm:$Z), -1)))];
+}
 def : InstAlias<"ANDN\t$X,$Y,$Z", (ANDNI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def NAND : Inst_X_Y_Z<0xCC, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def NANDI : Inst_X_Y_Z<0xCD, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def NAND : Inst_X_Y_Z<0xCC, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (xor (and i64:$Y, i64:$Z), -1))];
+}
+def NANDI : Inst_X_Y_Z<0xCD, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>  {
+  let Pattern = [(set i64:$X, (xor (and i64:$Y, (i64 u8imm:$Z)), -1))];
+}
 def : InstAlias<"NAND\t$X,$Y,$Z", (NANDI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def NXOR : Inst_X_Y_Z<0xCE, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def NXORI : Inst_X_Y_Z<0xCF, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def NXOR : Inst_X_Y_Z<0xCE, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (xor (xor i64:$Y, i64:$Z), -1))];
+}
+def NXORI : Inst_X_Y_Z<0xCF, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (xor (xor i64:$Y, (i64 u8imm:$Z)), -1))];
+}
 def : InstAlias<"NXOR\t$X,$Y,$Z", (NXORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 foreach i = !range(!size(SizeSuffixList)) in {
@@ -538,5 +628,31 @@ def : Inst_XYZ<0xFF, (outs), (ins u24imm:$XYZ), "TRIP">;
 }
 
 include "MMIXInstrCompiler.td"
+
+//===----------------------------------------------------------------------===//
+// Instruction Patterns
+//===----------------------------------------------------------------------===//
+
+def : Pat<(i64 (ctpop i64:$Y)), (SADDI GPR:$Y, 0)>;
+
+def : Pat<(f64 (fsqrt f64:$Z)), (FSQRT 0, GPR:$Z)>;
+
+foreach i = !range(!size(SizeSuffixList)) in {
+  defvar SizeSuffix = SizeSuffixList[i];
+  defvar SizeVTInt = SizeVTIntList[i];
+  defvar LDXI = !cast<Inst_X_Y_Z>("LD"#SizeSuffix#"I");
+  defvar LDXUI = !cast<Inst_X_Y_Z>("LD"#SizeSuffix#"UI");
+  defvar STXUI = !cast<Inst_X_Y_Z>("ST"#SizeSuffix#"UI");
+
+  // use signed just because it has a shorter mnemonic...
+  // the cost of signed and unsigned load is equal
+  def : Pat<(i64 (!cast<PatFrag>(extload#SizeVTInt)  iPTR:$Y)), (LDXI GPR:$Y, 0)>;
+  def : Pat<(i64 (!cast<PatFrag>(sextload#SizeVTInt)  iPTR:$Y)), (LDXI GPR:$Y, 0)>;
+  def : Pat<(i64 (!cast<PatFrag>(zextload#SizeVTInt)  iPTR:$Y)), (LDXUI GPR:$Y, 0)>;
+  def : Pat<(!cast<PatFrag>(truncstore#SizeVTInt) i64:$X, iPTR:$Y), (STBUI GPR:$X, GPR:$Y, 0)>;
+}
+// LDO and LDOU have the same effect, but they have different opcodes
+def : Pat<(i64 (load iPTR:$Y)), (LDOI GPR:$Y, 0)>;
+def : Pat<(store i64:$X, iPTR:$Y), (STOI GPR:$X, GPR:$Y, 0)>;
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXINSTRINFO_TD

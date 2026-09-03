@@ -67,9 +67,9 @@ def rYY : MMIXSR<30>;   // Y operand (trap)
 def rZZ : MMIXSR<31>;   // Z operand (trap)
 
 let DecoderMethod = "DecodeMMIXRegisterClass<MMIX::GPRRegClassID>" in
-def GPR : RegisterClass<"MMIX", [v8i8, v4i16, v2i32, i64, f64], 64,
+def GPR : RegisterClass<"MMIX", [v8i8, v4i16, v2i32, i64, f64, iPTR], 64,
                         (add(sequence "r%u", 0, 255))>;
-def SPR : RegisterClass<"MMIX", [i64], 64,
+def SPR : RegisterClass<"MMIX", [i64, iPTR], 64,
                        (add(sequence "r%c", 0x41, 0x5a),
                         rBB, rTT, rWW, rXX, rYY, rZZ)> {
   let isAllocatable = false;
