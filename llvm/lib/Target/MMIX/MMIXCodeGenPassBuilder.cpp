@@ -14,6 +14,7 @@
 #include "MMIXCodeGenPassBuilder.h"
 
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
+#include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/GlobalISel/Legalizer.h"
 #include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
 
@@ -46,6 +47,7 @@ Error MMIXCodeGenPassBuilder::addRegBankSelect(PassManagerWrapper &PMW) {
 
 Error MMIXCodeGenPassBuilder::addGlobalInstructionSelect(
     PassManagerWrapper &PMW) {
+  addMachineFunctionPass(InstructionSelectPass(getOptLevel()), PMW);
   return Error::success();
 }
 

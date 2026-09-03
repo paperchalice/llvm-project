@@ -57,6 +57,8 @@ struct MMIXOutgoingValueHandler : public CallLowering::OutgoingValueHandler {
   void assignValueToReg(Register ValVReg, Register PhysReg,
                         const CCValAssign &VA, ISD::ArgFlagsTy Flags) override {
     Register ExtReg = extendRegister(ValVReg, VA);
+    MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
+    MRI.setRegClass(ExtReg, &getMMIXMCRegisterClass(MMIX::GPRRegClassID));
     MIRBuilder.buildCopy(PhysReg, ExtReg);
   }
 

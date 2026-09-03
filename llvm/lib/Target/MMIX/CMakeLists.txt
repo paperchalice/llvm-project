@@ -7,6 +7,7 @@ tablegen(LLVM MMIXGenCallingConv.inc -gen-callingconv)
 tablegen(LLVM MMIXGenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM MMIXGenMCCodeEmitter.inc -gen-emitter)
 tablegen(LLVM MMIXGenRegisterBankInfo.inc -gen-register-bank)
+tablegen(LLVM MMIXGenGlobalISel.inc -gen-global-isel)
 tablegen(LLVM MMIXGenRegisterInfo.inc -gen-register-info)
 tablegen(LLVM MMIXGenDisassemblerTables.inc -gen-disassembler)
 tablegen(LLVM MMIXGenSubtargetInfo.inc -gen-subtarget)
@@ -18,6 +19,7 @@ add_llvm_target(MMIXCodeGen
   MMIXCodeGenPassBuilder.cpp
   MMIXFrameLowering.cpp
   MMIXInstrInfo.cpp
+  MMIXInstructionSelector.cpp
   MMIXLegalizerInfo.cpp
   MMIXRegisterBankInfo.cpp
   MMIXRegisterInfo.cpp
