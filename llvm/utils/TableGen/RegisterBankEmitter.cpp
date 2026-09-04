@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Common/CodeGenDAGPatterns.h"
 #include "Common/CodeGenRegisters.h"
 #include "Common/CodeGenTarget.h"
 #include "Common/InfoByHwMode.h"
@@ -23,6 +24,8 @@
 #include "llvm/TableGen/TGTimer.h"
 #include "llvm/TableGen/TableGenBackend.h"
 
+#include <map>
+#include <optional>
 #include <set>
 #include <tuple>
 
@@ -113,10 +116,24 @@ public:
   }
 };
 
+struct ValueMappingInfo {
+  const CodeGenRegisterClass *RC;
+  std::tuple</*Size*/ unsigned, /*Offset*/ unsigned> Size;
+};
+
 class RegisterBankEmitter {
 private:
   const CodeGenTarget Target;
   const RecordKeeper &Records;
+  const CodeGenDAGPatterns CGP;
+  CodeGenRegBank &CGRegs;
+
+  /// Keep track of the equivalence between SDNodes and Instruction by mapping
+  /// SDNodes to the GINodeEquiv mapping. We need to map to the GINodeEquiv to
+  /// check for attributes on the relation such as CheckMMOIsNonAtomic.
+  /// This is defined using 'GINodeEquiv' in the target description.
+  DenseMap<const Record *, const Record *> NodeEquivs;
+
   using PartSizeT = std::tuple</*Size*/ unsigned, /*Offset*/ unsigned>;
   SmallDenseMap<const RegisterBank *, std::set<PartSizeT>> BankPartSizes;
 
@@ -130,11 +147,15 @@ private:
                          const CodeGenRegBank &RegisterClassHierarchy);
   void emitRBIHeader(raw_ostream &OS, ArrayRef<RegisterBank> Banks);
   void emitRBIPartialMappings(raw_ostream &OS, ArrayRef<RegisterBank> Banks);
+  void emitRBIValueMappings(raw_ostream &OS, ArrayRef<RegisterBank> Banks);
+  std::optional<ValueMappingInfo> inferValueMapping(const TreePatternNode &N);
   static std::string buildPartialMapIdxEnumName(const RegisterBank &Bank,
                                                 const PartSizeT &PartSize);
+  void gatherNodeEquivs();
 
 public:
-  RegisterBankEmitter(const RecordKeeper &R) : Target(R), Records(R) {}
+  RegisterBankEmitter(const RecordKeeper &R)
+      : Target(R), Records(R), CGP(R), CGRegs(Target.getRegBank()) {}
 
   void run(raw_ostream &OS);
 };
@@ -277,6 +298,8 @@ void RegisterBankEmitter::emitBaseClassImplementation(
 
     OS << '\n';
     emitRBIPartialMappings(OS, Banks);
+    OS << '\n';
+    emitRBIValueMappings(OS, Banks);
   } // End target namespace.
 
   OS << "\nconst RegisterBank *" << TargetName
@@ -499,7 +522,7 @@ void RegisterBankEmitter::emitRBIPartialMappings(raw_ostream &OS,
   size_t Idx = 0;
   for (const auto &Bank : Banks) {
     OS << '\n';
-    std::set<PartSizeT> PartSizeSet = BankPartSizes[&Bank];
+    std::set<PartSizeT> &PartSizeSet = BankPartSizes[&Bank];
     for (auto [Size, Offset] : PartSizeSet) {
       OS << "    // " << Idx++ << ", PMI_" << Bank.getName();
       if (Offset != 0)
@@ -513,6 +536,73 @@ void RegisterBankEmitter::emitRBIPartialMappings(raw_ostream &OS,
     }
   }
   OS << "};\n";
+}
+
+std::optional<ValueMappingInfo>
+RegisterBankEmitter::inferValueMapping(const TreePatternNode &N) {
+  if (N.isLeaf()) {
+    if (const auto *RCInit = dyn_cast<DefInit>(N.getLeafValue())) {
+      if (!RCInit->getDef()->isSubClassOf("RegisterClass"))
+        return std::nullopt;
+      const Record *RCDef = RCInit->getDef();
+      const CodeGenRegisterClass *RC = CGRegs.getRegClass(RCDef);
+      ValueMappingInfo VMI;
+      VMI.RC = RC;
+      MVT VT = N.getType(0).getType(0);
+      if (VT.isScalableVT())
+        return std::nullopt;
+      VMI.Size = {N.getType(0).getType(0).getSizeInBits(), 0};
+      return VMI;
+    }
+  }
+
+  const Record *OpRec = Src.getOperator();
+  return std::nullopt;
+}
+
+void RegisterBankEmitter::emitRBIValueMappings(raw_ostream &OS,
+                                               ArrayRef<RegisterBank> Banks) {
+
+  // Look through the SelectionDAG patterns we found, possibly emitting some.
+  for (const PatternToMatch &Pat : CGP.ptms()) {
+    if (Pat.getGISelShouldIgnore())
+      continue; // skip without warning
+
+    TreePatternNode &Src = Pat.getSrcPattern();
+    TreePatternNode &Dst = Pat.getDstPattern();
+
+    if (Src.isLeaf())
+      continue;
+
+    const Record *OpRec = Src.getOperator();
+    const Record *Equiv = NodeEquivs.lookup_or(OpRec, nullptr);
+    if (!Equiv)
+      continue;
+    if (Equiv->getValueAsDef("I")->getName() != "G_ADD")
+      continue;
+
+    inferValueMapping(Src);
+    for (const auto &Child : Src.children()) {
+      if (Child.isLeaf()) {
+        auto VM = inferValueMapping(Child);
+        if (VM) {
+          dbgs() << VM->RC->getName() << ' ' << std::get<0>(VM->Size) << '\n';
+        }
+      }
+    }
+    Src.dump();
+    Dst.dump();
+    dbgs() << '\n';
+  }
+
+  OS << "constexpr RegisterBankInfo::ValueMapping ValMappings[] = {";
+
+  OS << "};\n";
+}
+
+void RegisterBankEmitter::gatherNodeEquivs() {
+  for (const Record *Equiv : Records.getAllDerivedDefinitions("GINodeEquiv"))
+    NodeEquivs[Equiv->getValueAsDef("Node")] = Equiv;
 }
 
 void RegisterBankEmitter::run(raw_ostream &OS) {
@@ -561,6 +651,7 @@ void RegisterBankEmitter::run(raw_ostream &OS) {
 
   Timer.startTimer("Emit output");
   initBankPartSizes(Banks, RegisterClassHierarchy);
+  gatherNodeEquivs();
   emitSourceFileHeader("Register Bank Source Fragments", OS);
   emitHeader(OS, TargetName, Banks);
   emitBaseClassDefinition(OS, TargetName, Banks);
