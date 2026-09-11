@@ -29,7 +29,10 @@ public:
   Error addLegalizeMachineIR(PassManagerWrapper &PMW) override;
   Error addRegBankSelect(PassManagerWrapper &PMW) override;
   Error addGlobalInstructionSelect(PassManagerWrapper &PMW) override;
+
+  void addAsmPrinterBegin(PassManagerWrapper &PMW) override;
   void addAsmPrinter(PassManagerWrapper &PMW) override;
+  void addAsmPrinterEnd(PassManagerWrapper &PMW) override;
 };
 
 } // namespace llvm

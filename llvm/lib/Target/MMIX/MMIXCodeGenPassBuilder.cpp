@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXCodeGenPassBuilder.h"
+#include "MMIXAsmPrinter.h"
 
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
@@ -51,4 +52,14 @@ Error MMIXCodeGenPassBuilder::addGlobalInstructionSelect(
   return Error::success();
 }
 
-void MMIXCodeGenPassBuilder::addAsmPrinter(PassManagerWrapper &PMW) {}
+void MMIXCodeGenPassBuilder::addAsmPrinterBegin(PassManagerWrapper &PMW) {
+  addModulePass(MMIXAsmPrinterBeginPass(), PMW, /*Force=*/true);
+}
+
+void MMIXCodeGenPassBuilder::addAsmPrinter(PassManagerWrapper &PMW) {
+  addMachineFunctionPass(MMIXAsmPrinterPass(), PMW);
+}
+
+void MMIXCodeGenPassBuilder::addAsmPrinterEnd(PassManagerWrapper &PMW) {
+  addModulePass(MMIXAsmPrinterEndPass(), PMW, /*Force=*/true);
+}
