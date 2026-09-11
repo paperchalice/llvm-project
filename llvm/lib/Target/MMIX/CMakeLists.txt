@@ -14,6 +14,7 @@ tablegen(LLVM MMIXGenSubtargetInfo.inc -gen-subtarget)
 add_public_tablegen_target(MMIXCommonTableGen)
 
 add_llvm_target(MMIXCodeGen
+  MMIXAsmPrinter.cpp
   MMIXCallingConvention.cpp
   MMIXCallLowering.cpp
   MMIXCodeGenPassBuilder.cpp
@@ -21,6 +22,7 @@ add_llvm_target(MMIXCodeGen
   MMIXInstrInfo.cpp
   MMIXInstructionSelector.cpp
   MMIXLegalizerInfo.cpp
+  MMIXMCInstLower.cpp
   MMIXRegisterBankInfo.cpp
   MMIXRegisterInfo.cpp
   MMIXSubtarget.cpp
@@ -29,6 +31,7 @@ add_llvm_target(MMIXCodeGen
 
   LINK_COMPONENTS
   Analysis
+  AsmPrinter
   CodeGen
   CodeGenTypes
   Core
