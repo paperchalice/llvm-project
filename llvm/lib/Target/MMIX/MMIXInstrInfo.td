@@ -222,13 +222,17 @@ def CMPUI : Inst_X_Y_Z<0x33, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
 }
 def : InstAlias<"CMPU\t$X,$Y,$Z", (CMPUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def NEG : Inst_X_Y_Z<0x34, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def NEGI : Inst_X_Y_Z<0x35, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
-def : InstAlias<"NEG\t$X,$Y,$Z", (NEGI GPR:$X, GPR:$Y, u8imm:$Z)>;
+def NEG : Inst_X_Y_Z<0x34, (outs GPR:$X), (ins u8imm:$Y, GPR:$Z)>;
+def NEGI : Inst_X_Y_Z<0x35, (outs GPR:$X), (ins u8imm:$Y, u8imm:$Z)>;
+def : InstAlias<"NEG\t$X,$Z", (NEG GPR:$X, 0, GPR:$Z)>;
+def : InstAlias<"NEG\t$X,$Z", (NEGI GPR:$X, 0, u8imm:$Z)>;
+def : InstAlias<"NEG\t$X,$Y,$Z", (NEGI GPR:$X, u8imm:$Y, u8imm:$Z)>;
 
-def NEGU : Inst_X_Y_Z<0x36, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def NEGUI : Inst_X_Y_Z<0x37, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
-def : InstAlias<"NEGU\t$X,$Y,$Z", (NEGUI GPR:$X, GPR:$Y, u8imm:$Z)>;
+def NEGU : Inst_X_Y_Z<0x36, (outs GPR:$X), (ins u8imm:$Y, GPR:$Z)>;
+def NEGUI : Inst_X_Y_Z<0x37, (outs GPR:$X), (ins u8imm:$Y, u8imm:$Z)>;
+def : InstAlias<"NEGU\t$X,$Z", (NEGU GPR:$X, 0, GPR:$Z)>;
+def : InstAlias<"NEGU\t$X,$Z", (NEGUI GPR:$X, 0, u8imm:$Z)>;
+def : InstAlias<"NEGU\t$X,$Y,$Z", (NEGUI GPR:$X, u8imm:$Y, u8imm:$Z)>;
 
 def SL : Inst_X_Y_Z<0x38, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
 def SLI : Inst_X_Y_Z<0x39, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
@@ -303,6 +307,8 @@ foreach i = !range(!size(SizeSuffixList)) in {
   def LD#s#U : Inst_X_Y_Z<!add(opc, 2), (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
   def LD#s#UI : Inst_X_Y_Z<!add(opc, 3), (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
   }
+  def : InstAlias<"LD"#s#"\t$X,$Y", (!cast<Inst_X_Y_Z>("LD"#s#I) GPR:$X, GPR:$Y, 0)>;
+  def : InstAlias<"LD"#s#"U\t$X,$Y", (!cast<Inst_X_Y_Z>("LD"#s#"UI") GPR:$X, GPR:$Y, 0)>;
   def : InstAlias<"LD"#s#"\t$X,$Y,$Z", (!cast<Inst_X_Y_Z>("LD"#s#I) GPR:$X, GPR:$Y, u8imm:$Z)>;
   def : InstAlias<"LD"#s#"U\t$X,$Y,$Z", (!cast<Inst_X_Y_Z>("LD"#s#"UI") GPR:$X, GPR:$Y, u8imm:$Z)>;
 }
@@ -310,44 +316,54 @@ let mayLoad = true in {
 def LDSF : Inst_X_Y_Z<0x90, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
 def LDSFI : Inst_X_Y_Z<0x91, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
 }
+def : InstAlias<"LDSF\t$X,$Y", (LDSFI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"LDSF\t$X,$Y,$Z", (LDSFI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let mayLoad = true in {
 def LDHT : Inst_X_Y_Z<0x92, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
 def LDHTI : Inst_X_Y_Z<0x93, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
 }
+def : InstAlias<"LDHT\t$X,$Y", (LDHTI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"LDHT\t$X,$Y,$Z", (LDHTI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def : MnemonicAlias<"LDA", "ADDU">;
+def : InstAlias<"LDA\t$X,$Y",    (ADDUI GPR:$X, GPR:$Y, 0)>;
+def : InstAlias<"LDA\t$X,$Y,$Z", (ADDU GPR:$X, GPR:$Y, GPR:$Z)>;
+def : InstAlias<"LDA\t$X,$Y,$Z", (ADDUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 def CSWAP : Inst_X_Y_Z<0x94, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
 def CSWAPI : Inst_X_Y_Z<0x95, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def : InstAlias<"CSWAP\t$X,$Y", (CSWAPI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"CSWAP\t$X,$Y,$Z", (CSWAPI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let mayLoad = true in {
 def LDUNC : Inst_X_Y_Z<0x96, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
 def LDUNCI : Inst_X_Y_Z<0x97, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
 }
+def : InstAlias<"LDUNC\t$X,$Y", (LDUNCI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"LDUNC\t$X,$Y,$Z", (LDUNCI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let mayLoad = true in {
 def LDVTS : Inst_X_Y_Z<0x98, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
 def LDVTSI : Inst_X_Y_Z<0x99, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
 }
+def : InstAlias<"LDVTS\t$X,$Y", (LDVTSI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"LDVTS\t$X,$Y,$Z", (LDVTSI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 def PRELD : Inst_X_Y_Z<0x9A, (outs u8imm:$X), (ins GPR:$Y, GPR:$Z)>;
 def PRELDI : Inst_X_Y_Z<0x9B, (outs u8imm:$X), (ins GPR:$Y, u8imm:$Z)>;
+def : InstAlias<"PRELD\t$X,$Y", (PRELDI u8imm:$X, GPR:$Y, 0)>;
 def : InstAlias<"PRELD\t$X,$Y,$Z", (PRELDI u8imm:$X, GPR:$Y, u8imm:$Z)>;
 
 def PREGO : Inst_X_Y_Z<0x9C, (outs), (ins u8imm:$X, GPR:$Y, GPR:$Z)>;
 def PREGOI : Inst_X_Y_Z<0x9D, (outs), (ins u8imm:$X, GPR:$Y, u8imm:$Z)>;
+def : InstAlias<"PREGO\t$X,$Y", (PREGOI u8imm:$X, GPR:$Y, 0)>;
 def : InstAlias<"PREGO\t$X,$Y,$Z", (PREGOI u8imm:$X, GPR:$Y, u8imm:$Z)>;
 
 let isCall = true, isIndirectBranch = true in {
 def GO : Inst_X_Y_Z<0x9E, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
 def GOI : Inst_X_Y_Z<0x9F, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
 }
+def : InstAlias<"GO\t$X,$Y", (GOI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"GO\t$X,$Y,$Z", (GOI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 foreach i = !range(!size(SizeSuffixList)) in {
@@ -368,6 +384,8 @@ foreach i = !range(!size(SizeSuffixList)) in {
     let Pattern = [(st !cast<VTInt>("i"#width):$X, (iPTR (add i64:$Y, (i64 u8imm:$Z))))];
   }
   }
+  def : InstAlias<"ST"#s#"\t$X,$Y", (!cast<Inst_X_Y_Z>("ST"#s#"I") GPR:$X, GPR:$Y, 0)>;
+  def : InstAlias<"ST"#s#"U\t$X,$Y", (!cast<Inst_X_Y_Z>("ST"#s#"UI") GPR:$X, GPR:$Y, 0)>;
   def : InstAlias<"ST"#s#"\t$X,$Y,$Z", (!cast<Inst_X_Y_Z>("ST"#s#"I") GPR:$X, GPR:$Y, u8imm:$Z)>;
   def : InstAlias<"ST"#s#"U\t$X,$Y,$Z", (!cast<Inst_X_Y_Z>("ST"#s#"UI") GPR:$X, GPR:$Y, u8imm:$Z)>;
 }
@@ -376,40 +394,47 @@ let mayStore = true in {
 def STSF : Inst_X_Y_Z<0xB0, (outs), (ins GPR:$X, GPR:$Y, GPR:$Z)>;
 def STSFI : Inst_X_Y_Z<0xB1, (outs), (ins GPR:$X, GPR:$Y, u8imm:$Z)>;
 }
+def : InstAlias<"STSF\t$X,$Y", (STSFI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"STSF\t$X,$Y,$Z", (STSFI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let mayStore = true in {
 def STHT : Inst_X_Y_Z<0xB2, (outs), (ins GPR:$X, GPR:$Y, GPR:$Z)>;
 def STHTI : Inst_X_Y_Z<0xB3, (outs), (ins GPR:$X, GPR:$Y, u8imm:$Z)>;
 }
+def : InstAlias<"STHT\t$X,$Y", (STHTI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"STHT\t$X,$Y,$Z", (STHTI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let mayStore = true in {
 def STCO : Inst_X_Y_Z<0xB4, (outs), (ins u8imm:$X, GPR:$Y, GPR:$Z)>;
 def STCOI : Inst_X_Y_Z<0xB5, (outs), (ins u8imm:$X, GPR:$Y, u8imm:$Z)>;
 }
+def : InstAlias<"STCO\t$X,$Y", (STCOI u8imm:$X, GPR:$Y, 0)>;
 def : InstAlias<"STCO\t$X,$Y,$Z", (STCOI u8imm:$X, GPR:$Y, u8imm:$Z)>;
 
 let mayStore = true in {
 def STUNC : Inst_X_Y_Z<0xB6, (outs), (ins GPR:$X, GPR:$Y, GPR:$Z)>;
 def STUNCI : Inst_X_Y_Z<0xB7, (outs), (ins GPR:$X, GPR:$Y, u8imm:$Z)>;
 }
+def : InstAlias<"STUNC\t$X,$Y", (STUNCI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"STUNC\t$X,$Y,$Z", (STUNCI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let mayLoad = true in {
 def SYNCD : Inst_X_Y_Z<0xB8, (outs), (ins u8imm:$X, GPR:$Y, GPR:$Z)>;
 def SYNCDI : Inst_X_Y_Z<0xB9, (outs), (ins u8imm:$X, GPR:$Y, u8imm:$Z)>;
 }
+def : InstAlias<"SYNCD\t$X,$Y", (SYNCDI u8imm:$X, GPR:$Y, 0)>;
 def : InstAlias<"SYNCD\t$X,$Y,$Z", (SYNCDI u8imm:$X, GPR:$Y, u8imm:$Z)>;
 
 def PREST : Inst_X_Y_Z<0xBA, (outs), (ins u8imm:$X, GPR:$Y, GPR:$Z)>;
 def PRESTI : Inst_X_Y_Z<0xBB, (outs), (ins u8imm:$X, GPR:$Y, u8imm:$Z)>;
+def : InstAlias<"PREST\t$X,$Y", (PRESTI u8imm:$X, GPR:$Y, 0)>;
 def : InstAlias<"PREST\t$X,$Y,$Z", (PRESTI u8imm:$X, GPR:$Y, u8imm:$Z)>;
 
 let mayLoad = true in {
 def SYNCID : Inst_X_Y_Z<0xBC, (outs), (ins u8imm:$X, GPR:$Y, GPR:$Z)>;
 def SYNCIDI : Inst_X_Y_Z<0xBD, (outs), (ins u8imm:$X, GPR:$Y, u8imm:$Z)>;
 }
+def : InstAlias<"SYNCID\t$X,$Y", (SYNCIDI u8imm:$X, GPR:$Y, 0)>;
 def : InstAlias<"SYNCID\t$X,$Y,$Z", (SYNCIDI u8imm:$X, GPR:$Y, u8imm:$Z)>;
 
 let isCall = true in {
@@ -421,6 +446,7 @@ def PUSHGOIIdiosyncratic: Inst_X_Y_Z<0xBF, (outs),
   (ins u8imm:$X, GPR:$Y, u8imm:$Z), "PUSHGOI">;
 }
 }
+def : InstAlias<"PUSHGO\t$X,$Y", (PUSHGOI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"PUSHGO\t$X,$Y,$Z", (PUSHGOI GPR:$X, GPR:$Y, u8imm:$Z)>;
 def : InstAlias<"PUSHGO\t$X,$Y,$Z", (PUSHGOIIdiosyncratic u8imm:$X, GPR:$Y, u8imm:$Z)>;
 
