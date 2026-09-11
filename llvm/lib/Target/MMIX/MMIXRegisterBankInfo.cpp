@@ -28,7 +28,6 @@ enum PartialMappingIdx {
 enum ValueMappingIdx {
   InvalidIdx = 0,
   GenericMappingIdx = 1,
-  GConstantMappingIdx = 3,
 };
 
 const RegisterBankInfo::PartialMapping PartMappings[] = {
@@ -42,9 +41,6 @@ const RegisterBankInfo::ValueMapping ValMappings[] = {
     // 0: invalid
     {nullptr, 0},
     {&PartMappings[PMI_GPRBank64], 1},
-    {&PartMappings[PMI_GPRBank64], 1},
-    {&PartMappings[PMI_GPRBank64], 1},
-    {nullptr, 0},
 };
 
 } // namespace llvm::MMIX
@@ -53,6 +49,7 @@ using namespace llvm;
 
 const MMIXRegisterBankInfo::InstructionMapping &
 MMIXRegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
+  using namespace MMIX;
   const unsigned Opc = MI.getOpcode();
   // Try the default logic for non-generic instructions that are either copies
   // or already have some operands assigned to banks.
@@ -63,18 +60,20 @@ MMIXRegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
       return Mapping;
   }
 
-  switch (Opc) {
-  case TargetOpcode::G_CONSTANT:
-  case TargetOpcode::G_FCONSTANT:
-    return getInstructionMapping(DefaultMappingID, /*Cost*/ 1,
-                                 &MMIX::ValMappings[MMIX::GConstantMappingIdx],
-                                 2);
-  default:
-    break;
-  }
-
   unsigned NumOperands = MI.getNumOperands();
+  SmallVector<const ValueMapping *, 4> OperandsMapping;
+  for (const auto &MO : MI.operands()) {
+    size_t Idx = InvalidIdx;
+    switch (MO.getType()) {
+    case MachineOperand::MO_Register:
+      Idx = GenericMappingIdx;
+      break;
+    default:
+      break;
+    }
+    OperandsMapping.push_back(&ValMappings[Idx]);
+  }
   return getInstructionMapping(DefaultMappingID, /*Cost*/ 1,
-                               &MMIX::ValMappings[MMIX::GenericMappingIdx],
+                               getOperandsMapping(OperandsMapping),
                                NumOperands);
 }
