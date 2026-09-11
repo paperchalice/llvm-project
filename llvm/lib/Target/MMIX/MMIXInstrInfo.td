@@ -543,9 +543,11 @@ def : InstAlias<"MXOR\t$X,$Y,$Z", (MXORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 foreach i = !range(!size(RegPosList)) in {
   defvar pos = RegPosList[i];
   def SET#pos : Inst_X_YZ<!add(0xE0, i), (outs GPR:$X), (ins u16imm:$YZ)>;
-  def INC#pos : Inst_X_YZ<!add(0xE4, i), (outs GPR:$X), (ins u16imm:$YZ)>;
-  def OR#pos : Inst_X_YZ<!add(0xE8, i), (outs GPR:$X), (ins u16imm:$YZ)>;
-  def ANDN#pos : Inst_X_YZ<!add(0xEC, i), (outs GPR:$X), (ins u16imm:$YZ)>;
+  let Constraints = "$X = $X0" in {
+    def INC#pos : Inst_X_YZ<!add(0xE4, i), (outs GPR:$X), (ins GPR:$X0, u16imm:$YZ)>;
+    def OR#pos : Inst_X_YZ<!add(0xE8, i), (outs GPR:$X), (ins GPR:$X0, u16imm:$YZ)>;
+    def ANDN#pos : Inst_X_YZ<!add(0xEC, i), (outs GPR:$X), (ins GPR:$X0, u16imm:$YZ)>;
+  }
 }
 def : InstAlias<"SET\t$X,$YZ", (SETL GPR:$X, u16imm:$YZ), 2>;
 

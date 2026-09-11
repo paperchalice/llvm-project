@@ -60,7 +60,9 @@ static bool selectG_CONSTANT(MachineInstr &I) {
          "expect G_F?CONSTANT");
   MachineIRBuilder MIB(I);
   MachineRegisterInfo &MRI = *MIB.getMRI();
-  unsigned Ops[4] = {0, MMIX::ORMH, MMIX::ORML, MMIX::ORL};
+  static const unsigned OrOps[4] = {0, MMIX::ORMH, MMIX::ORML, MMIX::ORL};
+  static const unsigned SetOps[4] = {MMIX::SETH, MMIX::SETMH, MMIX::SETML,
+                                     MMIX::SETL};
   MachineOperand ImmOperand = I.getOperand(1);
   uint64_t Constant = ImmOperand.isCImm() ? ImmOperand.getCImm()->getZExtValue()
                                           : ImmOperand.getFPImm()
@@ -69,17 +71,21 @@ static bool selectG_CONSTANT(MachineInstr &I) {
                                                 .trunc(64)
                                                 .getZExtValue();
   std::array Parts = breakUInt64(Constant);
-
   Register ResultReg =
       MRI.createVirtualRegister(&getMMIXMCRegisterClass(MMIX::GPRRegClassID));
-  MIB.buildInstr(MMIX::SETH).addDef(ResultReg).addImm(Parts[0]);
-  for (int I = 1; I != 4; ++I) {
+  size_t FirstNonZeroIdx = std::min<size_t>(
+      llvm::find_if(Parts, [](uint16_t P) { return P != 0; }) - Parts.begin(),
+      3);
+  MIB.buildInstr(SetOps[FirstNonZeroIdx])
+      .addDef(ResultReg)
+      .addImm(Parts[FirstNonZeroIdx]);
+  for (int I = FirstNonZeroIdx + 1; I != 4; ++I) {
     uint64_t Imm = Parts[I];
     if (Imm == 0)
       continue;
     Register TmpReg =
         MRI.createVirtualRegister(&getMMIXMCRegisterClass(MMIX::GPRRegClassID));
-    MIB.buildInstr(Ops[I])
+    MIB.buildInstr(OrOps[I])
         .addDef(TmpReg)
         .addUse(ResultReg, RegState::Kill)
         .addImm(Imm);
