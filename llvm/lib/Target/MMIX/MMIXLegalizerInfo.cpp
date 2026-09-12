@@ -43,7 +43,7 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
 
   getActionDefinitionsBuilder({G_ADD, G_SUB, G_MUL, G_SDIV, G_UDIV, G_SREM,
                                G_UREM, G_SDIVREM, G_UDIVREM, G_AND, G_OR, G_XOR,
-                               G_SHL, G_LSHR, G_ASHR})
+                               G_SHL, G_LSHR, G_ASHR, G_USUBSAT})
       .legalFor({s64})
       .clampScalar(0, s64, s64);
 

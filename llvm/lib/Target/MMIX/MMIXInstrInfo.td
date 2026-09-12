@@ -534,8 +534,14 @@ def : InstAlias<"NXOR\t$X,$Y,$Z", (NXORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 foreach i = !range(!size(SizeSuffixList)) in {
   defvar s = SizeSuffixList[i];
   defvar opc = !add(0xD0, !mul(i, 2));
-  def s#DIF : Inst_X_Y_Z<opc, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-  def s#DIFI : Inst_X_Y_Z<!or(opc, 1), (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+  defvar tys = [v8i8, v4i16, v2i32, i64];
+  defvar imms = [u8imm_v8i8, u8imm_v4i16, u8imm_v2i32, u8imm];
+  def s#DIF : Inst_X_Y_Z<opc, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+    let Pattern = [(set tys[i]:$X, (usubsat tys[i]:$Y, tys[i]:$Z))];
+  }
+  def s#DIFI : Inst_X_Y_Z<!or(opc, 1), (outs GPR:$X), (ins GPR:$Y, imms[i]:$Z)> {
+    let Pattern = [(set tys[i]:$X, (usubsat tys[i]:$Y, imms[i]:$Z))];
+  }
   defvar difi = !cast<Inst_X_Y_Z>(s#DIFI);
   def : InstAlias<i#"DIF\t$X,$Y,$Z", (difi GPR:$X, GPR:$Y, u8imm:$Z)>;
 }
