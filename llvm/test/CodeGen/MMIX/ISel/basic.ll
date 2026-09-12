@@ -76,3 +76,17 @@ define i64 @selectG_LOAD_i64(ptr %p) {
   %v = load i64, ptr %p, align 8
   ret i64 %v
 }
+
+define i64 @selectG_UCMP(i64 %a, i64 %b) {
+  ; CHECK-LABEL: name: selectG_UCMP
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[CMPU:%[0-9]+]]:gpr = CMPU [[COPY]], [[COPY1]]
+  ; CHECK-NEXT:   $r0 = COPY [[CMPU]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %v = call i64 @llvm.ucmp(i64 %a, i64 %b)
+  ret i64 %v
+}

@@ -51,16 +51,18 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
 
   // TODO: lower G_ROTR like to Knuth style MOR
 
+  // FIXME: G_{S,U}CMP legalization is broken in LLVM
+  getActionDefinitionsBuilder({G_SELECT, G_ICMP, G_SCMP, G_UCMP})
+      .legalForCartesianProduct({s64, p0}, {s64, p0})
+      .clampScalar(0, s64, s64)
+      .clampScalar(1, s64, s64);
+
   getActionDefinitionsBuilder(G_CONSTANT)
       .legalFor({s64, p0})
       .clampScalar(0, s64, s64);
   getActionDefinitionsBuilder(G_FCONSTANT).legalFor({s64, s32});
 
-  getActionDefinitionsBuilder({G_LOAD, G_SEXTLOAD, G_ZEXTLOAD})
-      .legalForCartesianProduct({s64, p0}, {p0})
-      .clampScalar(0, s64, s64);
-
-  getActionDefinitionsBuilder(G_STORE)
+  getActionDefinitionsBuilder({G_LOAD, G_SEXTLOAD, G_ZEXTLOAD, G_STORE})
       .legalForCartesianProduct({s64, p0}, {p0})
       .clampScalar(0, s64, s64);
 }

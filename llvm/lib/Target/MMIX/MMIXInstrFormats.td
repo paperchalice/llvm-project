@@ -173,6 +173,13 @@ defvar SizeVTIntList = [i8, i16, i32, i64];
 
 defvar PosCondList = ["N", "Z", "P", "OD"];
 defvar NegCondList = !foreach(c, PosCondList, !if(!ne(c, "OD"), "N"#c, "EV"));
+defvar PosCondDagList = [
+  (setlt i64:$Y, 0), (seteq i64:$Y, 0), (setgt i64:$Y, 0),
+  (seteq (and i64:$Y, 1), 1),
+  (setge i64:$Y, 0), (setne i64:$Y, 0), (setle i64:$Y, 0),
+  (seteq (and i64:$Y, 1), 0)
+];
+defvar I64PosCondDagList = !foreach(dg, PosCondDagList, (i64 dg));
 defvar CondList = !listconcat(PosCondList, NegCondList);
 
 defvar RegPosList = ["H", "MH", "ML", "L"];
