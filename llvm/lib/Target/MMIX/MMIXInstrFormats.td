@@ -83,6 +83,9 @@ foreach j = !range(1,4) in {
   let ParserMatchClass = UImmAsmOperand<N> in
   def u#N#imm : Operand<i64>, ImmLeaf<i64, "return isUInt<"#N#">(Imm);">;
 }
+foreach j = [v8i8, v4i16, v2i32] in {
+def u8imm_#j : Operand<j>, ImmLeaf<j, "return isUInt<8>(Imm);">;
+}
 let ParserMatchClass = SImmAsmOperand<17> in
 def s17imm : Operand<i32>;
 let ParserMatchClass = SImmAsmOperand<25> in
