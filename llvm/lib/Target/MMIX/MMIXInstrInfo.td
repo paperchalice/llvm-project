@@ -211,14 +211,22 @@ def ADD16UI : Inst_X_Y_Z<0x2F, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
 def : InstAlias<"ADD16U\t$X,$Y,$Z", (ADD16UI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let isCompare = true in {
-def CMP : Inst_X_Y_Z<0x30, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def CMPI : Inst_X_Y_Z<0x31, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def CMP : Inst_X_Y_Z<0x30, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (scmp i64:$Y, i64:$Z))];
+}
+def CMPI : Inst_X_Y_Z<0x31, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (scmp i64:$Y, u8imm:$Z))];
+}
 }
 def : InstAlias<"CMP\t$X,$Y,$Z", (CMPI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let isCompare = true in {
-def CMPU : Inst_X_Y_Z<0x32, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def CMPUI : Inst_X_Y_Z<0x33, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+def CMPU : Inst_X_Y_Z<0x32, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (ucmp i64:$Y, i64:$Z))];
+}
+def CMPUI : Inst_X_Y_Z<0x33, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (ucmp i64:$Y, u8imm:$Z))];
+}
 }
 def : InstAlias<"CMPU\t$X,$Y,$Z", (CMPUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
@@ -294,8 +302,12 @@ foreach i = !range(!size(CondList)) in {
   defvar c = CondList[i];
   defvar opc = !add(0x70, !mul(2, i));
   let isSelect = true in {
-    def ZS#c : Inst_X_Y_Z<opc, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-    def ZS#c#I : Inst_X_Y_Z<!or(opc, 1), (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+    def ZS#c : Inst_X_Y_Z<opc, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+      let Pattern = [(set i64:$X, (select I64PosCondDagList[i], i64:$Z, 0))];
+    }
+    def ZS#c#I : Inst_X_Y_Z<!or(opc, 1), (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
+      let Pattern = [(set i64:$X, (select I64PosCondDagList[i], u8imm:$Z, 0))];
+    }
   }
   defvar zsi = !cast<Inst_X_Y_Z>("ZS"#c#I);
   def : InstAlias<"ZS"#c#"\t$X,$Y,$Z", (zsi GPR:$X, GPR:$Y, u8imm:$Z)>;
@@ -686,5 +698,7 @@ foreach i = !range(!size(SizeSuffixList)) in {
 // LDO and LDOU have the same effect, but they have different opcodes
 def : Pat<(i64 (load iPTR:$Y)), (LDOI GPR:$Y, 0)>;
 def : Pat<(store i64:$X, iPTR:$Y), (STOI GPR:$X, GPR:$Y, 0)>;
+
+include "MMIXInstrGISel.td"
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXINSTRINFO_TD
