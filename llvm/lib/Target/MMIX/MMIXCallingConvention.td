@@ -22,7 +22,7 @@ def RetCC_MMIX : CallingConv<[
   CCIfType<[i8], CCBitConvertToType<i64>>,
   CCIfType<[i16], CCBitConvertToType<i64>>,
   CCIfType<[i32], CCBitConvertToType<i64>>,
-  CCIfType<[i64], CCCustom<"assignToRegCustom<&MMIXRegisterInfo::getReturnThreshold>">>,
+  CCIfType<[i64, v8i8, v4i16, v2i32], CCCustom<"assignToRegCustom<&MMIXRegisterInfo::getReturnThreshold>">>,
   CCIfType<[i64], CCAssignToStack<8, 8>>,
 ]>;
 
@@ -31,7 +31,8 @@ def CC_MMIX_Callee : CallingConv<[
   CCIfType<[i8], CCBitConvertToType<i64>>,
   CCIfType<[i16], CCBitConvertToType<i64>>,
   CCIfType<[i32], CCBitConvertToType<i64>>,
-  CCIfType<[i64], CCCustom<"assignToRegCustom<&MMIXRegisterInfo::getParamThreshold>">>,
+  CCIfType<[v8i8], CCBitConvertToType<i64>>,
+  CCIfType<[i64, v8i8, v4i16, v2i32], CCCustom<"assignToRegCustom<&MMIXRegisterInfo::getParamThreshold>">>,
   CCIfType<[i64], CCAssignToStack<8, 8>>,
 ]>;
 
@@ -40,7 +41,7 @@ def CC_MMIX_Caller : CallingConv<[
   CCIfType<[i8], CCBitConvertToType<i64>>,
   CCIfType<[i16], CCBitConvertToType<i64>>,
   CCIfType<[i32], CCBitConvertToType<i64>>,
-  CCIfType<[i64], CCCustom<"assignToRegCustom<&MMIXRegisterInfo::getParamThreshold>">>, // in fact, use vregs
+  CCIfType<[i64, v8i8, v4i16, v2i32], CCCustom<"assignToRegCustom<&MMIXRegisterInfo::getParamThreshold>">>, // in fact, use vregs
   CCIfType<[i64], CCAssignToStack<8, 8>>,
 ]>;
 }

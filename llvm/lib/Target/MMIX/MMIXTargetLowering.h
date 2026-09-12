@@ -24,6 +24,9 @@ public:
   MMIXTargetLowering(const TargetMachine &TM, const TargetSubtargetInfo &STI);
 
 public:
+  unsigned getNumRegistersForCallingConv(LLVMContext &Context,
+                                         CallingConv::ID CC,
+                                         EVT VT) const override;
 };
 
 } // namespace llvm

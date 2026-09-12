@@ -26,3 +26,11 @@ MMIXTargetLowering::MMIXTargetLowering(const TargetMachine &TM,
 
   computeRegisterProperties(STI.getRegisterInfo());
 }
+
+unsigned MMIXTargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
+                                                           CallingConv::ID CC,
+                                                           EVT VT) const {
+  if (VT == MVT::v8i8 || VT == MVT::v4i16 || VT == MVT::v2i32)
+    return 1;
+  return TargetLowering::getNumRegistersForCallingConv(Context, CC, VT);
+}
