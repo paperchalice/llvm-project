@@ -228,8 +228,12 @@ def : InstAlias<"NEG\t$X,$Z", (NEG GPR:$X, 0, GPR:$Z)>;
 def : InstAlias<"NEG\t$X,$Z", (NEGI GPR:$X, 0, u8imm:$Z)>;
 def : InstAlias<"NEG\t$X,$Y,$Z", (NEGI GPR:$X, u8imm:$Y, u8imm:$Z)>;
 
-def NEGU : Inst_X_Y_Z<0x36, (outs GPR:$X), (ins u8imm:$Y, GPR:$Z)>;
-def NEGUI : Inst_X_Y_Z<0x37, (outs GPR:$X), (ins u8imm:$Y, u8imm:$Z)>;
+def NEGU : Inst_X_Y_Z<0x36, (outs GPR:$X), (ins u8imm:$Y, GPR:$Z)> {
+  let Pattern = [(set i64:$X, (sub (i64 u8imm:$Y), i64:$Z))];
+}
+def NEGUI : Inst_X_Y_Z<0x37, (outs GPR:$X), (ins u8imm:$Y, u8imm:$Z)> {
+  let Pattern = [(set i64:$X, (sub (i64 u8imm:$Y), (i64 u8imm:$Z)))];
+}
 def : InstAlias<"NEGU\t$X,$Z", (NEGU GPR:$X, 0, GPR:$Z)>;
 def : InstAlias<"NEGU\t$X,$Z", (NEGUI GPR:$X, 0, u8imm:$Z)>;
 def : InstAlias<"NEGU\t$X,$Y,$Z", (NEGUI GPR:$X, u8imm:$Y, u8imm:$Z)>;
