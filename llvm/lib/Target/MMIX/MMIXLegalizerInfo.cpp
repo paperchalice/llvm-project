@@ -19,6 +19,9 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
   const LLT s16 = LLT::scalar(16);
   const LLT s32 = LLT::scalar(32);
   const LLT s64 = LLT::scalar(64);
+  const LLT v8s8 = LLT::fixed_vector(8, s8);
+  const LLT v4s16 = LLT::fixed_vector(4, s16);
+  const LLT v2s32 = LLT::fixed_vector(2, s32);
   const LLT p0 = LLT::pointer(0, 64);
 
   // refer to llvm/Target/GenericOpcodes.td
@@ -43,11 +46,16 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
 
   getActionDefinitionsBuilder({G_ADD, G_SUB, G_MUL, G_SDIV, G_UDIV, G_SREM,
                                G_UREM, G_SDIVREM, G_UDIVREM, G_AND, G_OR, G_XOR,
-                               G_SHL, G_LSHR, G_ASHR, G_USUBSAT})
+                               G_SHL, G_LSHR, G_ASHR})
       .legalFor({s64})
       .clampScalar(0, s64, s64);
 
   // G_ABDS, G_ABDU, G_UAVGFLOOR
+  getActionDefinitionsBuilder(G_USUBSAT)
+    .legalFor({s64, v8s8, v4s16, v2s32});
+
+  getActionDefinitionsBuilder(G_BITCAST)
+    .legalForCartesianProduct({s64, v8s8, v4s16, v2s32}, {s64, v8s8, v4s16, v2s32});
 
   // TODO: lower G_ROTR like to Knuth style MOR
 

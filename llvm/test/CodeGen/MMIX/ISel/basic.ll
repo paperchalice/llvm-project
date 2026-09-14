@@ -90,3 +90,17 @@ define i64 @selectG_UCMP(i64 %a, i64 %b) {
   %v = call i64 @llvm.ucmp(i64 %a, i64 %b)
   ret i64 %v
 }
+
+define <8 x i8> @selectG_USUBSAT(<8 x i8> %a, <8 x i8> %b) {
+  ; CHECK-LABEL: name: selectG_USUBSAT
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[BDIF:%[0-9]+]]:gpr = BDIF [[COPY]], [[COPY1]]
+  ; CHECK-NEXT:   $r0 = COPY [[BDIF]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %v = call <8 x i8> @llvm.usub.sat(<8 x i8> %a, <8 x i8> %b)
+  ret <8 x i8> %v
+}

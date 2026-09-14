@@ -107,8 +107,10 @@ struct MMIXIncomingValueHandler : public CallLowering::IncomingValueHandler {
 
   void assignValueToReg(Register ValVReg, Register PhysReg,
                         const CCValAssign &VA, ISD::ArgFlagsTy Flags) override {
-    MIRBuilder.getMRI()->addLiveIn(PhysReg);
+    MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
+    MRI.addLiveIn(PhysReg);
     MIRBuilder.getMBB().addLiveIn(PhysReg);
+    MRI.setRegClass(ValVReg, &getMMIXMCRegisterClass(MMIX::GPRRegClassID));
     IncomingValueHandler::assignValueToReg(ValVReg, PhysReg, VA);
   }
 
