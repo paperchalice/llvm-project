@@ -113,6 +113,8 @@ bool MMIXInstructionSelector::select(MachineInstr &I) {
     return selectG_CONSTANT(I);
   case TargetOpcode::G_FCONSTANT:
     return selectG_CONSTANT(I);
+  case TargetOpcode::G_BITCAST:
+    
   default:
     break;
   }
