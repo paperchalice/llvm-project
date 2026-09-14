@@ -640,6 +640,9 @@ def : Pat<(i64 (ctpop i64:$Y)), (SADDI GPR:$Y, 0)>;
 
 def : Pat<(f64 (fsqrt f64:$Z)), (FSQRT 0, GPR:$Z)>;
 
+def : Pat<(i64 (bitconvert v8i8:$src)), (i64 GPR:$src)>;
+def : Pat<(v8i8 (bitconvert i64:$src)), (v8i8 GPR:$src)>;
+
 foreach i = !range(!size(SizeSuffixList)) in {
   defvar SizeSuffix = SizeSuffixList[i];
   defvar SizeVTInt = SizeVTIntList[i];
