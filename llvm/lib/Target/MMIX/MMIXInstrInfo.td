@@ -116,66 +116,35 @@ def FREM : Inst_X_Y_Z<0x16, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
 def FINT : Inst_X_Y_Z<0x17, (outs GPR:$X), (ins rounding_mode:$Y, GPR:$Z)>;
 def : InstAlias<"FINT\t$X,$Z", (FINT GPR:$X, 0, GPR:$Z)>;
 
-def MUL : Inst_X_Y_Z<0x18, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def MULI : Inst_X_Y_Z<0x19, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+let isCommutable = true in
+defm MUL : BinOp<0x18, [(mul)]>;
 def : InstAlias<"MUL\t$X,$Y,$Z", (MULI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-let Defs = [rH] in {
-def MULU : Inst_X_Y_Z<0x1A, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>  {
-  let Pattern = [(set i64:$X, (mul i64:$Y, i64:$Z))];
-}
-def MULUI : Inst_X_Y_Z<0x1B, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (mul i64:$Y, (i64 u8imm:$Z)))];
-}
-}
+let Defs = [rH], isCommutable = true in
+defm MULU : BinOp<0x1A, [(op_nxw<(mul)>)]>;
 def : InstAlias<"MULU\t$X,$Y,$Z", (MULUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-let Defs = [rR] in {
-def DIV : Inst_X_Y_Z<0x1C, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (sdiv i64:$Y, i64:$Z))];
-}
-def DIVI : Inst_X_Y_Z<0x1D, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (sdiv i64:$Y, (i64 u8imm:$Z)))];
-}
-}
+let Defs = [rR] in
+defm DIV : BinOp<0x1C, [(sdiv)]>;
 def : InstAlias<"DIV\t$X,$Y,$Z", (DIVI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-let Defs = [rR], Uses=[rD] in {
-def DIVU : Inst_X_Y_Z<0x1E, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (udiv i64:$Y, i64:$Z))];
-}
-def DIVUI : Inst_X_Y_Z<0x1F, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (udiv i64:$Y, (i64 u8imm:$Z)))];
-}
-}
+let Defs = [rR], Uses=[rD] in
+defm DIVU : BinOp<0x1E, [(udiv)]>;
 def : InstAlias<"DIVU\t$X,$Y,$Z", (DIVUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-let isAdd = true in {
-def ADD : Inst_X_Y_Z<0x20, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def ADDI : Inst_X_Y_Z<0x21, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
-}
+let isAdd = true, isCommutable = true in
+defm ADD : BinOp<0x20, [(add)]>;
 def : InstAlias<"ADD\t$X,$Y,$Z", (ADDI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-let isAdd = true in {
-def ADDU : Inst_X_Y_Z<0x22, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (add i64:$Y, i64:$Z))];
-}
-def ADDUI : Inst_X_Y_Z<0x23, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (add i64:$Y, (i64 u8imm:$Z)))];
-}
-}
+let isAdd = true, Defs=[rA], isCommutable = true in
+defm ADDU : BinOp<0x22, [(op_nxw<(add)>)]>;
 def : InstAlias<"ADDU\t$X,$Y,$Z", (ADDUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def SUB : Inst_X_Y_Z<0x24, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def SUBI : Inst_X_Y_Z<0x25, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+let Defs=[rA] in
+defm SUB : BinOp<0x24, [(sub)]>;
 def : InstAlias<"SUB\t$X,$Y,$Z", (SUBI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def SUBU : Inst_X_Y_Z<0x26, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>  {
-  let Pattern = [(set i64:$X, (sub i64:$Y, i64:$Z))];
-}
-def SUBUI : Inst_X_Y_Z<0x27, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>  {
-  let Pattern = [(set i64:$X, (sub i64:$Y, (i64 u8imm:$Z)))];
-}
+defm SUBU : BinOp<0x26, [(op_nxw<(sub)>)]>;
 def : InstAlias<"SUBU\t$X,$Y,$Z", (SUBUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 def ADD2U : Inst_X_Y_Z<0x28, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
@@ -246,32 +215,16 @@ def : InstAlias<"NEGU\t$X,$Z", (NEGU GPR:$X, 0, GPR:$Z)>;
 def : InstAlias<"NEGU\t$X,$Z", (NEGUI GPR:$X, 0, u8imm:$Z)>;
 def : InstAlias<"NEGU\t$X,$Y,$Z", (NEGUI GPR:$X, u8imm:$Y, u8imm:$Z)>;
 
-def SL : Inst_X_Y_Z<0x38, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def SLI : Inst_X_Y_Z<0x39, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+defm SL : BinOp<0x38, [(shl)]>;
 def : InstAlias<"SL\t$X,$Y,$Z", (SLI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def SLU : Inst_X_Y_Z<0x3A, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (shl i64:$Y, i64:$Z))];
-}
-def SLUI : Inst_X_Y_Z<0x3B, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (or i64:$Y, (i64 u8imm:$Z)))];
-}
+defm SLU : BinOp<0x3A, [(op_nxw<(shl)>)]>;
 def : InstAlias<"SLU\t$X,$Y,$Z", (SLUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def SR : Inst_X_Y_Z<0x3C, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (sra i64:$Y, i64:$Z))];
-}
-def SRI : Inst_X_Y_Z<0x3D, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (sra i64:$Y, (i64 u8imm:$Z)))];
-}
+defm SR : BinOp<0x3C, [(sra)]>;
 def : InstAlias<"SR\t$X,$Y,$Z", (SRI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def SRU : Inst_X_Y_Z<0x3E, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (srl i64:$Y, i64:$Z))];
-}
-def SRUI : Inst_X_Y_Z<0x3F, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (srl i64:$Y, (i64 u8imm:$Z)))];
-}
+defm SRU : BinOp<0x3E, [(srl)]>;
 def : InstAlias<"SRU\t$X,$Y,$Z", (SRUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 foreach i = !range(!size(CondList)) in {

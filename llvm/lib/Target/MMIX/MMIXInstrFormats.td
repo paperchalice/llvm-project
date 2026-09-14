@@ -187,4 +187,21 @@ defvar CondList = !listconcat(PosCondList, NegCondList);
 
 defvar RegPosList = ["H", "MH", "ML", "L"];
 
+// inst prototypes
+
+multiclass BinOp<bits<8> opcode, list<dag> patops=[]> {
+  def "" : Inst_X_Y_Z<opcode, (outs GPR:$X), (ins GPR:$Y, GPR:$Z), NAME> {
+    let Pattern = !foreach(d, patops, (set i64:$X, (!getdagop(d) i64:$Y, i64:$Z)));
+  }
+  def I : Inst_X_Y_Z<!or(opcode, 1), (outs GPR:$X), (ins GPR:$Y, u8imm:$Z), NAME#"I"> {
+    let Pattern = !foreach(d, patops, (set i64:$X, (!getdagop(d) i64:$Y, u8imm:$Z)));
+  }
+}
+
+// patfrags
+
+class op_nxw<dag op> : PatFrag<(ops node:$src0, node:$src1), (!getdagop(op) node:$src0, node:$src1)> {
+  let GISelPredicateCode = [{return MI.getFlag(MachineInstr::NoUWrap) || MI.getFlag(MachineInstr::NoSWrap);}];
+}
+
 #endif // LLVM_LIB_TARGET_MMIX_MMIXINSTRFORMATS_TD
