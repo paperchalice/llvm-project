@@ -29,10 +29,12 @@ def : Inst_XYZ<0x00, (outs), (ins u24imm:$XYZ), "TRAP">;
 
 def FCMP : Inst_X_Y_Z<0x01, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
   let isCompare = true;
+  let mayRaiseFPException = true;
 }
 
 def FUN : Inst_X_Y_Z<0x02, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
   let isCompare = true;
+  let Pattern = [(set i64:$X, (setuo f64:$Y, f64:$Z))];
 }
 
 def FEQL : Inst_X_Y_Z<0x03, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
@@ -41,6 +43,7 @@ def FEQL : Inst_X_Y_Z<0x03, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
 
 def FADD : Inst_X_Y_Z<0x04, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
   let isAdd = true;
+  let mayRaiseFPException = true;
   let Pattern = [(set f64:$X, (fadd f64:$Y, f64:$Z))];
 }
 
@@ -50,6 +53,7 @@ def FIX : Inst_X_Y_Z<0x05, (outs GPR:$X), (ins rounding_mode:$Y, GPR:$Z)> {
 def : InstAlias<"FIX\t$X,$Z", (FIX GPR:$X, 0, GPR:$Z)>;
 
 def FSUB : Inst_X_Y_Z<0x06, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let mayRaiseFPException = true;
   let Pattern = [(set f64:$X, (fsub f64:$Y, f64:$Z))];
 }
 
@@ -101,17 +105,22 @@ def FEQLE : Inst_X_Y_Z<0x13, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
   let Uses = [rE];
   let isCompare = true;
   let mayRaiseFPException = true;
+  let Pattern = [(set i64:$X, (setoeq f64:$Y, f64:$Z))];
 }
 
-let mayRaiseFPException = true in
-def FDIV : Inst_X_Y_Z<0x14, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
+def FDIV : Inst_X_Y_Z<0x14, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let mayRaiseFPException = true;
+  let Pattern = [(set f64:$X, (fdiv f64:$Y, f64:$Z))];
+}
 
 let mayRaiseFPException = true in
 def FSQRT : Inst_X_Y_Z<0x15, (outs GPR:$X), (ins rounding_mode:$Y, GPR:$Z)>;
 def : InstAlias<"FSQRT\t$X,$Z", (FSQRT GPR:$X, 0, GPR:$Z)>;
 
-let mayRaiseFPException = true in
-def FREM : Inst_X_Y_Z<0x16, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
+def FREM : Inst_X_Y_Z<0x16, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
+  let mayRaiseFPException = true;
+  let Pattern = [(set f64:$X, (frem f64:$Y, f64:$Z))];
+}
 
 def FINT : Inst_X_Y_Z<0x17, (outs GPR:$X), (ins rounding_mode:$Y, GPR:$Z)>;
 def : InstAlias<"FINT\t$X,$Z", (FINT GPR:$X, 0, GPR:$Z)>;
@@ -132,11 +141,11 @@ let Defs = [rR], Uses=[rD] in
 defm DIVU : BinOp<0x1E, [(udiv)]>;
 def : InstAlias<"DIVU\t$X,$Y,$Z", (DIVUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-let isAdd = true, isCommutable = true in
+let Defs=[rA], isAdd = true, isCommutable = true in
 defm ADD : BinOp<0x20, [(add)]>;
 def : InstAlias<"ADD\t$X,$Y,$Z", (ADDI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-let isAdd = true, Defs=[rA], isCommutable = true in
+let isAdd = true, isCommutable = true in
 defm ADDU : BinOp<0x22, [(op_nxw<(add)>)]>;
 def : InstAlias<"ADDU\t$X,$Y,$Z", (ADDUI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
@@ -243,9 +252,9 @@ foreach i = !range(!size(CondList)) in {
 foreach i = !range(!size(CondList)) in {
   defvar c = CondList[i];
   defvar opc = !add(0x60, !mul(2, i));
-  let isSelect = true in {
-    def CS#c : Inst_X_Y_Z<opc, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-    def CS#c#I : Inst_X_Y_Z<!or(opc, 1), (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+  let isSelect = true, Constraints="$X = $X0" in {
+    def CS#c : Inst_X_Y_Z<opc, (outs GPR:$X), (ins GPR:$Y, GPR:$Z, GPR:$X0)>;
+    def CS#c#I : Inst_X_Y_Z<!or(opc, 1), (outs GPR:$X), (ins GPR:$Y, u8imm:$Z, GPR:$X0)>;
   }
   defvar csi = !cast<Inst_X_Y_Z>("CS"#c#I);
   def : InstAlias<"CS"#c#"\t$X,$Y,$Z", (csi GPR:$X, GPR:$Y, u8imm:$Z)>;
@@ -374,8 +383,12 @@ def : InstAlias<"STHT\t$X,$Y", (STHTI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"STHT\t$X,$Y,$Z", (STHTI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 let mayStore = true in {
-def STCO : Inst_X_Y_Z<0xB4, (outs), (ins u8imm:$X, GPR:$Y, GPR:$Z)>;
-def STCOI : Inst_X_Y_Z<0xB5, (outs), (ins u8imm:$X, GPR:$Y, u8imm:$Z)>;
+def STCO : Inst_X_Y_Z<0xB4, (outs), (ins u8imm:$X, GPR:$Y, GPR:$Z)> {
+  let Pattern = [(truncstorei8 u8imm:$X, (ptradd iPTR:$Y, i64:$Z))];
+}
+def STCOI : Inst_X_Y_Z<0xB5, (outs), (ins u8imm:$X, GPR:$Y, u8imm:$Z)> {
+  let Pattern = [(truncstorei8 u8imm:$X, (ptradd iPTR:$Y, u8imm:$Z))];
+}
 }
 def : InstAlias<"STCO\t$X,$Y", (STCOI u8imm:$X, GPR:$Y, 0)>;
 def : InstAlias<"STCO\t$X,$Y,$Z", (STCOI u8imm:$X, GPR:$Y, u8imm:$Z)>;
@@ -407,8 +420,7 @@ def : InstAlias<"SYNCID\t$X,$Y", (SYNCIDI u8imm:$X, GPR:$Y, 0)>;
 def : InstAlias<"SYNCID\t$X,$Y,$Z", (SYNCIDI u8imm:$X, GPR:$Y, u8imm:$Z)>;
 
 let isCall = true in {
-def PUSHGO : Inst_X_Y_Z<0xBE, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def PUSHGOI : Inst_X_Y_Z<0xBF, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+defm PUSHGO : BinOp<0xBE>;
 let isAsmParserOnly = true in {
 def : Inst_X_Y_Z<0xBE, (outs), (ins GPR:$X, GPR:$Y, GPR:$Z), "PUSHGO">;
 def PUSHGOIIdiosyncratic: Inst_X_Y_Z<0xBF, (outs),
@@ -419,69 +431,29 @@ def : InstAlias<"PUSHGO\t$X,$Y", (PUSHGOI GPR:$X, GPR:$Y, 0)>;
 def : InstAlias<"PUSHGO\t$X,$Y,$Z", (PUSHGOI GPR:$X, GPR:$Y, u8imm:$Z)>;
 def : InstAlias<"PUSHGO\t$X,$Y,$Z", (PUSHGOIIdiosyncratic u8imm:$X, GPR:$Y, u8imm:$Z)>;
 
-def OR : Inst_X_Y_Z<0xC0, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (or i64:$Y, i64:$Z))];
-}
-def ORI : Inst_X_Y_Z<0xC1, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (or i64:$Y, (i64 u8imm:$Z)))];
-}
+defm OR : BinOp<0xC0, [(or)]>;
 def : InstAlias<"OR\t$X,$Y,$Z", (ORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 def : InstAlias<"SET\t$X,$Y", (ORI GPR:$X, GPR:$Y, 0), 2>;
 
-def ORN : Inst_X_Y_Z<0xC2, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (or i64:$Y, (xor i64:$Z, -1)))];
-}
-def ORNI : Inst_X_Y_Z<0xC3, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (or i64:$Y, (xor (i64 u8imm:$Z), -1)))];
-}
+defm ORN : BinOp<0xC2, [(orn)]>;
 def : InstAlias<"ORN\t$X,$Y,$Z", (ORNI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def NOR : Inst_X_Y_Z<0xC4, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (xor (or i64:$Y, i64:$Z), -1))];
-}
-def NORI : Inst_X_Y_Z<0xC5, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (xor (and i64:$Y, (i64 u8imm:$Z)), -1))];
-}
+defm NOR : BinOp<0xC4, [(nor)]>;
 def : InstAlias<"NOR\t$X,$Y,$Z", (NORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def XOR : Inst_X_Y_Z<0xC6, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (xor i64:$Y, i64:$Z))];
-}
-def XORI : Inst_X_Y_Z<0xC7, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (xor i64:$Y, (i64 u8imm:$Z)))];
-}
+defm XOR : BinOp<0xC6, [(xor)]>;
 def : InstAlias<"XOR\t$X,$Y,$Z", (XORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def AND : Inst_X_Y_Z<0xC8, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (and i64:$Y, i64:$Z))];
-}
-def ANDI : Inst_X_Y_Z<0xC9, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (and i64:$Y, (i64 u8imm:$Z)))];
-}
+defm AND : BinOp<0xC8, [(and)]>;
 def : InstAlias<"AND\t$X,$Y,$Z", (ANDI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def ANDN : Inst_X_Y_Z<0xCA, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (and i64:$Y, (xor i64:$Z, -1)))];
-}
-def ANDNI : Inst_X_Y_Z<0xCB, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (and i64:$Y, (xor (i64 u8imm:$Z), -1)))];
-}
+defm ANDN : BinOp<0xCA, [(andn)]>;
 def : InstAlias<"ANDN\t$X,$Y,$Z", (ANDNI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def NAND : Inst_X_Y_Z<0xCC, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (xor (and i64:$Y, i64:$Z), -1))];
-}
-def NANDI : Inst_X_Y_Z<0xCD, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>  {
-  let Pattern = [(set i64:$X, (xor (and i64:$Y, (i64 u8imm:$Z)), -1))];
-}
+defm NAND : BinOp<0xCC, [(nand)]>;
 def : InstAlias<"NAND\t$X,$Y,$Z", (NANDI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def NXOR : Inst_X_Y_Z<0xCE, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-  let Pattern = [(set i64:$X, (xor (xor i64:$Y, i64:$Z), -1))];
-}
-def NXORI : Inst_X_Y_Z<0xCF, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-  let Pattern = [(set i64:$X, (xor (xor i64:$Y, (i64 u8imm:$Z)), -1))];
-}
+defm NXOR : BinOp<0xCE, [(nxor)]>;
 def : InstAlias<"NXOR\t$X,$Y,$Z", (NXORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 foreach i = !range(!size(SizeSuffixList)) in {
@@ -499,20 +471,17 @@ foreach i = !range(!size(SizeSuffixList)) in {
   def : InstAlias<i#"DIF\t$X,$Y,$Z", (difi GPR:$X, GPR:$Y, u8imm:$Z)>;
 }
 
-def MUX : Inst_X_Y_Z<0xD8, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def MUXI : Inst_X_Y_Z<0xD9, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+let Uses = [rM] in
+defm MUX : BinOp<0xD8>;
 def : InstAlias<"MUX\t$X,$Y,$Z", (MUXI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def SADD : Inst_X_Y_Z<0xDA, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def SADDI : Inst_X_Y_Z<0xDB, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+defm SADD : BinOp<0xDA>;
 def : InstAlias<"SADD\t$X,$Y,$Z", (SADDI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def MOR : Inst_X_Y_Z<0xDC, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def MORI : Inst_X_Y_Z<0xDD, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+defm MOR : BinOp<0xDC>;
 def : InstAlias<"MOR\t$X,$Y,$Z", (MORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
-def MXOR : Inst_X_Y_Z<0xDE, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)>;
-def MXORI : Inst_X_Y_Z<0xDF, (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)>;
+defm MXOR : BinOp<0xDE>;
 def : InstAlias<"MXOR\t$X,$Y,$Z", (MXORI GPR:$X, GPR:$Y, u8imm:$Z)>;
 
 foreach i = !range(!size(RegPosList)) in {
@@ -526,7 +495,11 @@ foreach i = !range(!size(RegPosList)) in {
 }
 def : InstAlias<"SET\t$X,$YZ", (SETL GPR:$X, u16imm:$YZ), 2>;
 
-def JMP : InstJMP;
+def JMP : InstJMP {
+  let isBranch = 1;
+  let isTerminator = 1;
+  let Pattern = [(br bb:$XYZ)];
+}
 def : InstJMP<"JMPI"> {
   let isAsmParserOnly = true;
   let InOperandList = (ins s25imm:$XYZ);
@@ -637,6 +610,7 @@ include "MMIXInstrCompiler.td"
 //===----------------------------------------------------------------------===//
 
 def : Pat<(i64 (ctpop i64:$Y)), (SADDI GPR:$Y, 0)>;
+def : Pat<(i64 (ctpop (and i64:$Y, i64:$mask))), (SADD GPR:$Y, (NORI GPR:$mask, 0))>;
 
 def : Pat<(f64 (fsqrt f64:$Z)), (FSQRT 0, GPR:$Z)>;
 
@@ -647,19 +621,70 @@ foreach i = !range(!size(SizeSuffixList)) in {
   defvar SizeSuffix = SizeSuffixList[i];
   defvar SizeVTInt = SizeVTIntList[i];
   defvar LDXI = !cast<Inst_X_Y_Z>("LD"#SizeSuffix#"I");
+  defvar LDX = !cast<Inst_X_Y_Z>("LD"#SizeSuffix);
   defvar LDXUI = !cast<Inst_X_Y_Z>("LD"#SizeSuffix#"UI");
+  defvar LDXU = !cast<Inst_X_Y_Z>("LD"#SizeSuffix#"U");
   defvar STXUI = !cast<Inst_X_Y_Z>("ST"#SizeSuffix#"UI");
+  defvar STXU = !cast<Inst_X_Y_Z>("ST"#SizeSuffix#"U");
 
   // use signed just because it has a shorter mnemonic...
   // the cost of signed and unsigned load is equal
-  def : Pat<(i64 (!cast<PatFrag>(extload#SizeVTInt)  iPTR:$Y)), (LDXI GPR:$Y, 0)>;
-  def : Pat<(i64 (!cast<PatFrag>(sextload#SizeVTInt)  iPTR:$Y)), (LDXI GPR:$Y, 0)>;
-  def : Pat<(i64 (!cast<PatFrag>(zextload#SizeVTInt)  iPTR:$Y)), (LDXUI GPR:$Y, 0)>;
-  def : Pat<(!cast<PatFrag>(truncstore#SizeVTInt) i64:$X, iPTR:$Y), (STBUI GPR:$X, GPR:$Y, 0)>;
+  // load with index
+  defvar XExtLoads = ["extload", "sextload", "zextload"];
+  defvar LDXXI = [LDXI, LDXI, LDXUI];
+  defvar LDXX = [LDX, LDX, LDXU];
+  foreach j = !range(!size(XExtLoads)) in {
+    defvar xextload = !cast<PatFrag>(XExtLoads[j]#SizeVTInt);
+    def : Pat<(i64 (xextload iPTR:$Y)), (LDXXI[j] GPR:$Y, 0)>;
+    def : Pat<(i64 (xextload (ptradd iPTR:$Y, u8imm:$offset))),
+              (LDXXI[j] GPR:$Y, u8imm:$offset)>;
+    def : Pat<(i64 (xextload (ptradd iPTR:$Y, i64:$offset))),
+              (LDXX[j] GPR:$Y, GPR:$offset)>;
+  }
+
+  def : Pat<(!cast<PatFrag>(truncstore#SizeVTInt) i64:$X, (ptradd iPTR:$Y, u8imm:$offset)),
+            (STXUI GPR:$X, GPR:$Y, u8imm:$offset)>;
+  def : Pat<(!cast<PatFrag>(truncstore#SizeVTInt) i64:$X, (ptradd iPTR:$Y, i64:$offset)),
+            (STXU GPR:$X, GPR:$Y, GPR:$offset)>;
 }
 // LDO and LDOU have the same effect, but they have different opcodes
 def : Pat<(i64 (load iPTR:$Y)), (LDOI GPR:$Y, 0)>;
+def : Pat<(i64 (load (ptradd iPTR:$Y, u8imm:$offset))), (LDOI GPR:$Y, u8imm:$offset)>;
 def : Pat<(store i64:$X, iPTR:$Y), (STOI GPR:$X, GPR:$Y, 0)>;
+
+def : Pat<(ptradd iPTR:$ptr, u8imm:$addend), (ADDU GPR:$ptr, u8imm:$addend)>;
+def : Pat<(ptradd iPTR:$ptr, i64:$addend), (ADDUI GPR:$ptr, GPR:$addend)>;
+
+defvar ICMPConds = ["ugt", "uge", "ult", "ule", "eq", "gt", "ge", "lt", "le", "ne"];
+defvar CMPConds = ["P", "NN", "N", "NP", "Z", "P", "NN", "N", "NP", "NZ"];
+def : Pat<(brcond i64:$X, bb:$YZ), (BP GPR:$X, bb:$YZ)>;
+def : Pat<(select i64:$Y, u8imm:$Z, 0), (ZSPI GPR:$Y, u8imm:$Z)>;
+def : Pat<(select i64:$Y, i64:$Z, 0), (ZSP GPR:$Y, GPR:$Z)>;
+def : Pat<(select i64:$Y, u8imm:$t, i64:$f), (CSNZI GPR:$Y, u8imm:$t, GPR:$f)>;
+def : Pat<(select i64:$Y, i64:$t, i64:$f), (CSNZ GPR:$Y, GPR:$t, GPR:$f)>;
+foreach i = !range(!size(ICMPConds)) in {
+  defvar BCond = CMPConds[i];
+  defvar BInst = !cast<InstB>("B"#BCond);
+  defvar SetCond = ICMPConds[i];
+  defvar CMPInst = !cast<Inst_X_Y_Z>(!if(!match(SetCond, "u"), "CMPU", "CMP"));
+  defvar SetInst = !cast<PatFrag>("set"#SetCond);
+  defvar ZSInst = !cast<Inst_X_Y_Z>("ZS"#BCond#"I");
+  defvar CSInst = !cast<Inst_X_Y_Z>("CS"#BCond);
+  defvar CSIInst = !cast<Inst_X_Y_Z>("CS"#BCond#"I");
+
+  def : Pat<(brcond (i64 (SetInst i64:$lhs, i64:$rhs)), bb:$YZ),
+            (BInst (CMPInst GPR:$lhs, GPR:$rhs), bb:$YZ)>;
+  def : Pat<(i64 (SetInst i64:$lhs, i64:$rhs)), (ZSInst (CMPInst GPR:$lhs, GPR:$rhs), 1)>;
+  def : Pat<(select (i64 (SetInst i64:$lhs, i64:$rhs)), i64:$t, i64:$f),
+            (CSInst (CMPInst GPR:$lhs, GPR:$rhs), GPR:$t, GPR:$f)>;
+  def : Pat<(select (i64 (SetInst i64:$lhs, i64:$rhs)), u8imm:$t, i64:$f),
+            (CSIInst (CMPInst GPR:$lhs, GPR:$rhs), u8imm:$t, GPR:$f)>;
+}
+
+// floating points
+def : Pat<(i64 (setueq f64:$Y, f64:$Z)), (OR (FUN GPR:$Y, GPR:$Z), (FEQL GPR:$Y, GPR:$Z))>;
+def : Pat<(i64 (setune f64:$Y, f64:$Z)), (OR (FUN GPR:$Y, GPR:$Z), (XORI (FEQL GPR:$Y, GPR:$Z), 1))>;
+def : Pat<(i64 (seto f64:$Y, f64:$Z)), (XORI (FUN GPR:$Y, GPR:$Z), 1)>;
 
 include "MMIXInstrGISel.td"
 

@@ -104,3 +104,169 @@ define <8 x i8> @selectG_USUBSAT(<8 x i8> %a, <8 x i8> %b) {
   %v = call <8 x i8> @llvm.usub.sat(<8 x i8> %a, <8 x i8> %b)
   ret <8 x i8> %v
 }
+
+define i64 @nand(i64 %a, i64 %b) {
+  ; CHECK-LABEL: name: nand
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[NAND:%[0-9]+]]:gpr = NAND [[COPY]], [[COPY1]]
+  ; CHECK-NEXT:   $r0 = COPY [[NAND]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %and = and i64 %a, %b
+  %nand = xor i64 %and, -1
+  ret i64 %nand
+}
+
+define i1 @icmp_ult(i64 %a, i64 %b) {
+  ; CHECK-LABEL: name: icmp_ult
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[CMPU:%[0-9]+]]:gpr = CMPU [[COPY]], [[COPY1]]
+  ; CHECK-NEXT:   [[ZSNI:%[0-9]+]]:gpr = ZSNI [[CMPU]], 1
+  ; CHECK-NEXT:   $r0 = COPY [[ZSNI]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %cmp = icmp ult i64 %a, %b
+  ret i1 %cmp
+}
+
+define i1 @cmp_slt(i64 %a, i64 %b) {
+  ; CHECK-LABEL: name: cmp_slt
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[CMP:%[0-9]+]]:gpr = CMP [[COPY]], [[COPY1]]
+  ; CHECK-NEXT:   [[ZSNI:%[0-9]+]]:gpr = ZSNI [[CMP]], 1
+  ; CHECK-NEXT:   $r0 = COPY [[ZSNI]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %cmp = icmp slt i64 %a, %b
+  ret i1 %cmp
+}
+
+define i1 @cmp_ule(i64 %a, i64 %b) {
+  ; CHECK-LABEL: name: cmp_ule
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[CMPU:%[0-9]+]]:gpr = CMPU [[COPY]], [[COPY1]]
+  ; CHECK-NEXT:   [[ZSNPI:%[0-9]+]]:gpr = ZSNPI [[CMPU]], 1
+  ; CHECK-NEXT:   $r0 = COPY [[ZSNPI]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %cmp = icmp ule i64 %a, %b
+  ret i1 %cmp
+}
+
+define i1 @cmp_sle(i64 %a, i64 %b) {
+  ; CHECK-LABEL: name: cmp_sle
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[CMP:%[0-9]+]]:gpr = CMP [[COPY]], [[COPY1]]
+  ; CHECK-NEXT:   [[ZSNPI:%[0-9]+]]:gpr = ZSNPI [[CMP]], 1
+  ; CHECK-NEXT:   $r0 = COPY [[ZSNPI]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %cmp = icmp sle i64 %a, %b
+  ret i1 %cmp
+}
+
+define i1 @cmp_eq(i64 %a, i64 %b) {
+  ; CHECK-LABEL: name: cmp_eq
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[CMP:%[0-9]+]]:gpr = CMP [[COPY]], [[COPY1]]
+  ; CHECK-NEXT:   [[ZSZI:%[0-9]+]]:gpr = ZSZI [[CMP]], 1
+  ; CHECK-NEXT:   $r0 = COPY [[ZSZI]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %cmp = icmp eq i64 %a, %b
+  ret i1 %cmp
+}
+
+define i1 @cmp_ne(i64 %a, i64 %b) {
+  ; CHECK-LABEL: name: cmp_ne
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[CMP:%[0-9]+]]:gpr = CMP [[COPY]], [[COPY1]]
+  ; CHECK-NEXT:   [[ZSNZI:%[0-9]+]]:gpr = ZSNZI [[CMP]], 1
+  ; CHECK-NEXT:   $r0 = COPY [[ZSNZI]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %cmp = icmp ne i64 %a, %b
+  ret i1 %cmp
+}
+
+define i1 @cmp_sgt(i64 %a, i64 %b) {
+  ; CHECK-LABEL: name: cmp_sgt
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[CMP:%[0-9]+]]:gpr = CMP [[COPY]], [[COPY1]]
+  ; CHECK-NEXT:   [[ZSPI:%[0-9]+]]:gpr = ZSPI [[CMP]], 1
+  ; CHECK-NEXT:   $r0 = COPY [[ZSPI]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %cmp = icmp sgt i64 %a, %b
+  ret i1 %cmp
+}
+
+define i1 @cmp_ugt(i64 %a, i64 %b) {
+  ; CHECK-LABEL: name: cmp_ugt
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[CMPU:%[0-9]+]]:gpr = CMPU [[COPY]], [[COPY1]]
+  ; CHECK-NEXT:   [[ZSPI:%[0-9]+]]:gpr = ZSPI [[CMPU]], 1
+  ; CHECK-NEXT:   $r0 = COPY [[ZSPI]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %cmp = icmp ugt i64 %a, %b
+  ret i1 %cmp
+}
+
+define i64 @select(i1 %cond, i64 %a, i64 %b) {
+  ; CHECK-LABEL: name: select
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0, $r1, $r2
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:gpr = COPY $r1
+  ; CHECK-NEXT:   [[COPY2:%[0-9]+]]:gpr = COPY $r2
+  ; CHECK-NEXT:   [[CSNZ:%[0-9]+]]:gpr = CSNZ [[COPY]], [[COPY1]], [[COPY2]]
+  ; CHECK-NEXT:   $r0 = COPY [[CSNZ]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %r = select i1 %cond, i64 %a, i64 %b
+  ret i64 %r
+}
+
+define i8 @load_offset(ptr %p) {
+  ; CHECK-LABEL: name: load_offset
+  ; CHECK: bb.1 (%ir-block.0):
+  ; CHECK-NEXT:   liveins: $r0
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gpr = COPY $r0
+  ; CHECK-NEXT:   [[SETL:%[0-9]+]]:gpr = SETL 256
+  ; CHECK-NEXT:   [[LDB:%[0-9]+]]:gpr = LDB [[COPY]], [[SETL]] :: (load (s8) from %ir.l)
+  ; CHECK-NEXT:   $r0 = COPY [[LDB]]
+  ; CHECK-NEXT:   POP 1, 0, implicit $r0
+  %l = getelementptr inbounds nuw i8, ptr %p, i64 256
+  %v = load i8, ptr %l, align 1
+  ret i8 %v
+}
+
