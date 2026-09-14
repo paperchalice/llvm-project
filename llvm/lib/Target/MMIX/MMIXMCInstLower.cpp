@@ -14,8 +14,11 @@
 
 #include "MMIXMCInstLower.h"
 
+#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 
 using namespace llvm;
@@ -49,6 +52,10 @@ bool MMIXMCInstLower::lowerOperand(const MachineOperand &MO,
     MCOp = MCOperand::createImm(MO.getCImm()->getZExtValue());
     break;
   case MachineOperand::MO_FPImmediate:
+    break;
+  case MachineOperand::MO_MachineBasicBlock:
+    MCOp = MCOperand::createExpr(
+        MCSymbolRefExpr::create(MO.getMBB()->getSymbol(), Ctx));
     break;
   default:
     return false;

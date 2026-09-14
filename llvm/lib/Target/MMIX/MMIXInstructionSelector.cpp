@@ -16,6 +16,9 @@
 #include "MMIXInstrInfo.h"
 #include "MMIXRegisterBankInfo.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
+#include "llvm/CodeGen/MachineBasicBlock.h"
+
+#include <optional>
 
 #define DEBUG_TYPE "mmix-instruction-select"
 
@@ -54,6 +57,11 @@ static std::array<uint16_t, 4> breakUInt64(uint64_t V) {
   return Parts;
 }
 
+static Register createVGPR(MachineRegisterInfo &MRI) {
+  return MRI.createVirtualRegister(
+      &getMMIXMCRegisterClass(MMIX::GPRRegClassID));
+}
+
 static bool selectG_CONSTANT(MachineInstr &I) {
   assert((I.getOpcode() == TargetOpcode::G_CONSTANT ||
           I.getOpcode() == TargetOpcode::G_FCONSTANT) &&
@@ -64,6 +72,8 @@ static bool selectG_CONSTANT(MachineInstr &I) {
   static const unsigned SetOps[4] = {MMIX::SETH, MMIX::SETMH, MMIX::SETML,
                                      MMIX::SETL};
   MachineOperand ImmOperand = I.getOperand(1);
+  // FLOTU instruction is 4u, and normal set is 1u, so use normal set+or
+  // is cheaper.
   uint64_t Constant = ImmOperand.isCImm() ? ImmOperand.getCImm()->getZExtValue()
                                           : ImmOperand.getFPImm()
                                                 ->getValue()
@@ -71,8 +81,7 @@ static bool selectG_CONSTANT(MachineInstr &I) {
                                                 .trunc(64)
                                                 .getZExtValue();
   std::array Parts = breakUInt64(Constant);
-  Register ResultReg =
-      MRI.createVirtualRegister(&getMMIXMCRegisterClass(MMIX::GPRRegClassID));
+  Register ResultReg = createVGPR(MRI);
   size_t FirstNonZeroIdx = std::min<size_t>(
       llvm::find_if(Parts, [](uint16_t P) { return P != 0; }) - Parts.begin(),
       3);
@@ -83,8 +92,7 @@ static bool selectG_CONSTANT(MachineInstr &I) {
     uint64_t Imm = Parts[I];
     if (Imm == 0)
       continue;
-    Register TmpReg =
-        MRI.createVirtualRegister(&getMMIXMCRegisterClass(MMIX::GPRRegClassID));
+    Register TmpReg = createVGPR(MRI);
     MIB.buildInstr(OrOps[I])
         .addDef(TmpReg)
         .addUse(ResultReg, RegState::Kill)
@@ -96,14 +104,38 @@ static bool selectG_CONSTANT(MachineInstr &I) {
   return true;
 }
 
+static bool selectG_UMULH(MachineInstr &I) {
+  MachineIRBuilder MIB(I);
+  MachineRegisterInfo &MRI = *MIB.getMRI();
+  MachineOperand Multiplier = I.getOperand(2);
+  unsigned MulInst = MMIX::MULU;
+  if (Multiplier.isCImm() && isUInt<8>(Multiplier.getCImm()->getZExtValue()))
+    MulInst = MMIX::MULUI;
+  Register Prod = createVGPR(MRI);
+  MIB.buildInstr(MulInst, {Prod}, {I.getOperand(1), I.getOperand(2)});
+  MIB.buildInstr(MMIX::GET, {I.getOperand(0)}, {Register(MMIX::rH)});
+  I.eraseFromParent();
+  return true;
+}
+
 bool MMIXInstructionSelector::select(MachineInstr &I) {
   LLVM_DEBUG(dbgs() << "select ");
   LLVM_DEBUG(I.dump());
 
   unsigned Opc = I.getOpcode();
   // Certain non-generic instructions also need some special handling.
-  if (!isPreISelGenericOpcode(Opc))
+  if (!isPreISelGenericOpcode(Opc)) {
+    MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
+    // don't forget assign reg class for them
+    for (MachineOperand &Op : I.all_defs()) {
+      Register DefReg = Op.getReg();
+      if (DefReg.isPhysical() || MRI.getRegClassOrNull(DefReg))
+        continue;
+      RegisterBankInfo::constrainGenericRegister(
+          DefReg, getMMIXMCRegisterClass(MMIX::GPRRegClassID), MRI);
+    }
     return true;
+  }
 
   if (selectImpl(I, *CoverageInfo))
     return true;
@@ -113,8 +145,10 @@ bool MMIXInstructionSelector::select(MachineInstr &I) {
     return selectG_CONSTANT(I);
   case TargetOpcode::G_FCONSTANT:
     return selectG_CONSTANT(I);
-  case TargetOpcode::G_BITCAST:
-    
+  case TargetOpcode::G_UMULH:
+    return selectG_UMULH(I);
+  case TargetOpcode::G_PHI:
+    return true;
   default:
     break;
   }
