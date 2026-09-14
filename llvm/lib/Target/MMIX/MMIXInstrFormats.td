@@ -106,11 +106,11 @@ def BranchDestOperand : AsmOperandClass {
   let Name = "BranchDest";
   let ParserMethod = "parseBranchDest";
 }
-def b_dst : Operand<i32> {
+def b_dst : Operand<OtherVT> {
   let ParserMatchClass = BranchDestOperand;
   let PrintMethod = "printBranchDestOperand";
 }
-def jmp_dst : Operand<i32> {
+def jmp_dst : Operand<OtherVT> {
   let ParserMatchClass = BranchDestOperand;
   let PrintMethod = "printJmpDestOperand";
 }
@@ -156,6 +156,7 @@ class InstB<bits<8> opcode, string opstr = NAME> :
   let Inst{15...0} = YZ{15...0};
 
   let isBranch = true;
+  let isTerminator = true;
 }
 
 class InstJMP<string opstr = NAME> :
@@ -202,6 +203,13 @@ multiclass BinOp<bits<8> opcode, list<dag> patops=[]> {
 
 class op_nxw<dag op> : PatFrag<(ops node:$src0, node:$src1), (!getdagop(op) node:$src0, node:$src1)> {
   let GISelPredicateCode = [{return MI.getFlag(MachineInstr::NoUWrap) || MI.getFlag(MachineInstr::NoSWrap);}];
+}
+
+class OpNPat<dag op> : PatFrag<(ops node:$src0, node:$src1), (!getdagop(op) node:$src0, (not node:$src1))>;
+class NOpPat<dag op> : PatFrag<(ops node:$src0, node:$src1), (not (!getdagop(op) node:$src0, node:$src1))>;
+foreach i=[or, and, xor] in {
+  def i#"n" : OpNPat<(i)>;
+  def "n"#i : NOpPat<(i)>;
 }
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXINSTRFORMATS_TD

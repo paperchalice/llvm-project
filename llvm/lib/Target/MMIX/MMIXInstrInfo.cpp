@@ -14,6 +14,8 @@
 #include "MCTargetDesc/MMIXMCTargetDesc.h"
 #include "MMIXSubtarget.h"
 
+#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
+
 #define GET_INSTRINFO_CTOR_DTOR
 #include "MMIXGenInstrInfo.inc"
 
@@ -25,3 +27,20 @@ MMIXInstrInfo::MMIXInstrInfo(const MMIXSubtarget &STI)
                        /*CatchRetOpcode=*/~0u,
                        /*ReturnOpcode=*/MMIX::POP),
       STI(STI), RI() {}
+
+void MMIXInstrInfo::storeRegToStackSlot(
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, Register SrcReg,
+    bool isKill, int FrameIndex, const TargetRegisterClass *RC, Register VReg,
+    MachineInstr::MIFlag Flags) const {
+  dbgs() << "TODO: implement MMIXInstrInfo::storeRegToStackSlot";
+}
+
+void MMIXInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+                                MachineBasicBlock::iterator MI,
+                                const DebugLoc &DL, Register DestReg,
+                                Register SrcReg, bool KillSrc,
+                                bool RenamableDest, bool RenamableSrc) const {
+  auto MIB = MachineIRBuilder(*MI);
+  constexpr uint64_t Zero = 0;
+  MIB.buildInstr(MMIX::ORI, {DestReg}, {SrcReg, Zero});
+}
