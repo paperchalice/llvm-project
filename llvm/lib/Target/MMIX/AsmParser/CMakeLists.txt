@@ -1,4 +1,6 @@
 add_llvm_component_library(LLVMMMIXAsmParser
+  MMIXALLexer.cpp
+  MMIXALParser.cpp
   MMIXAsmParser.cpp
   MMIXOperand.cpp
 

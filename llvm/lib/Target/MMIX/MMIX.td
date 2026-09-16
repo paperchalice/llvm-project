@@ -35,8 +35,13 @@ def : ProcessorModel<"generic", NoSchedModel, []>;
 
 def MMIXInstrInfo : InstrInfo;
 
+def MMIXALParser : AsmParser {
+  let AsmParserClassName = "ALParser";
+}
+
 def MMIX : Target {
   let InstructionSet = MMIXInstrInfo;
+  let AssemblyParsers = [DefaultAsmParser, MMIXALParser];
 }
 
 #endif
