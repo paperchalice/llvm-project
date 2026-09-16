@@ -54,8 +54,13 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
                                G_UREM, G_SDIVREM, G_UDIVREM, G_AND, G_OR, G_XOR,
                                G_UMULH, G_UNMERGE_VALUES})
       .legalFor({s64})
-      .widenScalarToNextPow2(0)
-      .clampScalar(0, s64, s64);
+      .clampScalar(0, s64, s64)
+      .widenScalarToNextPow2(0);
+
+  getActionDefinitionsBuilder(
+      {G_UADDO, G_SADDO, G_USUBO, G_SSUBO, G_SMULO, G_UMULO})
+      .lower();
+  getActionDefinitionsBuilder({G_UADDE, G_SADDE, G_USUBE, G_SSUBE}).lower();
 
   getActionDefinitionsBuilder({G_FADD, G_FSUB, G_FMUL, G_FDIV, G_FREM})
       .legalFor({f64});
