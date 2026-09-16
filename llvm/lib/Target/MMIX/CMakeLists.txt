@@ -2,6 +2,7 @@ add_llvm_component_group(MMIX)
 
 set(LLVM_TARGET_DEFINITIONS MMIX.td)
 tablegen(LLVM MMIXGenAsmMatcher.inc -gen-asm-matcher)
+tablegen(LLVM MMIXGenALMatcher.inc -gen-asm-matcher -asmparsernum=1)
 tablegen(LLVM MMIXGenAsmWriter.inc -gen-asm-writer)
 tablegen(LLVM MMIXGenCallingConv.inc -gen-callingconv)
 tablegen(LLVM MMIXGenInstrInfo.inc -gen-instr-info)
