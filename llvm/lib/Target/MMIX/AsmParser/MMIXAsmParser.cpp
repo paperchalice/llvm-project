@@ -216,11 +216,12 @@ void MMIXAsmParser::Initialize(MCAsmParser &Parser) {
 
   // MMIXAL requires special registers are predefined constants
   const MCRegisterClass &SPRClass = getMMIXMCRegisterClass(MMIX::SPRRegClassID);
-  for (unsigned I = 0, E = SPRClass.getNumRegs(); I != E; ++I) {
-    MCRegister Reg = MMIX::getSPRFromEnc(I);
+  for (unsigned I = 0x100, E = SPRClass.getNumRegs() + 0x100; I != E; ++I) {
+    const MCRegisterInfo &MRI = *getContext().getRegisterInfo();
+    MCRegister Reg = *MRI.getLLVMRegNum(I, /*IsEH=*/false);
     MCSymbol *Symbol =
         Context.getOrCreateSymbol(MMIXInstPrinter::getRegisterName(Reg));
-    Symbol->setVariableValue(MCConstantExpr::create(I, Context));
+    Symbol->setVariableValue(MCConstantExpr::create(I - 0x100, Context));
     Symbol->setRedefinable(true);
   }
 
