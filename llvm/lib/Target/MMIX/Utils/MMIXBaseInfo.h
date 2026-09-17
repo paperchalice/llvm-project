@@ -9,12 +9,6 @@
 #ifndef LLVM_LIB_TARGET_MMIX_UTILS_MMIXBASEINFO_H
 #define LLVM_LIB_TARGET_MMIX_UTILS_MMIXBASEINFO_H
 
-#include "llvm/MC/MCRegister.h"
-
-namespace llvm::MMIX {
-
-MCRegister getSPRFromEnc(unsigned RegEnc);
-
-}
+namespace llvm::MMIX {}
 
 #endif // LLVM_LIB_TARGET_MMIX_UTILS_MMIXBASEINFO_H
