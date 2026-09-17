@@ -108,12 +108,6 @@ private:
 
   void assignIndex(MCSymbol &Symbol);
 
-  // MMIX specific expression parser
-  bool parseExpression(const MCExpr *&Res, SMLoc &EndLoc);
-  bool parseExpression(const MCExpr *&Res) {
-    SMLoc Loc;
-    return parseExpression(Res, Loc);
-  }
   bool parseBinOpRHS(unsigned Precedence, const MCExpr *&Res, SMLoc &EndLoc);
   bool isRegExpr(const MCExpr *Expr);
 
@@ -281,8 +275,13 @@ bool MMIXAsmParser::parseRegister(MCRegister &RegNo, SMLoc &StartLoc,
 ParseStatus MMIXAsmParser::tryParseRegister(MCRegister &RegNo, SMLoc &StartLoc,
                                             SMLoc &EndLoc) {
 
-  AsmToken RegTok = getTok();
-  RegNo = MatchRegisterName(RegTok.getString());
+  if (getTok().isNot(AsmToken::Dollar))
+    return ParseStatus::NoMatch;
+  StartLoc = getTok().getLoc();
+  Lex(); // eat $
+  SmallString<4> RegString("$");
+  RegString.append(getTok().getString());
+  RegNo = MatchRegisterName(RegString);
   if (RegNo == MMIX::NoRegister)
     return ParseStatus::NoMatch;
   Lex(); // eat register token
@@ -311,23 +310,33 @@ bool MMIXAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
       Lex();
     }
 
-    // operand is always expression
+    // first, try custom parser
     const MCExpr *Expr = nullptr;
     auto StartLoc = getTok().getLoc();
     ParseStatus CustomMatchResult = MatchOperandParserImpl(Operands, Name);
     if (CustomMatchResult.isSuccess())
       continue;
+
+    // try register
+    {
+      SMLoc StartLoc;
+      SMLoc EndLoc;
+      MCRegister RegNo;
+      ParseStatus RegMatchResult = tryParseRegister(RegNo, StartLoc, EndLoc);
+      if (RegMatchResult.isSuccess()) {
+        Operands.push_back(MMIXOperand::createReg(RegNo, StartLoc, EndLoc));
+        continue;
+      }
+    }
+
+    // other operands are always expression
     SMLoc EndLoc;
-    bool HasError = parseExpression(Expr, EndLoc);
+    bool HasError = getParser().parseExpression(Expr, EndLoc);
 
     if (HasError)
       return true;
 
-    if (const auto *TE = dyn_cast<MMIXMCExpr>(Expr)) {
-      if (TE->isRegExpr())
-        Operands.push_back(
-            MMIXOperand::createReg(TE->getMCReg(), StartLoc, EndLoc));
-    } else if (const auto *E = dyn_cast<MCConstantExpr>(Expr)) {
+    if (const auto *E = dyn_cast<MCConstantExpr>(Expr)) {
       Operands.push_back(
           MMIXOperand::createImm(E->getValue(), StartLoc, EndLoc));
     } else {
@@ -340,37 +349,13 @@ bool MMIXAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
 ParseStatus MMIXAsmParser::parseBranchDest(OperandVector &Operands) {
   const MCExpr *Expr = nullptr;
   auto StartLoc = getTok().getLoc();
-  bool HasError = parseExpression(Expr);
+  bool HasError = getParser().parseExpression(Expr);
   auto EndLoc = getTok().getLoc();
 
   if (HasError)
     return ParseStatus::Failure;
   Operands.push_back(MMIXOperand::createBranchDest(Expr, StartLoc, EndLoc));
   return ParseStatus::Success;
-}
-
-/// See mmixal document
-bool MMIXAsmParser::parseExpression(const MCExpr *&Res, SMLoc &EndLoc) {
-  // Parse the expression.
-  Res = nullptr;
-  if (parsePrimaryExpr(Res, EndLoc) || parseBinOpRHS(1, Res, EndLoc))
-    return true;
-
-  // Try to constant fold it up front, if possible. Do not exploit
-  // assembler here.
-  bool IsRegExpr = isRegExpr(Res);
-  int64_t Value;
-  if (Res->evaluateAsAbsolute(Value)) {
-    MCContext &Ctx = getContext();
-    if (IsRegExpr)
-      Res = MMIXMCExpr::createRegExpr(Value, Ctx);
-    else
-      Res = MCConstantExpr::create(Value, Ctx);
-  } else if (IsRegExpr) {
-    return Error(EndLoc, "register expression is not constant");
-  }
-
-  return false;
 }
 
 static unsigned getBinOpPrecedence(AsmToken::TokenKind K,
@@ -527,19 +512,6 @@ bool MMIXAsmParser::parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc) {
     Res = MCConstantExpr::create(Symbol.getIndex(), Ctx);
     return false;
   }
-  case AsmToken::Dollar: {
-    Lex(); // Eat $.
-    const MCExpr *Expr;
-    if (parsePrimaryExpr(Expr, EndLoc))
-      return true;
-    Res = MMIXMCExpr::createRegExpr(Expr, Ctx);
-    return false;
-  }
-  case AsmToken::LParen: {
-    Lex();
-    parseExpression(Res, EndLoc);
-    return getParser().parseToken(AsmToken::RParen, "expect (");
-  }
   default:
     break;
   }
@@ -577,7 +549,7 @@ ParseStatus MMIXAsmParser::parseGREG(SMLoc Loc) {
   MCAsmParser &Parser = getParser();
   AsmLexer &Lexer = getLexer();
   const MCExpr *Expr;
-  if (parseExpression(Expr))
+  if (Parser.parseExpression(Expr))
     return Error(Lexer.getLoc(), "expect expression");
 
   StringRef Name;
@@ -621,7 +593,7 @@ ParseStatus MMIXAsmParser::parseBSPEC(SMLoc Loc) {
 
   Streamer.pushSection();
   const MCExpr *Expr;
-  parseExpression(Expr);
+  getParser().parseExpression(Expr);
   const auto *CExpr = dyn_cast<MCConstantExpr>(Expr);
   if (!CExpr)
     return Error(Lexer.getLoc(), "expect constant expression");
@@ -651,7 +623,7 @@ ParseStatus MMIXAsmParser::parseIS(SMLoc Loc) {
       Parser.parseComma())
     return ParseStatus::Failure;
   const MCExpr *Expr;
-  if (parseExpression(Expr))
+  if (Parser.parseExpression(Expr))
     return ParseStatus::Failure;
 
   Streamer.emitAssignment(Ctx.getOrCreateSymbol(Name), Expr);
@@ -660,7 +632,7 @@ ParseStatus MMIXAsmParser::parseIS(SMLoc Loc) {
 
 ParseStatus MMIXAsmParser::parseLOCAL(SMLoc Loc) {
   const MCExpr *Expr;
-  if (parseExpression(Expr))
+  if (getParser().parseExpression(Expr))
     return ParseStatus::Failure;
   AsmLexer &Lexer = getLexer();
   if (const auto *RegExpr = dyn_cast<MMIXMCExpr>(Expr)) {
