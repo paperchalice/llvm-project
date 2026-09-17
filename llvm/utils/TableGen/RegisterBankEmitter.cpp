@@ -151,6 +151,9 @@ private:
   std::optional<ValueMappingInfo> inferValueMapping(const TreePatternNode &N);
   static std::string buildPartialMapIdxEnumName(const RegisterBank &Bank,
                                                 const PartSizeT &PartSize);
+  static std::string buildValueMapIdxEnumName(const RegisterBank &Bank,
+                                              const PartSizeT &PartSize,
+                                              unsigned PartN = 1);
   void gatherNodeEquivs();
 
 public:
@@ -490,6 +493,19 @@ std::string RegisterBankEmitter::buildPartialMapIdxEnumName(
   return RSO.str();
 }
 
+std::string RegisterBankEmitter::buildValueMapIdxEnumName(
+    const RegisterBank &Bank, const RegisterBankEmitter::PartSizeT &PartSize,
+    unsigned PartN) {
+  auto [Size, Offset] = PartSize;
+  std::string EnumName;
+  raw_string_ostream RSO(EnumName);
+  RSO << "VMI_" << PartN << 'x' << Bank.getName();
+  if (Offset != 0)
+    RSO << Offset << '_';
+  RSO << Size;
+  return RSO.str();
+}
+
 void RegisterBankEmitter::emitRBIHeader(raw_ostream &OS,
                                         ArrayRef<RegisterBank> Banks) {
 
@@ -511,6 +527,43 @@ void RegisterBankEmitter::emitRBIHeader(raw_ostream &OS,
     OS << "  PMI_Last" << Bank.getName() << " = "
        << buildPartialMapIdxEnumName(Bank, *PartSizeSet.rbegin()) << ",\n";
   }
+  OS << "};\n\n";
+
+  OS << "enum ValueMappingIdx {\n"
+        "  VMI_Invalid = 0,\n";
+  for (const auto &Bank : Banks) {
+    OS << '\n';
+    std::set<PartSizeT> &PartSizeSet = BankPartSizes[&Bank];
+    std::vector<PartSizeT> BreakDowns;
+    PartSizeT BreakDownStartPartSize;
+    for (auto PartSize : PartSizeSet) {
+      auto [Size, Offset] = PartSize;
+      std::string EnumName = buildValueMapIdxEnumName(Bank, PartSize);
+      if (BreakDowns.empty()) {
+        BreakDownStartPartSize = PartSize;
+        BreakDowns.push_back(PartSize);
+        OS << "  " << EnumName << ",\n";
+        continue;
+      }
+
+      auto [LastPartSize, LastPartOffset] = BreakDowns.back();
+      if (LastPartOffset + LastPartSize == Offset) {
+        BreakDowns.push_back(PartSize);
+        OS << "  " << EnumName << ",\n";
+      } else {
+        for (size_t I = 0, E = BreakDowns.size(); I != E; ++I) {
+          if (I == 0)
+            continue;
+          OS << "  "
+             << buildValueMapIdxEnumName(Bank, BreakDownStartPartSize, I + 1)
+             << ",\n";
+        }
+        BreakDowns = {PartSize};
+        BreakDownStartPartSize = PartSize;
+        OS << "  " << EnumName << ",\n";
+      }
+    }
+  }
   OS << "};\n";
 }
 
@@ -524,10 +577,9 @@ void RegisterBankEmitter::emitRBIPartialMappings(raw_ostream &OS,
     OS << '\n';
     std::set<PartSizeT> &PartSizeSet = BankPartSizes[&Bank];
     for (auto [Size, Offset] : PartSizeSet) {
-      OS << "    // " << Idx++ << ", PMI_" << Bank.getName();
-      if (Offset != 0)
-        OS << Offset << '_';
-      OS << Size << ":  " << Bank.getName();
+      std::string EnumName = buildPartialMapIdxEnumName(Bank, {Size, Offset});
+      OS << "    // " << Idx++ << ", " << Bank.getName() << ":  "
+         << Bank.getName();
       if (Offset > 0)
         OS << ' ' << Offset << " to " << Size + Offset - 1 << ',';
       OS << ' ' << Size << "-bit value.\n"
@@ -556,46 +608,48 @@ RegisterBankEmitter::inferValueMapping(const TreePatternNode &N) {
     }
   }
 
-  const Record *OpRec = Src.getOperator();
   return std::nullopt;
 }
 
 void RegisterBankEmitter::emitRBIValueMappings(raw_ostream &OS,
                                                ArrayRef<RegisterBank> Banks) {
+  OS << "constexpr RegisterBankInfo::ValueMapping ValMappings[] = {\n"
+        "    // BreakDown, NumBreakDowns\n"
+        "    // 0: invalid\n"
+        "    {nullptr, 0},\n";
 
-  // Look through the SelectionDAG patterns we found, possibly emitting some.
-  for (const PatternToMatch &Pat : CGP.ptms()) {
-    if (Pat.getGISelShouldIgnore())
-      continue; // skip without warning
+  for (const auto &Bank : Banks) {
+    OS << '\n';
+    std::set<PartSizeT> &PartSizeSet = BankPartSizes[&Bank];
+    std::vector<PartSizeT> BreakDowns;
+    std::string BreakDownStartEnumName;
+    for (auto PartSize : PartSizeSet) {
+      auto [Size, Offset] = PartSize;
+      std::string EnumName = buildPartialMapIdxEnumName(Bank, PartSize);
+      if (BreakDowns.empty()) {
+        BreakDownStartEnumName = EnumName;
+        BreakDowns.push_back(PartSize);
+        OS << "    " << "{&PartMappings[" << EnumName << "], 1},\n";
+        continue;
+      }
 
-    TreePatternNode &Src = Pat.getSrcPattern();
-    TreePatternNode &Dst = Pat.getDstPattern();
-
-    if (Src.isLeaf())
-      continue;
-
-    const Record *OpRec = Src.getOperator();
-    const Record *Equiv = NodeEquivs.lookup_or(OpRec, nullptr);
-    if (!Equiv)
-      continue;
-    if (Equiv->getValueAsDef("I")->getName() != "G_ADD")
-      continue;
-
-    inferValueMapping(Src);
-    for (const auto &Child : Src.children()) {
-      if (Child.isLeaf()) {
-        auto VM = inferValueMapping(Child);
-        if (VM) {
-          dbgs() << VM->RC->getName() << ' ' << std::get<0>(VM->Size) << '\n';
+      auto [LastPartSize, LastPartOffset] = BreakDowns.back();
+      if (LastPartOffset + LastPartSize == Offset) {
+        BreakDowns.push_back(PartSize);
+        OS << "    " << "{&PartMappings[" << EnumName << "], 1},\n";
+      } else {
+        for (size_t I = 0, E = BreakDowns.size(); I != E; ++I) {
+          if (I == 0)
+            continue;
+          OS << "    " << "{&PartMappings[" << BreakDownStartEnumName << "], "
+             << I + 1 << "},\n";
         }
+        BreakDowns = {PartSize};
+        BreakDownStartEnumName = EnumName;
+        OS << "\n    " << "{&PartMappings[" << EnumName << "], 1},\n";
       }
     }
-    Src.dump();
-    Dst.dump();
-    dbgs() << '\n';
   }
-
-  OS << "constexpr RegisterBankInfo::ValueMapping ValMappings[] = {";
 
   OS << "};\n";
 }
