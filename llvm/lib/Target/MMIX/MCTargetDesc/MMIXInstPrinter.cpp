@@ -144,6 +144,9 @@ void MMIXInstPrinter::printSPRImmOperand(const MCInst *MI, unsigned OpNo,
     O << Imm;
     return;
   }
-  MCRegister Reg = MMIX::getSPRFromEnc(Imm);
-  O << getRegisterName(Reg);
+  std::optional<MCRegister> Reg =
+      MRI.getLLVMRegNum(Imm + 0x100, /*isEH=*/false);
+  if (!Reg)
+    return;
+  O << getRegisterName(*Reg);
 }

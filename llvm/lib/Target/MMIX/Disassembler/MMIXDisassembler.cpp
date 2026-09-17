@@ -30,10 +30,31 @@ using DecodeStatus = MCDisassembler::DecodeStatus;
 
 #define DEBUG_TYPE "mmix-disassembler"
 
-template <int ClassID>
-static DecodeStatus DecodeMMIXRegisterClass(MCInst &Inst, uint64_t RegNo,
-                                            uint64_t Address,
-                                            const void *Decoder);
+static DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
+                                           uint64_t Address,
+                                           const MCDisassembler *Decoder) {
+  const MCRegisterClass &GPRClass = getMMIXMCRegisterClass(MMIX::GPRRegClassID);
+  if (RegNo >= GPRClass.getNumRegs())
+    return DecodeStatus::Fail;
+  MCRegister Reg = GPRClass.getRegister(RegNo);
+  Inst.addOperand(MCOperand::createReg(Reg));
+  return DecodeStatus::Success;
+}
+
+static DecodeStatus DecodeSPRRegisterClass(MCInst &Inst, uint64_t RegNo,
+                                           uint64_t Address,
+                                           const MCDisassembler *Decoder) {
+  const MCRegisterClass &SPRClass = getMMIXMCRegisterClass(MMIX::SPRRegClassID);
+  if (RegNo >= SPRClass.getNumRegs())
+    return DecodeStatus::Fail;
+  const MCRegisterInfo &MRI = *Decoder->getContext().getRegisterInfo();
+  std::optional<MCRegister> Reg =
+      MRI.getLLVMRegNum(RegNo + 0x100, /*isEH=*/false);
+  if (!Reg)
+    return DecodeStatus::Fail;
+  Inst.addOperand(MCOperand::createReg(*Reg));
+  return DecodeStatus::Success;
+}
 
 #include "MMIXGenDisassemblerTables.inc"
 
@@ -63,19 +84,6 @@ static MCDisassembler *createMMIXDisassembler(const Target &T,
                                               const MCSubtargetInfo &STI,
                                               MCContext &Ctx) {
   return new MMIXDisassembler(STI, Ctx, T.createMCInstrInfo());
-}
-
-template <int ClassID>
-DecodeStatus DecodeMMIXRegisterClass(MCInst &Inst, uint64_t RegNo,
-                                     uint64_t Address, const void *Decoder) {
-  const MCRegisterClass &RClass = getMMIXMCRegisterClass(ClassID);
-  if (RegNo >= RClass.getNumRegs())
-    return DecodeStatus::Fail;
-  bool IsSPR = ClassID == MMIX::SPRRegClassID;
-  MCRegister Reg =
-      IsSPR ? MMIX::getSPRFromEnc(RegNo) : RClass.getRegister(RegNo);
-  Inst.addOperand(MCOperand::createReg(Reg));
-  return DecodeStatus::Success;
 }
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXDisassembler() {
