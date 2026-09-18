@@ -25,6 +25,7 @@ include "MMIXInstrInfo.td"
 //===----------------------------------------------------------------------===//
 // MMIX processors supported.
 //===----------------------------------------------------------------------===//
+include "MMIXSchedDefault.td"
 
 def : ProcessorModel<"generic", NoSchedModel, []>;
 
