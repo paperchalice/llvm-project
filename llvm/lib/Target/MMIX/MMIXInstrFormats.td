@@ -102,17 +102,12 @@ def rounding_mode: Operand<i8> {
   let PrintMethod = "printRoundingModeOperand";
 }
 
-def BranchDestOperand : AsmOperandClass {
-  let Name = "BranchDest";
-  let ParserMethod = "parseBranchDest";
+def RelAddrOperand : AsmOperandClass {
+  let Name = "Mem";
+  let ParserMethod = "parseRelAddr";
 }
-def b_dst : Operand<OtherVT> {
-  let ParserMatchClass = BranchDestOperand;
-  let PrintMethod = "printBranchDestOperand";
-}
-def jmp_dst : Operand<OtherVT> {
-  let ParserMatchClass = BranchDestOperand;
-  let PrintMethod = "printJmpDestOperand";
+def rel_addr : Operand<OtherVT> {
+  let ParserMatchClass = RelAddrOperand;
 }
 
 def TrapYOperand : AsmOperandClass {
@@ -145,8 +140,28 @@ def spr_imm : Operand<i8> {
 // is a backward branch, i.e. the YZ is a signed operand,
 // so we can think BN is an instruction with only 7 bits opcode
 // and YZ is a 25 bits operand, the HSB is encoded into the Inst{24}.
+class InstB_X_YZ<bits<8> opcode, dag oops, dag iops, string opstr=NAME> :
+  MMIXInst<opcode, oops, iops, opstr, "$X,$YZ"> {
+  bits<8> X;
+  bits<17> YZ;
+
+  let Inst{31...25} = !srl(opcode, 1);
+  let Inst{24} = YZ{16};
+  let Inst{23...16} = X;
+  let Inst{15...0} = YZ{15...0};
+}
+
+class InstB_XYZ<bits<8> opcode, dag oops, dag iops, string opstr=NAME> :
+  MMIXInst<opcode, oops, iops, opstr, "$XYZ"> {
+  bits<25> XYZ;
+
+  let Inst{31...25} = !srl(opcode, 1);
+  let Inst{24} = XYZ{24};
+  let Inst{23...0} = XYZ{23...0};
+}
+
 class InstB<bits<8> opcode, string opstr = NAME> :
-  MMIXInst<opcode, (outs), (ins GPR:$X, b_dst:$YZ), opstr, "$X,$YZ"> {
+  InstB_X_YZ<opcode, (outs), (ins GPR:$X, rel_addr:$YZ), opstr> {
   bits<8> X;
   bits<17> YZ;
 
@@ -160,14 +175,9 @@ class InstB<bits<8> opcode, string opstr = NAME> :
 }
 
 class InstJMP<string opstr = NAME> :
-  MMIXInst<0xF0, (outs), (ins jmp_dst:$XYZ), opstr, "$XYZ"> {
-  bits<25> XYZ;
-
-  let Inst{31...25} = !srl(0xF0, 1);
-  let Inst{24} = XYZ{24};
-  let Inst{23...0} = XYZ{23...0};
-
+  InstB_XYZ<0xF0, (outs), (ins rel_addr:$XYZ), opstr> {
   let isBranch = true;
+  let isTerminator = true;
 }
 
 // helper records
