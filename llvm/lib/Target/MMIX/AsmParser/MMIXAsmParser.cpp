@@ -95,8 +95,7 @@ public:
   ParseStatus parseDirective(AsmToken DirectiveID) override;
 
 public:
-  ParseStatus parseBranchDest(OperandVector &Operands);
-
+  ParseStatus parseRelAddr(OperandVector &Operands);
   // Directive parsers
 private:
   ParseStatus parseGREG(SMLoc Loc);
@@ -107,9 +106,6 @@ private:
   ParseStatus parseLOCAL(SMLoc Loc);
 
   void assignIndex(MCSymbol &Symbol);
-
-  bool parseBinOpRHS(unsigned Precedence, const MCExpr *&Res, SMLoc &EndLoc);
-  bool isRegExpr(const MCExpr *Expr);
 
   int CurGReg = 254;
   std::vector<const MCExpr *> GRegVals;
@@ -311,11 +307,11 @@ bool MMIXAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
     }
 
     // first, try custom parser
-    const MCExpr *Expr = nullptr;
-    auto StartLoc = getTok().getLoc();
-    ParseStatus CustomMatchResult = MatchOperandParserImpl(Operands, Name);
-    if (CustomMatchResult.isSuccess())
-      continue;
+    {
+      ParseStatus CustomMatchResult = MatchOperandParserImpl(Operands, Name);
+      if (CustomMatchResult.isSuccess())
+        continue;
+    }
 
     // try register
     {
@@ -330,7 +326,9 @@ bool MMIXAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
     }
 
     // other operands are always expression
+    SMLoc StartLoc = getTok().getLoc();
     SMLoc EndLoc;
+    const MCExpr *Expr = nullptr;
     bool HasError = getParser().parseExpression(Expr, EndLoc);
 
     if (HasError)
@@ -340,13 +338,13 @@ bool MMIXAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
       Operands.push_back(
           MMIXOperand::createImm(E->getValue(), StartLoc, EndLoc));
     } else {
-      Operands.push_back(MMIXOperand::createBranchDest(Expr, StartLoc, EndLoc));
+      Operands.push_back(MMIXOperand::createRelAddr(Expr, StartLoc, EndLoc));
     }
   }
   return false;
 }
 
-ParseStatus MMIXAsmParser::parseBranchDest(OperandVector &Operands) {
+ParseStatus MMIXAsmParser::parseRelAddr(OperandVector &Operands) {
   const MCExpr *Expr = nullptr;
   auto StartLoc = getTok().getLoc();
   bool HasError = getParser().parseExpression(Expr);
@@ -354,132 +352,8 @@ ParseStatus MMIXAsmParser::parseBranchDest(OperandVector &Operands) {
 
   if (HasError)
     return ParseStatus::Failure;
-  Operands.push_back(MMIXOperand::createBranchDest(Expr, StartLoc, EndLoc));
+  Operands.push_back(MMIXOperand::createRelAddr(Expr, StartLoc, EndLoc));
   return ParseStatus::Success;
-}
-
-static unsigned getBinOpPrecedence(AsmToken::TokenKind K,
-                                   MCBinaryExpr::Opcode &Kind) {
-  switch (K) {
-  default:
-    return 0; // not a binop
-
-  // weak operator: +,-,|,^
-  case AsmToken::Plus:
-    Kind = MCBinaryExpr::Add;
-    return 5;
-  case AsmToken::Minus:
-    Kind = MCBinaryExpr::Sub;
-    return 5;
-  case AsmToken::Pipe:
-    Kind = MCBinaryExpr::Or;
-    return 5;
-
-  case AsmToken::Caret:
-    Kind = MCBinaryExpr::Xor;
-    return 5;
-
-  // strong operator: *,/,//,%,<<,>>,&
-  case AsmToken::Star:
-    Kind = MCBinaryExpr::Mul;
-    return 6;
-  case AsmToken::Slash:
-    Kind = MCBinaryExpr::Div;
-    return 6;
-  case AsmToken::Percent:
-    Kind = MCBinaryExpr::Mod;
-    return 6;
-  case AsmToken::LessLess:
-    Kind = MCBinaryExpr::Shl;
-    return 6;
-  case AsmToken::GreaterGreater:
-    Kind = MCBinaryExpr::LShr;
-    return 6;
-  case AsmToken::Amp:
-    Kind = MCBinaryExpr::And;
-    return 6;
-  }
-}
-
-bool MMIXAsmParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
-                                  SMLoc &EndLoc) {
-  AsmLexer &Lexer = getLexer();
-  SMLoc StartLoc = Lexer.getLoc();
-  bool IsFracDiv = false;
-  while (true) {
-    if (Lexer.getKind() == AsmToken::Slash &&
-        Lexer.peekTok(/*ShouldSkipSpace=*/true).is(AsmToken::Slash)) {
-      Lex(); // eat extra /
-      IsFracDiv = true;
-    }
-
-    MCBinaryExpr::Opcode Kind = MCBinaryExpr::Add;
-    unsigned TokPrec = getBinOpPrecedence(Lexer.getKind(), Kind);
-
-    // If the next token is lower precedence than we are allowed to eat, return
-    // successfully with what we ate already.
-    if (TokPrec < Precedence)
-      return false;
-
-    Lex();
-
-    // Eat the next primary expression.
-    const MCExpr *RHS;
-    if (parsePrimaryExpr(RHS, EndLoc))
-      return true;
-
-    // If BinOp binds less tightly with RHS than the operator after RHS, let
-    // the pending operator take RHS as its LHS.
-    MCBinaryExpr::Opcode Dummy;
-    unsigned NextTokPrec = getBinOpPrecedence(Lexer.getKind(), Dummy);
-    if (TokPrec < NextTokPrec && parseBinOpRHS(TokPrec + 1, RHS, EndLoc))
-      return true;
-
-    // Merge LHS and RHS according to operator.
-    if (IsFracDiv)
-      Res = MMIXMCExpr::createFracDivExpr(Res, RHS, getContext());
-    else
-      Res = MCBinaryExpr::create(Kind, Res, RHS, getContext(), StartLoc);
-  }
-}
-
-bool MMIXAsmParser::isRegExpr(const MCExpr *Expr) {
-  MCExpr::ExprKind Kind = Expr->getKind();
-  switch (Kind) {
-  default:
-    return false;
-  case MCExpr::Target: {
-    const auto *TExpr = dyn_cast<MMIXMCExpr>(Expr);
-    return TExpr->isRegExpr();
-  }
-  case MCExpr::SymbolRef: {
-    const auto *SRExpr = dyn_cast<MCSymbolRefExpr>(Expr);
-    const MCSymbol &Symbol = SRExpr->getSymbol();
-    if (!Symbol.isVariable())
-      return false;
-    return isRegExpr(Symbol.getVariableValue());
-  }
-  case MCExpr::Binary:
-    const auto *BinExpr = dyn_cast<MCBinaryExpr>(Expr);
-    MCBinaryExpr::Opcode Opc = BinExpr->getOpcode();
-    const MCExpr *LHS = BinExpr->getLHS(), *RHS = BinExpr->getRHS();
-    switch (Opc) {
-    default:
-      Warning(BinExpr->getLoc(), "unexpected binop, treat as immediate");
-      return false;
-    case MCBinaryExpr::Add:
-      return isRegExpr(LHS) ^ isRegExpr(RHS);
-    case MCBinaryExpr::Sub: {
-      bool IsLHSRegExpr = isRegExpr(LHS), IsRHSRegExpr = isRegExpr(LHS);
-      if (!IsLHSRegExpr && IsRHSRegExpr) {
-        Warning(BinExpr->getLoc(),
-                "reg - pure is not well defined, treat as immediate");
-        return false;
-      }
-      return IsLHSRegExpr && !IsRHSRegExpr;
-    }
-    }
-  }
 }
 
 // MMIX has following extra primaryexpr:
@@ -635,12 +509,6 @@ ParseStatus MMIXAsmParser::parseLOCAL(SMLoc Loc) {
   if (getParser().parseExpression(Expr))
     return ParseStatus::Failure;
   AsmLexer &Lexer = getLexer();
-  if (const auto *RegExpr = dyn_cast<MMIXMCExpr>(Expr)) {
-    if (RegExpr->isRegExpr()) {
-      LocalRegsNeedCheck.insert(RegExpr->getMCReg());
-      return ParseStatus::Success;
-    }
-  }
   Error(Lexer.getLoc(), "expect register expression");
   return ParseStatus::Failure;
 }

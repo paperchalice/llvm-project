@@ -27,12 +27,11 @@ class MMIXOperand final : public MCParsedAsmOperand {
 public:
   StringRef getToken() const;
   std::int64_t getImm() const;
-  const MCExpr *getBranchDest() const;
+  const MCExpr *getMem() const;
   void addRegOperands(MCInst &Inst, unsigned N) const;
   void addImmOperands(MCInst &Inst, unsigned N) const;
-  void addBranchDestOperands(MCInst &Inst, unsigned N) const;
+  void addMemOperands(MCInst &Inst, unsigned N) const;
   bool isRoundingMode() const;
-  bool isBranchDest() const;
 
   template <int N, bool isU> bool isImm() const {
     if (!std::holds_alternative<std::int64_t>(Content))
@@ -63,6 +62,8 @@ public:
   bool isReg() const override;
   bool isMem() const override;
 
+  bool isRelAddr() const { return isMem() || isImm(); }
+
   MCRegister getReg() const override;
   SMLoc getStartLoc() const override { return StartLoc; }
   SMLoc getEndLoc() const override { return EndLoc; }
@@ -84,7 +85,7 @@ public:
   static std::unique_ptr<MMIXOperand> createImm(std::int64_t Reg,
                                                 SMLoc StartLoc, SMLoc EndLoc);
   static std::unique_ptr<MMIXOperand>
-  createBranchDest(const MCExpr *E, SMLoc StartLoc, SMLoc EndLoc);
+  createRelAddr(const MCExpr *E, SMLoc StartLoc, SMLoc EndLoc);
 };
 
 } // namespace llvm

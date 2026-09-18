@@ -500,24 +500,14 @@ def JMP : InstJMP {
   let isTerminator = 1;
   let Pattern = [(br bb:$XYZ)];
 }
-def : InstJMP<"JMPI"> {
-  let isAsmParserOnly = true;
-  let InOperandList = (ins s25imm:$XYZ);
-}
 
 let isCall = true in {
-def PUSHJ : Inst_X_YZ<0xF2, (outs), (ins GPR:$X, b_dst:$YZ)>;
-def PUSHJB : Inst_X_YZ<0xF3, (outs), (ins GPR:$X, b_dst:$YZ)> {
-  let isCodeGenOnly = true;
-}
+def PUSHJ : InstB_X_YZ<0xF2, (outs), (ins GPR:$X, rel_addr:$YZ)>;
 let isAsmParserOnly = true in
-def : Inst_X_YZ<0xF2, (outs), (ins u8imm:$X, b_dst:$YZ), "PUSHJ">;
+def : Inst_X_YZ<0xF2, (outs), (ins u8imm:$X, rel_addr:$YZ), "PUSHJ">;
 }
 
-def GETA : Inst_X_YZ<0xF4, (outs GPR:$X), (ins b_dst:$YZ)>;
-def GETAB : Inst_X_YZ<0xF5, (outs GPR:$X), (ins b_dst:$YZ)> {
-  let isCodeGenOnly = true;
-}
+def GETA : InstB_X_YZ<0xF4, (outs GPR:$X), (ins rel_addr:$YZ)>;
 
 class PutInst<bit isI, bit isIdiosyncratic>
   : MMIXInst<0xF6,
