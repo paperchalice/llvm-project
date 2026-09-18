@@ -24,17 +24,15 @@ bool MMIXOperand::isImm() const {
 bool MMIXOperand::isReg() const {
   return std::holds_alternative<MCRegister>(Content);
 }
-bool MMIXOperand::isMem() const { return false; }
+bool MMIXOperand::isMem() const {
+  return std::holds_alternative<const MCExpr *>(Content);
+}
 
 bool MMIXOperand::isRoundingMode() const {
   if (!isImm())
     return false;
   std::int64_t Val = getImm();
   return 0 <= Val && Val <= 4;
-}
-
-bool MMIXOperand::isBranchDest() const {
-  return std::holds_alternative<const MCExpr *>(Content);
 }
 
 StringRef MMIXOperand::getToken() const { return std::get<StringRef>(Content); }
@@ -46,9 +44,9 @@ void MMIXOperand::addImmOperands(MCInst &Inst, unsigned N) const {
   assert(N == 1 && "Invalid number of operands!");
   Inst.addOperand(MCOperand::createImm(getImm()));
 }
-void MMIXOperand::addBranchDestOperands(MCInst &Inst, unsigned N) const {
+void MMIXOperand::addMemOperands(MCInst &Inst, unsigned N) const {
   assert(N == 1 && "Invalid number of operands!");
-  Inst.addOperand(MCOperand::createExpr(getBranchDest()));
+  Inst.addOperand(MCOperand::createExpr(getMem()));
 }
 
 MCRegister MMIXOperand::getReg() const {
@@ -59,7 +57,7 @@ std::int64_t MMIXOperand::getImm() const {
   assert(isImm() && "not immediate");
   return std::get<std::int64_t>(Content);
 }
-const MCExpr *MMIXOperand::getBranchDest() const {
+const MCExpr *MMIXOperand::getMem() const {
   return std::get<const MCExpr *>(Content);
 }
 
@@ -70,8 +68,8 @@ void MMIXOperand::print(raw_ostream &OS, const MCAsmInfo &MAI) const {
     OS << MMIXInstPrinter::getRegisterName(getReg());
   } else if (isImm()) {
     OS << getImm();
-  } else if (isBranchDest()) {
-    MAI.printExpr(OS, *getBranchDest());
+  } else if (isMem()) {
+    MAI.printExpr(OS, *getMem());
   }
 }
 
@@ -99,7 +97,7 @@ MMIXOperand::createImm(std::int64_t Imm, SMLoc StartLoc, SMLoc EndLoc) {
 }
 
 std::unique_ptr<MMIXOperand>
-MMIXOperand::createBranchDest(const MCExpr *S, SMLoc StartLoc, SMLoc EndLoc) {
+MMIXOperand::createRelAddr(const MCExpr *S, SMLoc StartLoc, SMLoc EndLoc) {
   auto Op = std::make_unique<MMIXOperand>(StartLoc, EndLoc);
   Op->Content = S;
   return Op;
