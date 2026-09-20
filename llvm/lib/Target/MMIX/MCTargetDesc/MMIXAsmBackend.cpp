@@ -59,8 +59,11 @@ void MMIXAsmBackend::applyFixup(const MCFragment &, const MCFixup &Fixup,
 
 bool MMIXAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count,
                                   const MCSubtargetInfo *STI) const {
+  if (Count % 4 != 0)
+    return false;
   // SWYM 0,0,0
-  OS.write("\xC0\0\0\0", 4);
+  for (uint64_t I; I != Count; I += 4)
+    OS.write("\xC0\0\0\0", 4);
   return true;
 }
 
