@@ -47,6 +47,9 @@ public:
   void printSPRImmOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
 
 public:
+  bool PrintMMIXAL = false; //< are we print mmixal?
+
+public:
   void printInst(const MCInst *MI, uint64_t Address, StringRef Annot,
                  const MCSubtargetInfo &STI, raw_ostream &OS) override;
   void printRegName(raw_ostream &OS, MCRegister Reg) override;
