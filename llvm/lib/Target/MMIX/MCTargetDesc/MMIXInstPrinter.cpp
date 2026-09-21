@@ -16,6 +16,7 @@
 
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Support/Regex.h"
 
 #include <array>
 
@@ -32,8 +33,16 @@ void MMIXInstPrinter::printRegName(raw_ostream &OS, MCRegister Reg) {
 void MMIXInstPrinter::printInst(const MCInst *MI, uint64_t Address,
                                 StringRef Annot, const MCSubtargetInfo &STI,
                                 raw_ostream &OS) {
-  if (!printAliasInstr(MI, Address, OS))
-    printInstruction(MI, Address, OS);
+  std::string InstStr;
+  raw_string_ostream InstOS(InstStr);
+
+  if (!printAliasInstr(MI, Address, InstOS))
+    printInstruction(MI, Address, InstOS);
+  if (PrintMMIXAL) {
+    Regex RE("ADD(2|4|8|16)U");
+    InstStr = RE.sub("\\1ADDU", InstStr);
+  }
+  OS << InstStr;
   printAnnotation(OS, Annot);
 }
 
@@ -50,7 +59,14 @@ void MMIXInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   if (Op.isReg()) {
     printRegName(O, Op.getReg());
   } else if (Op.isImm()) {
-    O << Op.getImm();
+    std::string HexStr;
+    raw_string_ostream HexOS(HexStr);
+    HexOS << formatImm(Op.getImm());
+    if (PrintMMIXAL) {
+      Regex RE("(0x?)([0-9A-Fa-f]+)h?");
+      HexStr = RE.sub("#\\2", HexStr);
+    }
+    O << HexStr;
   } else if (Op.isExpr()) {
     const MCExpr *Expr = Op.getExpr();
     MAI.printExpr(O, *Expr);
