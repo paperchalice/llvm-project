@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXMCTargetDesc.h"
+#include "MMIXALStreamer.h"
 #include "MMIXAsmBackend.h"
-#include "MMIXAsmStreamer.h"
 #include "MMIXELFStreamer.h"
 #include "MMIXInstPrinter.h"
 #include "MMIXMCAsmInfo.h"
@@ -24,6 +24,7 @@
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/CommandLine.h"
 
 #define GET_INSTRINFO_MC_DESC
 #define ENABLE_INSTR_PREDICATE_VERIFIER
@@ -36,6 +37,9 @@
 #include "MMIXGenRegisterInfo.inc"
 
 using namespace llvm;
+
+static cl::opt<bool> OptPrintMMIXAL("mmix-print-mmixal",
+                                    cl::desc("print mmixal"), cl::Hidden);
 
 static MCAsmInfo *createMMIXMCAsmInfo(const MCRegisterInfo &MRI,
                                       const Triple &TheTriple,
@@ -68,7 +72,9 @@ static MCInstPrinter *createMMIXMCInstPrinter(const Triple &T,
                                               const MCAsmInfo &MAI,
                                               const MCInstrInfo &MII,
                                               const MCRegisterInfo &MRI) {
-  return new MMIXInstPrinter(MAI, MII, MRI);
+  auto *InstPrinter = new MMIXInstPrinter(MAI, MII, MRI);
+  InstPrinter->PrintMMIXAL = OptPrintMMIXAL;
+  return InstPrinter;
 }
 
 static MCTargetStreamer *createMMIXNullTargetStreamer(MCStreamer &S) {
@@ -102,6 +108,9 @@ MCStreamer *createMMIXAsmStreamer(MCContext &Ctx,
                                   std::unique_ptr<MCInstPrinter> IP,
                                   std::unique_ptr<MCCodeEmitter> CE,
                                   std::unique_ptr<MCAsmBackend> MAB) {
+  if (OptPrintMMIXAL)
+    return new MMIXALStreamer(Ctx, std::move(OS), std::move(IP), std::move(CE),
+                              std::move(MAB));
   return createAsmStreamer(Ctx, std::move(OS), std::move(IP), std::move(CE),
                            std::move(MAB));
 }
