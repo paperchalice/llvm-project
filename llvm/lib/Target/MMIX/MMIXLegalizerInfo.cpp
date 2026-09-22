@@ -30,22 +30,22 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
   // try to keep order same as TargetOpcodes.def
   getActionDefinitionsBuilder({G_ADD, G_SUB, G_MUL, G_SDIV, G_UDIV})
       .legalFor({s64})
-      .clampScalar(0, s64, s64)
-      .widenScalarToNextPow2(0);
+      .widenScalarToNextMultipleOf(0, 64)
+      .clampScalar(0, s64, s64);
 
   getActionDefinitionsBuilder(G_SREM).lower();
 
   getActionDefinitionsBuilder(G_UREM)
       .legalFor({s64})
-      .clampScalar(0, s64, s64)
-      .widenScalarToNextPow2(0);
+      .widenScalarToNextMultipleOf(0, 64)
+      .clampScalar(0, s64, s64);
 
   getActionDefinitionsBuilder(G_SDIVREM).lower();
 
   getActionDefinitionsBuilder({G_UDIVREM, G_AND, G_OR, G_XOR})
       .legalFor({s64})
-      .clampScalar(0, s64, s64)
-      .widenScalarToNextPow2(0);
+      .widenScalarToNextMultipleOf(0, 64)
+      .clampScalar(0, s64, s64);
 
   getActionDefinitionsBuilder(
       {G_ABDS, G_ABDU, G_UAVGFLOOR, G_UAVGCEIL, G_SAVGFLOOR, G_SAVGCEIL})
@@ -53,8 +53,8 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
 
   getActionDefinitionsBuilder({G_IMPLICIT_DEF, G_PHI})
       .legalFor({s64})
-      .clampScalar(0, s64, s64)
-      .widenScalarToNextPow2(0);
+      .widenScalarToNextMultipleOf(0, 64)
+      .clampScalar(0, s64, s64);
 
   getActionDefinitionsBuilder({G_FRAME_INDEX, G_GLOBAL_VALUE}).legalFor({p0});
 
@@ -81,8 +81,8 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
 
   getActionDefinitionsBuilder({G_FREEZE, G_CONSTANT_FOLD_BARRIER})
       .legalFor({s64})
-      .clampScalar(0, s64, s64)
-      .widenScalarToNextPow2(0);
+      .widenScalarToNextMultipleOf(0, 64)
+      .clampScalar(0, s64, s64);
 
   getActionDefinitionsBuilder({G_INTRINSIC_FPTRUNC_ROUND, G_INTRINSIC_TRUNC,
                                G_INTRINSIC_ROUND, G_INTRINSIC_LRINT,
@@ -103,9 +103,7 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
   getActionDefinitionsBuilder({G_STORE, G_FPTRUNCSTORE})
       .legalForCartesianProduct({s64}, {p0});
 
-  getActionDefinitionsBuilder(
-      {G_INDEXED_STORE, G_INDEXED_SEXTLOAD, G_INDEXED_ZEXTLOAD})
-      .lower();
+  getActionDefinitionsBuilder(G_INDEXED_STORE).lower();
 
   // TODO: some of thems are legal
   getActionDefinitionsBuilder({G_ATOMIC_CMPXCHG_WITH_SUCCESS,
@@ -140,7 +138,7 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
 
   getActionDefinitionsBuilder(G_BRCOND)
       .legalFor({s64})
-      .widenScalarToNextPow2(0)
+      .widenScalarToNextMultipleOf(0, 64)
       .clampScalar(0, s64, s64);
 
   getActionDefinitionsBuilder(G_BRINDIRECT).legalFor({s64, p0});
@@ -153,18 +151,18 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
 
   getActionDefinitionsBuilder(G_ANYEXT)
       .legalForCartesianProduct({s64}, {s8, s16, s32})
+      .widenScalarToNextMultipleOf(0, 64)
+      .widenScalarToNextMultipleOf(1, 64)
       .clampScalar(0, s64, s64)
-      .clampScalar(1, s8, s32)
-      .widenScalarToNextPow2(0)
-      .widenScalarToNextPow2(1);
+      .clampScalar(1, s8, s32);
 
   getActionDefinitionsBuilder(G_TRUNC)
       .legalForCartesianProduct({s1, s8, s16, s32, s64}, {s64})
       .clampScalar(0, s8, s64)
       .clampScalar(1, s64, s64)
       .alwaysLegal()
-      .widenScalarToNextPow2(0)
-      .widenScalarToNextPow2(1);
+      .widenScalarToNextMultipleOf(0, 64)
+      .widenScalarToNextMultipleOf(1, 64);
 
   getActionDefinitionsBuilder({G_TRUNC_SSAT_S, G_TRUNC_SSAT_U, G_TRUNC_USAT_U})
       .lower();
@@ -172,7 +170,7 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
   getActionDefinitionsBuilder(G_CONSTANT)
       .legalFor({s64})
       .clampScalar(0, s64, s64)
-      .widenScalarToNextPow2(0);
+      .widenScalarToNextMultipleOf(0, 64);
 
   getActionDefinitionsBuilder(G_FCONSTANT).legalFor({f64});
 
@@ -183,8 +181,8 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
       .legalForCartesianProduct({s64}, {s8, s16, s32})
       .clampScalar(0, s64, s64)
       .clampScalar(1, s8, s32)
-      .widenScalarToNextPow2(0)
-      .widenScalarToNextPow2(1);
+      .widenScalarToNextMultipleOf(0, 64)
+      .widenScalarToNextMultipleOf(1, 64);
 
   getActionDefinitionsBuilder(G_SEXT_INREG).lower();
 
@@ -192,15 +190,15 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
       .legalForCartesianProduct({s64}, {s8, s16, s32})
       .clampScalar(0, s64, s64)
       .clampScalar(1, s8, s32)
-      .widenScalarToNextPow2(0)
-      .widenScalarToNextPow2(1);
+      .widenScalarToNextMultipleOf(0, 64)
+      .widenScalarToNextMultipleOf(1, 64);
 
   getActionDefinitionsBuilder({G_SHL, G_LSHR, G_ASHR})
       .legalForCartesianProduct({s64}, {s64})
-      .widenScalarToNextPow2(0)
-      .widenScalarToNextPow2(1)
       .clampScalar(0, s64, s64)
-      .clampScalar(1, s64, s64);
+      .clampScalar(1, s64, s64)
+      .widenScalarToNextMultipleOf(0, 64)
+      .widenScalarToNextMultipleOf(1, 64);
 
   getActionDefinitionsBuilder({G_FSHL, G_FSHR, G_ROTR, G_ROTL}).lower();
 
@@ -214,12 +212,21 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
       .legalForCartesianProduct({s64}, {f64})
       .clampScalar(0, s64, s64)
       .clampScalar(1, s64, s64)
-      .widenScalarToNextPow2(0)
-      .widenScalarToNextPow2(1);
+      .widenScalarToNextMultipleOf(0, 64)
+      .widenScalarToNextMultipleOf(1, 64);
 
   getActionDefinitionsBuilder({G_UADDO, G_UADDE, G_USUBO, G_USUBE, G_SADDO,
-                               G_SADDE, G_SSUBO, G_SSUBE, G_UMULO, G_SMULO,
-                               G_UMULH, G_SMULH, G_UADDSAT, G_SADDSAT})
+                               G_SADDE, G_SSUBO, G_SSUBE, G_UMULO, G_SMULO})
+      .clampScalar(0, s64, s64)
+      .lower();
+
+  getActionDefinitionsBuilder(G_UMULH)
+      .legalFor({s64})
+      .widenScalarToNextMultipleOf(0, 64)
+      .clampScalar(0, s64, s64);
+
+  getActionDefinitionsBuilder({G_SMULH, G_UADDSAT, G_SADDSAT})
+      .clampScalar(0, s64, s64)
       .lower();
 
   getActionDefinitionsBuilder(G_USUBSAT).legalFor({s64, v8s8, v4s16, v2s32});
@@ -277,8 +284,8 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
 
   getActionDefinitionsBuilder(G_CTPOP)
       .legalForCartesianProduct({s64}, {s64})
-      .widenScalarToNextPow2(0, 64)
-      .widenScalarToNextPow2(1, 64)
+      .widenScalarToNextMultipleOf(0, 64)
+      .widenScalarToNextMultipleOf(1, 64)
       .clampScalar(0, s64, s64)
       .clampScalar(1, s64, s64);
 
