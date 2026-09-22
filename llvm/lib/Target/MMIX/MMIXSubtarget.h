@@ -13,11 +13,11 @@
 #ifndef LLVM_LIB_TARGET_MMIX_MMIXSUBTARGET_H
 #define LLVM_LIB_TARGET_MMIX_MMIXSUBTARGET_H
 
-#include "MMIXCallLowering.h"
+#include "GISel/MMIXCallLowering.h"
+#include "GISel/MMIXInstructionSelector.h"
+#include "GISel/MMIXLegalizerInfo.h"
+#include "GISel/MMIXRegisterBankInfo.h"
 #include "MMIXFrameLowering.h"
-#include "MMIXInstructionSelector.h"
-#include "MMIXLegalizerInfo.h"
-#include "MMIXRegisterBankInfo.h"
 #include "MMIXTargetLowering.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 
