@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXAsmPrinter.h"
+#include "MCTargetDesc/MMIXMCTargetDesc.h"
 #include "TargetInfo/MMIXTargetInfo.h"
 
 #include "llvm/CodeGen/AsmPrinterAnalysis.h"
@@ -23,7 +24,15 @@
 
 using namespace llvm;
 
+#include "MMIXGenMCPseudoLowering.inc"
+
 void MMIXAsmPrinter::emitInstruction(const MachineInstr *MI) {
+  // Do any auto-generated pseudo lowerings.
+  if (MCInst OutInst; lowerPseudoInstExpansion(MI, OutInst)) {
+    EmitToStreamer(*OutStreamer, OutInst);
+    return;
+  }
+
   MCInst LoweredInst;
   InstLower.lower(*MI, LoweredInst);
   EmitToStreamer(*OutStreamer, LoweredInst);
