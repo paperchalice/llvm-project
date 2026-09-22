@@ -593,11 +593,27 @@ def : Inst_X_YZ<0xFF, (outs), (ins u8imm:$X, u16imm:$YZ), "TRIP">;
 def : Inst_XYZ<0xFF, (outs), (ins u24imm:$XYZ), "TRIP">;
 }
 
+//===----------------------------------------------------------------------===//
+// Pseudo Instructions
+//===----------------------------------------------------------------------===//
+
+def GetSPR : PseudoInst<(outs GPR:$X), (ins SPR:$S, GPR:$discard)>,
+             PseudoInstExpansion<(GET GPR:$X, SPR:$S)>;
+
 include "MMIXInstrCompiler.td"
 
 //===----------------------------------------------------------------------===//
 // Instruction Patterns
 //===----------------------------------------------------------------------===//
+
+def : Pat<(i64 (mulhu i64:$Y, u8imm:$Z)), (GetSPR (i64 rH), (MULUI GPR:$Y, u8imm:$Z))>;
+def : Pat<(i64 (mulhu i64:$Y, i64:$Z)), (GetSPR (i64 rH), (MULU GPR:$Y, GPR:$Z))>;
+
+def : Pat<(i64 (srem i64:$Y, u8imm:$Z)), (GetSPR (i64 rR), (DIVI GPR:$Y, u8imm:$Z))>;
+def : Pat<(i64 (srem i64:$Y, i64:$Z)), (GetSPR (i64 rR), (DIV GPR:$Y, GPR:$Z))>;
+
+def : Pat<(i64 (urem i64:$Y, u8imm:$Z)), (GetSPR (i64 rR), (DIVUI GPR:$Y, u8imm:$Z))>;
+def : Pat<(i64 (urem i64:$Y, i64:$Z)), (GetSPR (i64 rR), (DIVI GPR:$Y, GPR:$Z))>;
 
 def : Pat<(i64 (ctpop i64:$Y)), (SADDI GPR:$Y, 0)>;
 def : Pat<(i64 (ctpop (and i64:$Y, i64:$mask))), (SADD GPR:$Y, (NORI GPR:$mask, 0))>;

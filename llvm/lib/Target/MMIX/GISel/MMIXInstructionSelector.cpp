@@ -104,20 +104,6 @@ static bool selectG_CONSTANT(MachineInstr &I) {
   return true;
 }
 
-static bool selectG_UMULH(MachineInstr &I) {
-  MachineIRBuilder MIB(I);
-  MachineRegisterInfo &MRI = *MIB.getMRI();
-  MachineOperand Multiplier = I.getOperand(2);
-  unsigned MulInst = MMIX::MULU;
-  if (Multiplier.isCImm() && isUInt<8>(Multiplier.getCImm()->getZExtValue()))
-    MulInst = MMIX::MULUI;
-  Register Prod = createVGPR(MRI);
-  MIB.buildInstr(MulInst, {Prod}, {I.getOperand(1), I.getOperand(2)});
-  MIB.buildInstr(MMIX::GET, {I.getOperand(0)}, {Register(MMIX::rH)});
-  I.eraseFromParent();
-  return true;
-}
-
 bool MMIXInstructionSelector::select(MachineInstr &I) {
   LLVM_DEBUG(dbgs() << "select ");
   LLVM_DEBUG(I.dump());
@@ -145,8 +131,6 @@ bool MMIXInstructionSelector::select(MachineInstr &I) {
     return selectG_CONSTANT(I);
   case TargetOpcode::G_FCONSTANT:
     return selectG_CONSTANT(I);
-  case TargetOpcode::G_UMULH:
-    return selectG_UMULH(I);
   case TargetOpcode::G_PHI:
     return true;
   default:

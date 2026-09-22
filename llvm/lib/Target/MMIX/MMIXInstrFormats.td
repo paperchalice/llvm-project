@@ -198,6 +198,14 @@ defvar CondList = !listconcat(PosCondList, NegCondList);
 
 defvar RegPosList = ["H", "MH", "ML", "L"];
 
+class PseudoInst<dag oops, dag iops>
+  : MMIXInst<0, oops, iops, "", ""> {
+  let OutOperandList = oops;
+  let InOperandList = iops;
+  let isCodeGenOnly = 1;
+  let isPseudo = 1;
+}
+
 // inst prototypes
 
 multiclass BinOp<bits<8> opcode, list<dag> patops=[]> {
