@@ -25,6 +25,17 @@ public:
   void emitInstruction(const MachineInstr *MI) override;
 
 public:
+  /// tblgen'erated driver function for lowering simple MI->MC
+  /// pseudo instructions.
+  bool lowerPseudoInstExpansion(const MachineInstr *MI, MCInst &Inst);
+
+  /// Wrapper for InstLower.lowerOperand() for the
+  /// tblgen'erated pseudo lowering.
+  bool lowerOperand(const MachineOperand &MO, MCOperand &MCOp) const {
+    return InstLower.lowerOperand(MO, MCOp);
+  }
+
+public:
   MMIXAsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
       : AsmPrinter(TM, std::move(Streamer)), InstLower(OutContext, *this) {}
 

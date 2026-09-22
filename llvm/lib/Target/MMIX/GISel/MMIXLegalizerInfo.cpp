@@ -33,9 +33,7 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
       .widenScalarToNextMultipleOf(0, 64)
       .clampScalar(0, s64, s64);
 
-  getActionDefinitionsBuilder(G_SREM).lower();
-
-  getActionDefinitionsBuilder(G_UREM)
+  getActionDefinitionsBuilder({G_SREM, G_UREM})
       .legalFor({s64})
       .widenScalarToNextMultipleOf(0, 64)
       .clampScalar(0, s64, s64);
