@@ -12,8 +12,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_MMIX_MMIXCALLLOWERING_H
-#define LLVM_LIB_TARGET_MMIX_MMIXCALLLOWERING_H
+#ifndef LLVM_LIB_TARGET_MMIX_GISEL_MMIXCALLLOWERING_H
+#define LLVM_LIB_TARGET_MMIX_GISEL_MMIXCALLLOWERING_H
 
 #include "llvm/CodeGen/GlobalISel/CallLowering.h"
 #include "llvm/IR/CallingConv.h"
@@ -57,4 +57,4 @@ public:
 
 } // namespace llvm
 
-#endif // LLVM_LIB_TARGET_MMIX_MMIXCALLLOWERING_H
+#endif // LLVM_LIB_TARGET_MMIX_GISEL_MMIXCALLLOWERING_H

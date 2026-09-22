@@ -14,16 +14,16 @@ tablegen(LLVM MMIXGenSubtargetInfo.inc -gen-subtarget)
 add_public_tablegen_target(MMIXCommonTableGen)
 
 add_llvm_target(MMIXCodeGen
+  GISel/MMIXCallLowering.cpp
+  GISel/MMIXInstructionSelector.cpp
+  GISel/MMIXLegalizerInfo.cpp
+  GISel/MMIXRegisterBankInfo.cpp
   MMIXAsmPrinter.cpp
   MMIXCallingConvention.cpp
-  MMIXCallLowering.cpp
   MMIXCodeGenPassBuilder.cpp
   MMIXFrameLowering.cpp
   MMIXInstrInfo.cpp
-  MMIXInstructionSelector.cpp
-  MMIXLegalizerInfo.cpp
   MMIXMCInstLower.cpp
-  MMIXRegisterBankInfo.cpp
   MMIXRegisterInfo.cpp
   MMIXSubtarget.cpp
   MMIXTargetLowering.cpp

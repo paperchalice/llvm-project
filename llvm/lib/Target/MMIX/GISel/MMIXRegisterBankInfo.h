@@ -12,8 +12,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_MMIX_MMIXREGISTERBANKINFO_H
-#define LLVM_LIB_TARGET_MMIX_MMIXREGISTERBANKINFO_H
+#ifndef LLVM_LIB_TARGET_MMIX_GISEL_MMIXREGISTERBANKINFO_H
+#define LLVM_LIB_TARGET_MMIX_GISEL_MMIXREGISTERBANKINFO_H
 
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/RegisterBankInfo.h"
@@ -46,4 +46,4 @@ public:
 
 } // namespace llvm
 
-#endif // LLVM_LIB_TARGET_MMIX_MMIXREGISTERBANKINFO_H
+#endif // LLVM_LIB_TARGET_MMIX_GISEL_MMIXREGISTERBANKINFO_H
