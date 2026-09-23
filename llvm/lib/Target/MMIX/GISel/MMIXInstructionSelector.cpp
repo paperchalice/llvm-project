@@ -104,22 +104,28 @@ static bool selectG_CONSTANT(MachineInstr &I) {
   return true;
 }
 
+static void constrainRegToGPR(MachineInstr &MI) {
+  MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
+  for (MachineOperand &MO : MI.operands()) {
+    if (!MO.isReg())
+      continue;
+    Register Reg = MO.getReg();
+    if (Reg.isPhysical() || MRI.getRegClassOrNull(Reg))
+      continue;
+    RegisterBankInfo::constrainGenericRegister(
+        Reg, getMMIXMCRegisterClass(MMIX::GPRRegClassID), MRI);
+  }
+}
+
 bool MMIXInstructionSelector::select(MachineInstr &I) {
   LLVM_DEBUG(dbgs() << "select ");
   LLVM_DEBUG(I.dump());
 
   unsigned Opc = I.getOpcode();
   // Certain non-generic instructions also need some special handling.
-  if (!isPreISelGenericOpcode(Opc)) {
-    MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
+  if (!I.isPreISelOpcode()) {
     // don't forget assign reg class for them
-    for (MachineOperand &Op : I.all_defs()) {
-      Register DefReg = Op.getReg();
-      if (DefReg.isPhysical() || MRI.getRegClassOrNull(DefReg))
-        continue;
-      RegisterBankInfo::constrainGenericRegister(
-          DefReg, getMMIXMCRegisterClass(MMIX::GPRRegClassID), MRI);
-    }
+    constrainRegToGPR(I);
     return true;
   }
 
@@ -131,8 +137,12 @@ bool MMIXInstructionSelector::select(MachineInstr &I) {
     return selectG_CONSTANT(I);
   case TargetOpcode::G_FCONSTANT:
     return selectG_CONSTANT(I);
-  case TargetOpcode::G_PHI:
+  case TargetOpcode::G_PHI: {
+    constrainRegToGPR(I);
+    MachineIRBuilder MIB(I);
+    I.setDesc(MIB.getTII().get(TargetOpcode::PHI));
     return true;
+  }
   default:
     break;
   }

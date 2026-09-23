@@ -10,6 +10,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "MMIXLegalizerInfo.h"
+#include "MCTargetDesc/MMIXMCTargetDesc.h"
+#include "MMIXGenericMachineInstrs.h"
+
+#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
+#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
+#include "llvm/CodeGen/MachineBasicBlock.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 
 using namespace llvm;
 
@@ -200,18 +208,23 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
 
   getActionDefinitionsBuilder({G_FSHL, G_FSHR, G_ROTR, G_ROTL}).lower();
 
-  getActionDefinitionsBuilder({G_ICMP, G_SCMP, G_UCMP, G_SELECT})
+  getActionDefinitionsBuilder(G_ICMP)
+      .widenScalarToNextMultipleOf(0, 64)
+      .widenScalarToNextMultipleOf(1, 64)
+      .clampScalar(0, s64, s64)
+      .clampScalar(1, s64, s64)
+      .custom();
+  getActionDefinitionsBuilder({G_SCMP, G_UCMP, G_SELECT})
       .legalForCartesianProduct({s64, p0}, {s64, p0})
-      .widenScalarToNextPow2(0, 64)
-      .widenScalarToNextPow2(1, 64)
+      .widenScalarToNextMultipleOf(0, 64)
+      .widenScalarToNextMultipleOf(1, 64)
       .clampScalar(0, s64, s64)
       .clampScalar(1, s64, s64);
   getActionDefinitionsBuilder(G_FCMP)
-      .legalForCartesianProduct({s64}, {f64})
       .clampScalar(0, s64, s64)
-      .clampScalar(1, s64, s64)
+      .clampScalar(1, f64, f64)
       .widenScalarToNextMultipleOf(0, 64)
-      .widenScalarToNextMultipleOf(1, 64);
+      .custom();
 
   getActionDefinitionsBuilder({G_UADDO, G_UADDE, G_USUBO, G_USUBE, G_SADDO,
                                G_SADDE, G_SSUBO, G_SSUBE, G_UMULO, G_SMULO})
@@ -322,4 +335,161 @@ MMIXLegalizerInfo::MMIXLegalizerInfo() {
       .lower();
 
   getActionDefinitionsBuilder({G_SBFX, G_UBFX}).lower();
+}
+
+static bool legalizeG_FCMP(GFCmp &MI) {
+  CmpInst::Predicate Pred = MI.getCond();
+  switch (Pred) {
+  case CmpInst::FCMP_FALSE:
+  case CmpInst::FCMP_OEQ:
+  case CmpInst::FCMP_ONE:
+  case CmpInst::FCMP_ORD:
+  case CmpInst::FCMP_UNO:
+  case CmpInst::FCMP_UEQ:
+  case CmpInst::FCMP_UNE:
+  case CmpInst::FCMP_TRUE:
+    return true;
+  default:
+    break;
+  }
+
+  MachineIRBuilder MIB(MI);
+  LLT s64 = LLT::scalar(64);
+  MachineRegisterInfo &MRI = *MIB.getMRI();
+  MachineBasicBlock &CurBB = *MI.getParent();
+  MachineBasicBlock &MergeBB = *CurBB.splitAt(MI);
+  MachineFunction &MF = MIB.getMF();
+  // basic block for FCMP instruction
+  MachineBasicBlock &CmpBB = *MIB.getMF().CreateMachineBasicBlock();
+  CurBB.addSuccessor(&CmpBB);
+  CmpBB.addSuccessor(&MergeBB);
+  // check operands are unordered
+  Register LHS = MI.getLHSReg(), RHS = MI.getRHSReg();
+  Register OrderedReg = MRI.createGenericVirtualRegister(s64);
+  MIB.buildFCmp(FCmpInst::FCMP_UNO, OrderedReg, LHS, RHS);
+  // jump to compare if both operands are ordered
+  MIB.buildBrCond(OrderedReg, MergeBB);
+
+  // FCMP block only contains FCMP for ordered compare
+  MF.insert(MachineFunction::iterator(&MergeBB), &CmpBB);
+  MachineIRBuilder CmpMIB(MF);
+  CmpMIB.setMBB(CmpBB);
+  Register FCMPReg = MRI.createGenericVirtualRegister(s64);
+  CmpMIB.buildInstr(MMIX::G_3WAY_FCMP, {FCMPReg}, {LHS, RHS});
+  MMIX::Cond Cond;
+  switch (Pred) {
+  case CmpInst::FCMP_OGT:
+  case CmpInst::FCMP_UGT:
+    Cond = MMIX::Cond::P;
+    break;
+  case CmpInst::FCMP_OGE:
+  case CmpInst::FCMP_UGE:
+    Cond = MMIX::Cond::NN;
+    break;
+  case CmpInst::FCMP_OLT:
+  case CmpInst::FCMP_ULT:
+    Cond = MMIX::Cond::N;
+    break;
+  case CmpInst::FCMP_OLE:
+  case CmpInst::FCMP_ULE:
+    Cond = MMIX::Cond::NP;
+    break;
+  default:
+    llvm_unreachable("invalid fcmp pred");
+  }
+  Register SelectReg = MRI.createGenericVirtualRegister(s64);
+  Register Zero = MRI.createGenericVirtualRegister(s64);
+  Register One = MRI.createGenericVirtualRegister(s64);
+  Register SelectCond = MRI.createGenericVirtualRegister(s64);
+  CmpMIB.buildConstant(Zero, 0);
+  CmpMIB.buildConstant(One, 1);
+  CmpMIB.buildConstant(SelectCond, (int64_t)Cond);
+  CmpMIB.buildInstr(MMIX::G_SELECT_IF, {SelectReg},
+                    {SelectCond, FCMPReg, One, Zero});
+  CmpMIB.buildBr(MergeBB);
+
+  // now condition register should contain result from
+  // FUN or FCMP, build a PHI node for it
+  Register ResultReg = MRI.createGenericVirtualRegister(s64);
+  MachineIRBuilder MergeMIB(*MergeBB.begin());
+  MergeMIB.buildInstr(TargetOpcode::G_PHI, {ResultReg}, {})
+      .addUse(OrderedReg)
+      .addMBB(&CurBB)
+      .addUse(SelectReg)
+      .addMBB(&CmpBB);
+  MRI.replaceRegWith(MI.getOperand(0).getReg(), ResultReg);
+  MI.eraseFromParent();
+
+  return true;
+}
+
+static bool legalizeG_ICMP(GICmp &MI) {
+  LLT s64 = LLT::scalar(64);
+  MachineIRBuilder MIB(MI);
+  MachineRegisterInfo &MRI = *MIB.getMRI();
+
+  ICmpInst::Predicate Pred = MI.getCond();
+  Register CmpReg = MRI.createGenericVirtualRegister(s64);
+  bool IsSigned = ICmpInst::isSigned(Pred);
+  if (IsSigned)
+    MIB.buildSCmp(CmpReg, MI.getLHSReg(), MI.getRHSReg());
+  else
+    MIB.buildUCmp(CmpReg, MI.getLHSReg(), MI.getRHSReg());
+
+  MMIX::Cond Cond;
+  switch (Pred) {
+  case ICmpInst::ICMP_EQ:
+    Cond = MMIX::Cond::Z;
+    break;
+  case ICmpInst::ICMP_NE:
+    Cond = MMIX::Cond::NZ;
+    break;
+  case ICmpInst::ICMP_SGE:
+  case ICmpInst::ICMP_UGE:
+    Cond = MMIX::Cond::NN;
+    break;
+  case ICmpInst::ICMP_SGT:
+  case ICmpInst::ICMP_UGT:
+    Cond = MMIX::Cond::P;
+    break;
+  case ICmpInst::ICMP_SLE:
+  case ICmpInst::ICMP_ULE:
+    Cond = MMIX::Cond::NP;
+    break;
+  case ICmpInst::ICMP_SLT:
+  case ICmpInst::ICMP_ULT:
+    Cond = MMIX::Cond::N;
+    break;
+  default:
+    llvm_unreachable("unexpected icmp cond");
+  }
+
+  Register Res = MRI.createGenericVirtualRegister(s64);
+  Register Zero = MRI.createGenericVirtualRegister(s64);
+  Register One = MRI.createGenericVirtualRegister(s64);
+  Register CondReg = MRI.createGenericVirtualRegister(s64);
+  MIB.buildConstant(Zero, 0);
+  MIB.buildConstant(One, 1);
+  MIB.buildConstant(CondReg, (int64_t)Cond);
+  MIB.buildInstr(MMIX::G_SELECT_IF, {Res}, {CondReg, CmpReg, One, Zero});
+
+  MRI.replaceRegWith(MI.getReg(0), Res);
+  MI.eraseFromParent();
+
+  return true;
+}
+
+bool MMIXLegalizerInfo::legalizeCustom(
+    LegalizerHelper &Helper, MachineInstr &MI,
+    LostDebugLocObserver &LocObserver) const {
+  unsigned Opc = MI.getOpcode();
+  switch (Opc) {
+  case TargetOpcode::G_FCMP:
+    return legalizeG_FCMP(*dyn_cast<GFCmp>(&MI));
+  case TargetOpcode::G_ICMP:
+    return legalizeG_ICMP(*dyn_cast<GICmp>(&MI));
+  default:
+    break;
+  }
+  return false;
 }

@@ -47,6 +47,17 @@ const RegisterBankInfo::ValueMapping ValMappings[] = {
 
 using namespace llvm;
 
+/// Check whether or not \p MI should be treated like a copy
+/// for the mappings.
+/// Copy like instruction are special for mapping because
+/// they don't have actual register constraints. Moreover,
+/// they sometimes have register classes assigned and we can
+/// just use that instead of failing to provide a generic mapping.
+static bool isCopyLike(const MachineInstr &MI) {
+  return MI.isCopy() || MI.isPHI() ||
+         MI.getOpcode() == TargetOpcode::REG_SEQUENCE;
+}
+
 const MMIXRegisterBankInfo::InstructionMapping &
 MMIXRegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
   using namespace MMIX;
@@ -73,6 +84,8 @@ MMIXRegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
     }
     OperandsMapping.push_back(&ValMappings[Idx]);
   }
+  if (isCopyLike(MI))
+    NumOperands = 1;
   return getInstructionMapping(DefaultMappingID, /*Cost*/ 1,
                                getOperandsMapping(OperandsMapping),
                                NumOperands);

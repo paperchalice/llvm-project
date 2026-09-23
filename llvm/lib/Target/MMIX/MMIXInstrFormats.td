@@ -91,6 +91,9 @@ def s17imm : Operand<i32>;
 let ParserMatchClass = SImmAsmOperand<25> in
 def s25imm : Operand<i32>;
 }
+class ImmN<int n> : ImmLeaf<i64, ""> {
+  let ImmediateCode = "return Imm == " # n # ";";
+}
 
 def RoundingModeOperand : AsmOperandClass {
   let Name = "RoundingMode";
@@ -193,7 +196,7 @@ defvar PosCondDagList = [
   (setge i64:$Y, 0), (setne i64:$Y, 0), (setle i64:$Y, 0),
   (seteq (and i64:$Y, 1), 0)
 ];
-defvar I64PosCondDagList = !foreach(dg, PosCondDagList, (i64 dg));
+// must have same values with MMIX::Cond in MMIXGenericMachineInstrs.h
 defvar CondList = !listconcat(PosCondList, NegCondList);
 
 defvar RegPosList = ["H", "MH", "ML", "L"];

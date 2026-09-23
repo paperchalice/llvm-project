@@ -44,3 +44,48 @@ void MMIXInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
   constexpr uint64_t Zero = 0;
   MIB.buildInstr(MMIX::ORI, {DestReg}, {SrcReg, Zero});
 }
+
+bool MMIXInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
+                                  MachineBasicBlock *&TBB,
+                                  MachineBasicBlock *&FBB,
+                                  SmallVectorImpl<MachineOperand> &Cond,
+                                  bool AllowModify) const {
+  SmallVector<MachineInstr *, 4> BranchInstrs;
+  for (auto &Terminator : llvm::make_filter_range(
+           MBB.terminators(), [](MachineInstr &MI) { return MI.isBranch(); }))
+    BranchInstrs.push_back(&Terminator);
+
+  size_t TerminatorCnt = BranchInstrs.size();
+  // case 1
+  if (TerminatorCnt == 0)
+    return false;
+
+  // case 2
+  if (TerminatorCnt == 1 && BranchInstrs[0]->isUnconditionalBranch()) {
+    MachineInstr &TermInstr = *BranchInstrs[0];
+    for (auto &MO : TermInstr.operands()) {
+      if (!MO.isMBB())
+        continue;
+      TBB = MO.getMBB();
+      return false;
+    }
+    return true;
+  }
+
+  // TODO: handle case 3 and 4
+  return true;
+}
+
+unsigned MMIXInstrInfo::removeBranch(MachineBasicBlock &MBB,
+                                     int *BytesRemoved) const {
+  unsigned RemovedCnt = 0;
+  for (auto &BranchInst : llvm::make_early_inc_range(llvm::make_filter_range(
+           MBB, [](MachineInstr &MI) { return MI.isBranch(); }))) {
+    BranchInst.removeFromParent();
+    ++RemovedCnt;
+  }
+
+  if (BytesRemoved)
+    *BytesRemoved = 4 * RemovedCnt;
+  return RemovedCnt;
+}

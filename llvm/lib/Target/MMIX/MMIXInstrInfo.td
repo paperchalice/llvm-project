@@ -19,6 +19,8 @@
 
 include "MMIXInstrFormats.td"
 
+include "MMIXInstrGISel.td"
+
 let isTrap = true, hasSideEffects = true in {
 def TRAP : Inst_X_Y_Z<0x00, (outs), (ins u8imm:$X, trap_y:$Y, trap_z:$Z)>;
 let isAsmParserOnly = true in {
@@ -253,8 +255,12 @@ foreach i = !range(!size(CondList)) in {
   defvar c = CondList[i];
   defvar opc = !add(0x60, !mul(2, i));
   let isSelect = true, Constraints="$X = $X0" in {
-    def CS#c : Inst_X_Y_Z<opc, (outs GPR:$X), (ins GPR:$Y, GPR:$Z, GPR:$X0)>;
-    def CS#c#I : Inst_X_Y_Z<!or(opc, 1), (outs GPR:$X), (ins GPR:$Y, u8imm:$Z, GPR:$X0)>;
+    def CS#c : Inst_X_Y_Z<opc, (outs GPR:$X), (ins GPR:$Y, GPR:$Z, GPR:$X0)> {
+      let Pattern = [(set i64:$X, (selectif ImmN<i>, i64:$Y, i64:$Z, i64:$X0))];
+    }
+    def CS#c#I : Inst_X_Y_Z<!or(opc, 1), (outs GPR:$X), (ins GPR:$Y, u8imm:$Z, GPR:$X0)> {
+      let Pattern = [(set i64:$X, (selectif ImmN<i>, i64:$Y, u8imm:$Z, i64:$X0))];
+    }
   }
   defvar csi = !cast<Inst_X_Y_Z>("CS"#c#I);
   def : InstAlias<"CS"#c#"\t$X,$Y,$Z", (csi GPR:$X, GPR:$Y, u8imm:$Z)>;
@@ -265,10 +271,10 @@ foreach i = !range(!size(CondList)) in {
   defvar opc = !add(0x70, !mul(2, i));
   let isSelect = true in {
     def ZS#c : Inst_X_Y_Z<opc, (outs GPR:$X), (ins GPR:$Y, GPR:$Z)> {
-      let Pattern = [(set i64:$X, (select I64PosCondDagList[i], i64:$Z, 0))];
+      let Pattern = [(set i64:$X, (selectif ImmN<i>, i64:$Y, i64:$Z, 0))];
     }
     def ZS#c#I : Inst_X_Y_Z<!or(opc, 1), (outs GPR:$X), (ins GPR:$Y, u8imm:$Z)> {
-      let Pattern = [(set i64:$X, (select I64PosCondDagList[i], u8imm:$Z, 0))];
+      let Pattern = [(set i64:$X, (selectif ImmN<i>, i64:$Y, u8imm:$Z, 0))];
     }
   }
   defvar zsi = !cast<Inst_X_Y_Z>("ZS"#c#I);
@@ -498,6 +504,7 @@ def : InstAlias<"SET\t$X,$YZ", (SETL GPR:$X, u16imm:$YZ), 2>;
 def JMP : InstJMP {
   let isBranch = 1;
   let isTerminator = 1;
+  let isBarrier = true;
   let Pattern = [(br bb:$XYZ)];
 }
 
@@ -507,7 +514,10 @@ let isAsmParserOnly = true in
 def : Inst_X_YZ<0xF2, (outs), (ins u8imm:$X, rel_addr:$YZ), "PUSHJ">;
 }
 
-def GETA : InstB_X_YZ<0xF4, (outs GPR:$X), (ins rel_addr:$YZ)>;
+def GETA : InstB_X_YZ<0xF4, (outs GPR:$X), (ins rel_addr:$YZ)> {
+  let isBranch = false;
+  let isTerminator = false;
+}
 
 class PutInst<bit isI, bit isIdiosyncratic>
   : MMIXInst<0xF6,
@@ -673,10 +683,20 @@ foreach i = !range(!size(ICMPConds)) in {
   defvar BInst = !cast<InstB>("B"#BCond);
   defvar SetCond = ICMPConds[i];
   defvar CMPInst = !cast<Inst_X_Y_Z>(!if(!match(SetCond, "u"), "CMPU", "CMP"));
+  defvar CMPIInst = !cast<Inst_X_Y_Z>(!if(!match(SetCond, "u"), "CMPUI", "CMPI"));
   defvar SetInst = !cast<PatFrag>("set"#SetCond);
   defvar ZSInst = !cast<Inst_X_Y_Z>("ZS"#BCond#"I");
   defvar CSInst = !cast<Inst_X_Y_Z>("CS"#BCond);
   defvar CSIInst = !cast<Inst_X_Y_Z>("CS"#BCond#"I");
+  
+  def : Pat<(brcond (i64 (SetInst i64:$lhs, u8imm:$rhs)), bb:$YZ),
+            (BInst (CMPIInst GPR:$lhs, u8imm:$rhs), bb:$YZ)>;
+  def : Pat<(i64 (SetInst i64:$lhs, u8imm:$rhs)),
+            (ZSInst (CMPIInst GPR:$lhs, u8imm:$rhs), 1)>;
+  def : Pat<(select (i64 (SetInst i64:$lhs, u8imm:$rhs)), i64:$t, i64:$f),
+            (CSInst (CMPIInst GPR:$lhs, u8imm:$rhs), GPR:$t, GPR:$f)>;
+  def : Pat<(select (i64 (SetInst i64:$lhs, u8imm:$rhs)), u8imm:$t, i64:$f),
+            (CSIInst (CMPIInst GPR:$lhs, u8imm:$rhs), u8imm:$t, GPR:$f)>;
 
   def : Pat<(brcond (i64 (SetInst i64:$lhs, i64:$rhs)), bb:$YZ),
             (BInst (CMPInst GPR:$lhs, GPR:$rhs), bb:$YZ)>;
@@ -687,11 +707,11 @@ foreach i = !range(!size(ICMPConds)) in {
             (CSIInst (CMPInst GPR:$lhs, GPR:$rhs), u8imm:$t, GPR:$f)>;
 }
 
-// floating points
+// floating point compare
+def : Pat<(i64 (mmix_3way_fcmp f64:$Y, f64:$Z)), (FCMP GPR:$Y, GPR:$Z)>;
 def : Pat<(i64 (setueq f64:$Y, f64:$Z)), (OR (FUN GPR:$Y, GPR:$Z), (FEQL GPR:$Y, GPR:$Z))>;
 def : Pat<(i64 (setune f64:$Y, f64:$Z)), (OR (FUN GPR:$Y, GPR:$Z), (XORI (FEQL GPR:$Y, GPR:$Z), 1))>;
+def : Pat<(i64 (setuo f64:$Y, f64:$Z)), (FUN GPR:$Y, GPR:$Z)>;
 def : Pat<(i64 (seto f64:$Y, f64:$Z)), (XORI (FUN GPR:$Y, GPR:$Z), 1)>;
-
-include "MMIXInstrGISel.td"
 
 #endif // LLVM_LIB_TARGET_MMIX_MMIXINSTRINFO_TD
