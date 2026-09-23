@@ -21,6 +21,10 @@ namespace llvm {
 class LLVM_LIBRARY_VISIBILITY MMIXLegalizerInfo : public LegalizerInfo {
 public:
   MMIXLegalizerInfo();
+
+public:
+  bool legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI,
+                      LostDebugLocObserver &LocObserver) const override;
 };
 
 } // namespace llvm
