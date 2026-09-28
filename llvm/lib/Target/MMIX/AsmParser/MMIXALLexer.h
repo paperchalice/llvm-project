@@ -126,18 +126,14 @@ class ALLexer {
   SMLoc ErrLoc;
   std::string Err;
 
-  const char *TokStart = nullptr;
-  bool IsAtStartOfInstruction = true;
   bool IsAtStartOfLine = true;
   bool JustConsumedEOL = true;
   bool IsPeeking = false;
-  bool SkipSpace = true;
+  bool EndStatementAtEOF = true;
 
-  enum class Mode {
-    LexLabel,
-    LexMnemonic,
-    LexOp,
-  } LexMode = Mode::LexLabel;
+  const char *TokStart = nullptr;
+  bool SkipSpace = true;
+  bool IsAtStartOfStatement = true;
 
 private:
   LLVM_ABI ALToken LexToken();
@@ -161,25 +157,9 @@ public:
   ///
   /// The lexer will continuously return the end-of-file token once the end of
   /// the main input file has been reached.
-  const ALToken &Lex() {
-    assert(!CurTok.empty());
-    // Mark if we parsing out a EndOfStatement.
-    JustConsumedEOL = CurTok.front().getKind() == ALToken::EndOfStatement;
-    CurTok.erase(CurTok.begin());
-    // LexToken may generate multiple tokens via UnLex but will always return
-    // the first one. Place returned value at head of CurTok vector.
-    if (CurTok.empty()) {
-      ALToken T = LexToken();
-      CurTok.insert(CurTok.begin(), T);
-    }
-    return CurTok.front();
-  }
+  LLVM_ABI const ALToken &lex();
 
-  void UnLex(ALToken const &Token) { CurTok.insert(CurTok.begin(), Token); }
-
-  bool justConsumedEOL() { return JustConsumedEOL; }
-
-  LLVM_ABI StringRef LexUntilEndOfStatement();
+  void unLex(ALToken const &Token) { CurTok.insert(CurTok.begin(), Token); }
 
   /// Get the current source location.
   SMLoc getLoc() const { return SMLoc::getFromPointer(TokStart); }
@@ -192,10 +172,9 @@ public:
     ALToken Tok;
 
     MutableArrayRef<ALToken> Buf(Tok);
-    size_t ReadCount = peekTokens(Buf, ShouldSkipSpace);
+    [[maybe_unused]] size_t ReadCount = peekTokens(Buf, ShouldSkipSpace);
 
     assert(ReadCount == 1);
-    (void)ReadCount;
 
     return Tok;
   }
@@ -214,10 +193,8 @@ private:
   }
 
   ALToken returnError(const char *Loc, const std::string &Msg);
-  ALToken lexLineComment();
-  ALToken lexLabel();
-  StringRef lexUntilEndOfLine();
-  ALToken lexDigit(bool IsHex);
+
+private:
   ALToken lexIdentifier();
 };
 

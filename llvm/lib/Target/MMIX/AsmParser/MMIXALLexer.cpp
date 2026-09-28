@@ -86,33 +86,6 @@ void ALLexer::setBuffer(StringRef Buf, const char *ptr) {
   TokStart = nullptr;
 }
 
-StringRef ALLexer::lexUntilEndOfLine() {
-  TokStart = CurPtr;
-
-  while (*CurPtr != '\n' && *CurPtr != '\r' && CurPtr != CurBuf.end())
-    ++CurPtr;
-
-  return StringRef(TokStart, CurPtr - TokStart);
-}
-
-ALToken ALLexer::lexLineComment() {
-  int CurChar = getNextChar();
-  while (CurChar != '\n' && CurChar != '\r' && CurChar != EOF)
-    CurChar = getNextChar();
-  if (CurChar == '\r' && peekNextChar() != EOF && peekNextChar() == '\n')
-    ++CurPtr;
-
-  IsAtStartOfLine = true;
-  // This is a whole line comment. leave newline
-  if (IsAtStartOfInstruction)
-    return ALToken(ALToken::EndOfStatement,
-                   StringRef(TokStart, CurPtr - TokStart));
-  IsAtStartOfInstruction = true;
-
-  auto Comment = StringRef(TokStart, CurPtr - 1 - TokStart);
-  return ALToken(ALToken::EndOfStatement, Comment);
-}
-
 /// ReturnError - Set the error to the specified string at the specified
 /// location.  This is defined to always return ALToken::Error.
 ALToken ALLexer::returnError(const char *Loc, const std::string &Msg) {
@@ -133,77 +106,10 @@ int ALLexer::peekNextChar() {
   return (unsigned char)*CurPtr;
 }
 
-static bool isIdStartChar(int C) {
-  switch (C) {
-  case ':':
-  case '_':
-    return true;
-  default:
-    return std::isalpha(C) || C > 126;
-  }
-}
-
-static bool isIdChar(int C) { return isIdStartChar(C) || std::isdigit(C); }
-
-ALToken ALLexer::lexDigit(bool IsHex) {
-  StringRef IntStr;
-  APInt APIntVal;
-  unsigned Radix = IsHex ? 16 : 10;
-  if (IsHex) {
-    while (llvm::isHexDigit(peekNextChar()))
-      ++CurPtr;
-    IntStr = StringRef(TokStart, CurPtr - TokStart);
-  } else {
-    while (std::isdigit(peekNextChar()))
-      ++CurPtr;
-    IntStr = StringRef(TokStart, CurPtr - TokStart);
-  }
-  IntStr.getAsInteger(Radix, APIntVal);
-  if (APIntVal.getBitWidth() > 64)
-    APIntVal = APIntVal.trunc(64);
-  uint64_t IntVal = APIntVal.getZExtValue();
-  return ALToken(ALToken::Integer, IntStr, IntVal);
-}
-
-ALToken ALLexer::lexIdentifier() {
-  if (LexMode == Mode::LexMnemonic) {
-    StringRef Content = StringRef(TokStart, CurBuf.end() - TokStart);
-    if (Content.starts_with("2ADDU") || Content.starts_with("4ADDU") ||
-        Content.starts_with("8ADDU"))
-      CurPtr += 4;
-    if (Content.starts_with("16ADDU"))
-      CurPtr += 5;
-    LexMode = Mode::LexOp;
-  }
-  while (isIdChar(peekNextChar()))
-    ++CurPtr;
-  return ALToken(ALToken::Identifier, StringRef(TokStart, CurPtr - TokStart));
-}
-
-ALToken ALLexer::lexLabel() {
-  // normal label
-  if (isIdStartChar(*TokStart)) {
-    while (isIdChar(peekNextChar()))
-      ++CurPtr;
-    return ALToken(ALToken::Identifier, StringRef(TokStart, CurPtr - TokStart));
-  }
-
-  // directional label
-  if (std::isdigit(*TokStart)) {
-    while (std::isdigit(peekNextChar()))
-      ++CurPtr;
-    if (getNextChar() == 'H')
-      return ALToken(ALToken::Identifier,
-                     StringRef(TokStart, CurPtr - TokStart));
-  }
-  return ALToken(ALToken::Error, "improper local label");
-}
-
 size_t ALLexer::peekTokens(MutableArrayRef<ALToken> Buf, bool ShouldSkipSpace) {
   SaveAndRestore SavedTokenStart(TokStart);
   SaveAndRestore SavedCurPtr(CurPtr);
   SaveAndRestore SavedAtStartOfLine(IsAtStartOfLine);
-  SaveAndRestore SavedAtStartOfInstruction(IsAtStartOfInstruction);
   SaveAndRestore SavedSkipSpace(SkipSpace, ShouldSkipSpace);
   SaveAndRestore SavedIsPeeking(IsPeeking, true);
   std::string SavedErr = getErr();
@@ -225,59 +131,64 @@ size_t ALLexer::peekTokens(MutableArrayRef<ALToken> Buf, bool ShouldSkipSpace) {
   return ReadCount;
 }
 
+static bool isIdChar(char C) {
+  switch (C) {
+  case ':':
+  case '_':
+    return true;
+  default:
+    return std::isalnum(C) || C > 126;
+  }
+}
+
+static bool isLocalLabel(StringRef L) {
+  if (!L.ends_with('H'))
+    return false;
+  L = L.drop_back();
+  return llvm::all_of(L, [](char C) { return std::isdigit(C); });
+}
+
+static bool isValidLabel(StringRef L) {
+  if (isLocalLabel(L))
+    return true;
+  if (L.empty())
+    return false;
+  return !std::isdigit(L.front()) && llvm::all_of(L, isIdChar);
+}
+
+const ALToken &ALLexer::lex() {
+  assert(!CurTok.empty());
+  // Mark if we parsing out a EndOfStatement.
+  JustConsumedEOL = CurTok.front().getKind() == ALToken::EndOfStatement;
+  CurTok.erase(CurTok.begin());
+  // LexToken may generate multiple tokens via UnLex but will always return
+  // the first one. Place returned value at head of CurTok vector.
+  if (CurTok.empty()) {
+    ALToken T = LexToken();
+    CurTok.insert(CurTok.begin(), T);
+  }
+  return CurTok.front();
+}
+
+ALToken ALLexer::lexIdentifier() {
+  while (isIdChar(peekNextChar()))
+    ++CurPtr;
+  return ALToken(ALToken::Identifier, StringRef(TokStart, CurPtr - TokStart));
+}
+
 ALToken ALLexer::LexToken() {
   TokStart = CurPtr;
   // This always consumes at least one character.
   int CurChar = getNextChar();
 
-  if (!IsPeeking && CurChar == '#' && IsAtStartOfLine) {
-    // If this starts with a '#', this may be a cpp
-    // hash directive and otherwise a line comment.
-    ALToken TokenBuf[2];
-    MutableArrayRef<ALToken> Buf(TokenBuf, 2);
-    size_t num = peekTokens(Buf, true);
-    // There cannot be a space preceding this
-    if (IsAtStartOfInstruction && num == 2 &&
-        TokenBuf[0].is(ALToken::Integer) && TokenBuf[1].is(ALToken::String)) {
-      CurPtr = TokStart; // reset curPtr;
-      StringRef s = lexUntilEndOfLine();
-      UnLex(TokenBuf[1]);
-      UnLex(TokenBuf[0]);
-      return ALToken(ALToken::HashDirective, s);
-    }
-  }
-
-  // if label field begin with non number or character, then all content
-  // after this char is comment
-  if (!IsPeeking && IsAtStartOfInstruction) {
-    if (!isspace(CurChar) && !isIdChar(CurChar) && CurChar != EOF)
-      return lexLineComment();
-  }
-
-  // If we're missing a newline at EOF, make sure we still get an
-  // EndOfStatement token before the Eof token.
-  if (CurChar == EOF && !IsAtStartOfInstruction) {
-    IsAtStartOfLine = true;
-    IsAtStartOfInstruction = true;
-    return ALToken(ALToken::EndOfStatement, StringRef(TokStart, 0));
-  }
-
-  if (IsAtStartOfInstruction && !std::isspace(CurChar) && CurChar != EOF) {
-    ALToken LabelTok = lexLabel();
-    LexMode = Mode::LexMnemonic;
-    return LabelTok;
-  }
-
   IsAtStartOfLine = false;
-  IsAtStartOfInstruction = false;
+  IsAtStartOfStatement = false;
   switch (CurChar) {
   default:
-    if (isIdStartChar(CurChar))
-      return lexIdentifier();
+    return lexIdentifier();
     break;
   case EOF:
     IsAtStartOfLine = true;
-    IsAtStartOfInstruction = true;
     return ALToken(ALToken::Eof, StringRef(TokStart, 0));
   case '\0':
   case ' ':
@@ -285,21 +196,20 @@ ALToken ALLexer::LexToken() {
   case '\v':
     while (peekNextChar() == ' ' || peekNextChar() == '\t')
       CurPtr++;
-    if (LexMode == Mode::LexLabel)
-      LexMode = Mode::LexMnemonic;
-    return LexToken(); // Ignore whitespace.
+    if (SkipSpace)
+      return LexToken(); // Ignore whitespace.
+    else
+      return ALToken(ALToken::Space, StringRef(TokStart, CurPtr - TokStart));
   case '\r':
     IsAtStartOfLine = true;
-    IsAtStartOfInstruction = true;
-    LexMode = Mode::LexLabel;
+    IsAtStartOfStatement = true;
     if (peekNextChar() == '\n')
       ++CurPtr;
     return ALToken(ALToken::EndOfStatement,
                    StringRef(TokStart, CurPtr - TokStart));
   case '\n':
     IsAtStartOfLine = true;
-    IsAtStartOfInstruction = true;
-    LexMode = Mode::LexLabel;
+    IsAtStartOfStatement = true;
     return ALToken(ALToken::EndOfStatement, StringRef(TokStart, 1));
   case '+':
     return ALToken(ALToken::Plus, StringRef(TokStart, 1));
@@ -334,23 +244,7 @@ ALToken ALLexer::LexToken() {
   case '^':
     return ALToken(ALToken::Caret, StringRef(TokStart, 1));
   case ';':
-    IsAtStartOfInstruction = true;
     return ALToken(ALToken::EndOfStatement, StringRef(TokStart, 1));
-
-  case '#':
-  case '0':
-  case '1':
-  case '2':
-  case '3':
-  case '4':
-  case '5':
-  case '6':
-  case '7':
-  case '8':
-  case '9':
-    if (LexMode == Mode::LexMnemonic)
-      return lexIdentifier();
-    return lexDigit(CurChar == '#');
   }
 
   return returnError(TokStart, "unexpected char");

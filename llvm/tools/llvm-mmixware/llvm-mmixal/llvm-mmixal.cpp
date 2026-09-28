@@ -194,7 +194,7 @@ int llvm_mmixal_main(int argc, char *argv[], const llvm::ToolContext &) {
 
   // FIXME: This is not pretty. MCContext has a ptr to MCObjectFileInfo and
   // MCObjectFileInfo needs a MCContext reference in order to initialize itself.
-  MCContext Ctx(MMIXTriple, *MAI, *MRI, *STI, &SrcMgr, &MCOptions);
+  MCContext Ctx(MMIXTriple, *MAI, *MRI, *STI, &SrcMgr);
   std::unique_ptr<MCObjectFileInfo> MOFI(TheTarget->createMCObjectFileInfo(
       Ctx, /*PIC=*/false, /*LargeCodeModel=*/true));
   Ctx.setObjectFileInfo(MOFI.get());

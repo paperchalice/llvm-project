@@ -34,7 +34,7 @@ const ALToken &ALParser::lex() {
       Out.addExplicitComment(Twine(getTok().getString()));
   }
 
-  const ALToken &Tok = Lexer.Lex();
+  const ALToken &Tok = Lexer.lex();
 
   return Tok;
 }
