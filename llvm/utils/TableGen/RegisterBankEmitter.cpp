@@ -45,6 +45,8 @@ struct PartialMappingInfo {
       return Length < RHS.Length;
     return false;
   }
+
+  bool isTrivial() const { return StartIdx == 0; }
 };
 
 class RegisterBank {
@@ -182,6 +184,10 @@ private:
                                    ArrayRef<RegisterBank> Banks);
   void emitPartialMapImplementation(raw_ostream &OS, StringRef TargetName,
                                     ArrayRef<RegisterBank> Banks);
+  void emitTrivialValueMapDeclaration(raw_ostream &OS, StringRef TargetName,
+                                      ArrayRef<RegisterBank> Banks);
+  void emitTrivialValueMapImplementation(raw_ostream &OS, StringRef TargetName,
+                                         ArrayRef<RegisterBank> Banks);
 
 public:
   RegisterBankEmitter(const RecordKeeper &R) : Target(R), Records(R) {}
@@ -225,6 +231,7 @@ void RegisterBankEmitter::emitBaseClassDefinition(
      << "\n";
 
   emitPartialMapDeclaration(OS, TargetName, Banks);
+  emitTrivialValueMapDeclaration(OS, TargetName, Banks);
 }
 
 void RegisterBankEmitter::emitPartialMapDeclaration(
@@ -477,6 +484,7 @@ void RegisterBankEmitter::emitBaseClassImplementation(
         "}\n";
 
   emitPartialMapImplementation(OS, TargetName, Banks);
+  emitTrivialValueMapImplementation(OS, TargetName, Banks);
 }
 
 void RegisterBankEmitter::emitPartialMapImplementation(
@@ -524,6 +532,56 @@ void RegisterBankEmitter::emitPartialMapImplementation(
          Map.RegBank == &RB;
 }
 )";
+}
+
+void RegisterBankEmitter::emitTrivialValueMapDeclaration(
+    raw_ostream &OS, StringRef TargetName, ArrayRef<RegisterBank> Banks) {
+  OS << '\n';
+
+  OS << "  enum TrivialValueMappingIdx {\n"
+        "    TVMI_InvalidIdx,\n";
+
+  size_t Idx = 1;
+  for (const auto &Bank : Banks) {
+    for (const auto &PM : Bank.getPartSizeSet()) {
+      // TODO: handle complex mappings
+      if (!PM.isTrivial())
+        continue;
+
+      OS << "    " << "TVMI_3x" << Bank.getName() << PM.Length << " = " << Idx
+         << ",\n";
+      Idx += 3;
+    }
+  }
+
+  OS << "};\n\n";
+
+  OS << "  static const ValueMapping TrivialValMappings[];\n";
+}
+
+void RegisterBankEmitter::emitTrivialValueMapImplementation(
+    raw_ostream &OS, StringRef TargetName, ArrayRef<RegisterBank> Banks) {
+  OS << "\nconst RegisterBankInfo::ValueMapping\n"
+     << TargetName
+     << "GenRegisterBankInfo::TrivialValMappings[] = {\n"
+        "  // BreakDown, NumBreakDowns\n"
+        "  // 0: invalid\n"
+        "  {nullptr, 0},\n";
+
+  const std::string ClassName = TargetName.str() + "GenRegisterBankInfo";
+  for (const auto &Bank : Banks) {
+    for (const auto &PM : Bank.getPartSizeSet()) {
+      // TODO: handle complex mappings
+      if (!PM.isTrivial())
+        continue;
+      for (int I = 0; I != 3; ++I)
+        OS << "  {&" << ClassName << "::" << "PartMappings["
+           << Bank.getPartialMappingEnumName(PM) << "], 1},\n";
+      OS << '\n';
+    }
+  }
+
+  OS << "};\n";
 }
 
 void RegisterBankEmitter::run(raw_ostream &OS) {
