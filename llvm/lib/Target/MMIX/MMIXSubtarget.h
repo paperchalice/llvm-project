@@ -24,6 +24,9 @@
 #define GET_SUBTARGETINFO_HEADER
 #include "MMIXGenSubtargetInfo.inc"
 
+#define OPTIONS_STRUCT_DECL
+#include "MMIXOptions.inc"
+
 namespace llvm {
 
 class MMIXTargetMachine;

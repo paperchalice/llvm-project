@@ -12,15 +12,18 @@
 
 #include "MMIXTargetMachine.h"
 #include "MMIXCodeGenPassBuilder.h"
+#include "MMIXSubtarget.h"
 #include "TargetInfo/MMIXTargetInfo.h"
 
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Option/LibraryOptions.h"
 
 using namespace llvm;
 
 // NOLINTNEXTLINE(readability-identifier-naming)
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXTarget() {
+  static opt::RegisterLibraryOptions<MMIXOptions> _o;
   // Register the target.
   RegisterTargetMachine<MMIXTargetMachine> RTM0(getTheMMIXTarget());
 }
