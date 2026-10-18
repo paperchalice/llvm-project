@@ -16,9 +16,12 @@ add_llvm_component_library(LLVMMMIXDesc
   MC
   MMIXInfo
   MMIXUtils
+  Option
   Support
   TargetParser
 
   ADD_TO_COMPONENT
   MMIX
 )
+
+add_dependencies(LLVMMMIXDesc MMIXCommonTableGen)

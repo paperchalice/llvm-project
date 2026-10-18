@@ -13,11 +13,16 @@
 #include "MMIXSubtarget.h"
 #include "MMIXTargetMachine.h"
 
+#include "llvm/Option/LibraryOptions.h"
+
 #define DEBUG_TYPE "mmix-subtarget"
 
 #define GET_SUBTARGETINFO_TARGET_DESC
 #define GET_SUBTARGETINFO_CTOR
 #include "MMIXGenSubtargetInfo.inc"
+
+#define OPTIONS_STRUCT_DEFS
+#include "MMIXOptions.inc"
 
 using namespace llvm;
 
