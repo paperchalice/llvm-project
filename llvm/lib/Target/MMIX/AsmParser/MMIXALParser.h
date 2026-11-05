@@ -9,13 +9,31 @@
 #ifndef LLVM_LIB_TARGET_MMIX_ASM_ASMPARSER_MMIXALPARSER_H
 #define LLVM_LIB_TARGET_MMIX_ASM_ASMPARSER_MMIXALPARSER_H
 
+#include "MCTargetDesc/MMIXTargetStreamer.h"
 #include "MMIXALLexer.h"
 
 #include "llvm/MC/MCParser/MCAsmParser.h"
+#include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/Support/SourceMgr.h"
 
 namespace llvm::MMIX {
 
+struct ParseStatementInfo {
+  /// The parsed operands from the last parsed statement.
+  SmallVector<std::unique_ptr<MCParsedAsmOperand>, 8> ParsedOperands;
+
+  /// The opcode from the last parsed instruction.
+  unsigned Opcode = ~0U;
+
+  /// Was there an error parsing the inline assembly?
+  bool ParseError = false;
+
+  SmallVectorImpl<AsmRewrite> *AsmRewrites = nullptr;
+
+  ParseStatementInfo() = delete;
+  ParseStatementInfo(SmallVectorImpl<AsmRewrite> *rewrites)
+      : AsmRewrites(rewrites) {}
+};
 class LLVM_ABI ALParser : public MCAsmParser {
 public:
   ALParser(MCContext &Ctx, MCStreamer &Out, SourceMgr &SrcMgr,
@@ -65,8 +83,10 @@ public:
   StringRef parseStringToEndOfStatement() override { return ""; }
   bool parseEscapedString(std::string &Data) override { return false; }
   bool parseAngleBracketString(std::string &Data) override { return false; }
-  void eatToEndOfStatement() override {}
+  void eatToEndOfStatement() override;
   bool parseExpression(const MCExpr *&Res, SMLoc &EndLoc) override;
+  bool parseExpression(const MCExpr *&Res);
+  bool parseBinOpRHS(unsigned Precedence, const MCExpr *&Res, SMLoc &EndLoc);
   bool parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc,
                         AsmTypeInfo *TypeInfo = nullptr) override;
   bool parseParenExpression(const MCExpr *&Res, SMLoc &EndLoc) override;
@@ -74,7 +94,8 @@ public:
   bool checkForValidSection() override { return false; }
 
 private:
-  bool parseStatement();
+  int parseStatement(ParseStatementInfo &Info);
+  int parseAndMatchAndEmitTargetInstruction(ParseStatementInfo &Info);
 
 private:
   std::size_t ErrorCount = 0;
@@ -95,5 +116,78 @@ LLVM_ABI ALParser *createMCMMIXALParser(SourceMgr &SrcMgr, MCContext &Ctx,
                                         MCStreamer &Out, const MCAsmInfo &MAI);
 
 } // namespace llvm::MMIX
+
+namespace llvm {
+
+class LLVM_LIBRARY_VISIBILITY MMIXALParser : public MCTargetAsmParser {
+public:
+  enum MMIXMatchResultTy {
+    Match_Dummy = FIRST_TARGET_MATCH_RESULT_TY,
+#define GET_OPERAND_DIAGNOSTIC_TYPES
+#include "MMIXGenALMatcher.inc"
+  };
+
+  /// @name Auto-generated Match Functions
+  /// {
+
+#define GET_ASSEMBLER_HEADER
+#include "MMIXGenALMatcher.inc"
+
+  /// }
+
+  // MCTargetAsmParser interface methods
+public:
+  MMIX::ALParser &getParser() {
+    return static_cast<MMIX::ALParser &>(MCTargetAsmParser::getParser());
+  }
+
+  const MMIX::ALToken &getTok() { return getParser().getTok(); }
+
+  const MMIX::ALToken &Lex() { return getParser().lex(); }
+
+  void Initialize(MCAsmParser &Parser) override;
+  bool matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+                               OperandVector &Operands, MCStreamer &Out,
+                               uint64_t &ErrorInfo,
+                               bool MatchingInlineAsm) override;
+  bool parseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) override;
+  ParseStatus tryParseRegister(MCRegister &RegNo, SMLoc &StartLoc,
+                               SMLoc &EndLoc) override;
+
+  bool parseInstruction(ParseInstructionInfo &Info, StringRef Name,
+                        SMLoc NameLoc, OperandVector &Operands) override;
+
+public:
+  ParseStatus parseRelAddr(OperandVector &Operands);
+  // Directive parsers
+private:
+  ParseStatus parseGREG(SMLoc Loc);
+  ParseStatus parsePREFIX(SMLoc Loc);
+  ParseStatus parseBSPEC(SMLoc Loc);
+  ParseStatus parseESPEC(SMLoc Loc);
+  ParseStatus parseIS(SMLoc Loc);
+  ParseStatus parseLOCAL(SMLoc Loc);
+
+  void assignIndex(MCSymbol &Symbol);
+
+  int CurGReg = 254;
+  std::vector<const MCExpr *> GRegVals;
+  DenseSet<MCRegister> LocalRegsNeedCheck;
+  bool IsParsingMMIXAL = false;
+
+  uint32_t SerialCount = 2;
+  uint32_t genSerialCount() { return SerialCount++; }
+
+  MMIXTargetStreamer &getTargetStreamer() {
+    return *static_cast<MMIXTargetStreamer *>(
+        getParser().getStreamer().getTargetStreamer());
+  }
+
+public:
+  MMIXALParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
+               const MCInstrInfo &MII);
+};
+
+} // namespace llvm
 
 #endif // LLVM_LIB_TARGET_MMIX_ASM_ASMPARSER_MMIXALPARSER_H

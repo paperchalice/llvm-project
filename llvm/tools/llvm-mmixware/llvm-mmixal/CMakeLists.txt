@@ -18,6 +18,7 @@ add_llvm_tool(llvm-mmixal
 target_include_directories(llvm-mmixal
   PRIVATE
   ${LLVM_MAIN_SRC_DIR}/lib/Target/MMIX
+  ${LLVM_BINARY_DIR}/lib/Target/MMIX
 )
 
 if(LLVM_INSTALL_BINUTILS_SYMLINKS)

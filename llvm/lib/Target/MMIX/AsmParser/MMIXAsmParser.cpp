@@ -11,6 +11,7 @@
 #include "MCTargetDesc/MMIXMCExpr.h"
 #include "MCTargetDesc/MMIXMCTargetDesc.h"
 #include "MCTargetDesc/MMIXTargetStreamer.h"
+#include "MMIXALParser.h"
 #include "MMIXInstrInfo.h"
 #include "MMIXOperand.h"
 #include "TargetInfo/MMIXTargetInfo.h"
@@ -252,6 +253,10 @@ bool MMIXAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
     if (const auto *E = dyn_cast<MCConstantExpr>(Expr)) {
       Operands.push_back(
           MMIXOperand::createImm(E->getValue(), StartLoc, EndLoc));
+    } else if (const auto *E = dyn_cast<MMIXMCExpr>(Expr);
+               E && E->isRegExpr()) {
+      Operands.push_back(
+          MMIXOperand::createReg(E->getMCReg(), StartLoc, EndLoc));
     } else {
       Operands.push_back(MMIXOperand::createRelAddr(Expr, StartLoc, EndLoc));
     }
@@ -436,7 +441,16 @@ void MMIXAsmParser::assignIndex(MCSymbol &Symbol) {
   Symbol.setIndex(Index);
 }
 
+static MCTargetAsmParser *createMMIXAsmParser(const MCSubtargetInfo &STI,
+                                              MCAsmParser &Parser,
+                                              const MCInstrInfo &MII) {
+  const MCTargetOptions &Options = Parser.getContext().getTargetOptions();
+  if (Options.getAssemblyLanguage() == "mmixal")
+    return new MMIXALParser(STI, Parser, MII);
+  return new MMIXAsmParser(STI, Parser, MII);
+}
+
 /// Force static initialization.
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMMIXAsmParser() {
-  RegisterMCAsmParser<MMIXAsmParser> TheAsmParser(getTheMMIXTarget());
+  TargetRegistry::RegisterMCAsmParser(getTheMMIXTarget(), createMMIXAsmParser);
 }

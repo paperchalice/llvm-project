@@ -37,6 +37,9 @@ void ALToken::dump(raw_ostream &OS) const {
   case ALToken::String:
     OS << "string: " << getString();
     break;
+  case ALToken::DirectionalLabel:
+    OS << "directional label: " << getString();
+    break;
 
     // clang-format off
   case ALToken::Amp:                OS << "Amp"; break;
@@ -112,12 +115,13 @@ size_t ALLexer::peekTokens(MutableArrayRef<ALToken> Buf, bool ShouldSkipSpace) {
   SaveAndRestore SavedAtStartOfLine(IsAtStartOfLine);
   SaveAndRestore SavedSkipSpace(SkipSpace, ShouldSkipSpace);
   SaveAndRestore SavedIsPeeking(IsPeeking, true);
+  SaveAndRestore SavedState(State);
   std::string SavedErr = getErr();
   SMLoc SavedErrLoc = getErrLoc();
 
   size_t ReadCount;
   for (ReadCount = 0; ReadCount < Buf.size(); ++ReadCount) {
-    ALToken Token = LexToken();
+    ALToken Token = lexToken();
 
     Buf[ReadCount] = Token;
 
@@ -131,29 +135,8 @@ size_t ALLexer::peekTokens(MutableArrayRef<ALToken> Buf, bool ShouldSkipSpace) {
   return ReadCount;
 }
 
-static bool isIdChar(char C) {
-  switch (C) {
-  case ':':
-  case '_':
-    return true;
-  default:
-    return std::isalnum(C) || C > 126;
-  }
-}
-
-static bool isLocalLabel(StringRef L) {
-  if (!L.ends_with('H'))
-    return false;
-  L = L.drop_back();
-  return llvm::all_of(L, [](char C) { return std::isdigit(C); });
-}
-
-static bool isValidLabel(StringRef L) {
-  if (isLocalLabel(L))
-    return true;
-  if (L.empty())
-    return false;
-  return !std::isdigit(L.front()) && llvm::all_of(L, isIdChar);
+static bool isIdChar(int C) {
+  return std::isalnum(C) || C == ':' || C == '_' || C > 126;
 }
 
 const ALToken &ALLexer::lex() {
@@ -164,31 +147,116 @@ const ALToken &ALLexer::lex() {
   // LexToken may generate multiple tokens via UnLex but will always return
   // the first one. Place returned value at head of CurTok vector.
   if (CurTok.empty()) {
-    ALToken T = LexToken();
+    ALToken T = lexToken();
     CurTok.insert(CurTok.begin(), T);
   }
   return CurTok.front();
 }
 
-ALToken ALLexer::lexIdentifier() {
+ALToken ALLexer::lexValTok() {
   while (isIdChar(peekNextChar()))
-    ++CurPtr;
-  return ALToken(ALToken::Identifier, StringRef(TokStart, CurPtr - TokStart));
+    std::ignore = getNextChar();
+  auto TokStr = StringRef(TokStart, CurPtr - TokStart);
+  if (llvm::all_of(TokStr, llvm::isDigit)) {
+    uint64_t IntVal;
+    TokStr.getAsInteger(10, IntVal);
+    return ALToken(ALToken::Integer, TokStr, IntVal);
+  }
+  if (getState() == LexerState::Operand &&
+      (TokStr.ends_with('B') || TokStr.ends_with('F'))) {
+    StringRef IntPart = TokStr.drop_back();
+    if (llvm::all_of(IntPart, llvm::isDigit)) {
+      uint64_t IntVal;
+      TokStr.getAsInteger(10, IntVal);
+      return ALToken(ALToken::DirectionalLabel, TokStr, IntVal);
+    }
+  }
+  return ALToken(ALToken::Identifier, TokStr);
 }
 
-ALToken ALLexer::LexToken() {
+ALToken ALLexer::lexLineComment() {
+  // Mark This as an end of statement with a body of the
+  // comment. While it would be nicer to leave this two tokens,
+  // backwards compatability with TargetParsers makes keeping this in this form
+  // better.
+  const char *CommentTextStart = CurPtr;
+  int CurChar = getNextChar();
+  while (CurChar != '\n' && CurChar != '\r' && CurChar != EOF)
+    CurChar = getNextChar();
+  const char *NewlinePtr = CurPtr;
+  if (CurChar == '\r' && CurPtr != CurBuf.end() && *CurPtr == '\n')
+    ++CurPtr;
+
+  // If we have a CommentConsumer, notify it about the comment.
+  if (CommentConsumer) {
+    CommentConsumer->HandleComment(
+        SMLoc::getFromPointer(CommentTextStart),
+        StringRef(CommentTextStart, NewlinePtr - 1 - CommentTextStart));
+  }
+
+  IsAtStartOfLine = true;
+  // This is a whole line comment. leave newline
+  if (IsAtStartOfStatement)
+    return ALToken(ALToken::EndOfStatement,
+                   StringRef(TokStart, CurPtr - TokStart));
+  IsAtStartOfStatement = true;
+
+  return ALToken(ALToken::EndOfStatement,
+                 StringRef(TokStart, CurPtr - 1 - TokStart));
+}
+
+ALToken ALLexer::lexDirectionalLabel() {
+  while (std::isdigit(peekNextChar()))
+    std::ignore = getNextChar();
+  if (peekNextChar() == 'H') {
+    std::ignore = getNextChar();
+    auto TokStr = StringRef(TokStart, CurPtr - TokStart);
+    uint64_t IntVal;
+    if (TokStr.drop_back().getAsInteger(10, IntVal))
+      return ALToken(ALToken::Error, TokStr);
+    return ALToken(ALToken::DirectionalLabel, TokStr, IntVal);
+  }
+  return ALToken(ALToken::Error, StringRef(TokStart, CurPtr - TokStart));
+}
+
+ALToken ALLexer::lexToken() {
   TokStart = CurPtr;
   // This always consumes at least one character.
   int CurChar = getNextChar();
 
+  // If we're missing a newline at EOF, make sure we still get an
+  // EndOfStatement token before the Eof token.
+  if (CurChar == EOF && getState() != LexerState::Label) {
+    setState(LexerState::Label);
+    return ALToken(ALToken::EndOfStatement, StringRef(TokStart, 0));
+  }
+
+  if (getState() == LexerState::Comment)
+    return lexLineComment();
+
   IsAtStartOfLine = false;
   IsAtStartOfStatement = false;
   switch (CurChar) {
-  default:
-    return lexIdentifier();
-    break;
+  default: {
+    if (std::isdigit(CurChar) && getState() == LexerState::Label) {
+      setState(LexerState::Mnemonic);
+      ALToken Tok = lexDirectionalLabel();
+      if (Tok.is(ALToken::Error))
+        returnError(TokStart, "improper local label!");
+      return Tok;
+    }
+
+    ALToken Tok = lexValTok();
+    if (getState() == LexerState::Label) {
+      setState(LexerState::Mnemonic);
+    } else if (getState() == LexerState::Mnemonic) {
+      setState(LexerState::Operand);
+    }
+    return Tok;
+  }
   case EOF:
     IsAtStartOfLine = true;
+    setState(LexerState::Label);
     return ALToken(ALToken::Eof, StringRef(TokStart, 0));
   case '\0':
   case ' ':
@@ -196,8 +264,10 @@ ALToken ALLexer::LexToken() {
   case '\v':
     while (peekNextChar() == ' ' || peekNextChar() == '\t')
       CurPtr++;
+    if (getState() == LexerState::Label)
+      setState(LexerState::Mnemonic);
     if (SkipSpace)
-      return LexToken(); // Ignore whitespace.
+      return lexToken(); // Ignore whitespace.
     else
       return ALToken(ALToken::Space, StringRef(TokStart, CurPtr - TokStart));
   case '\r':
@@ -205,11 +275,13 @@ ALToken ALLexer::LexToken() {
     IsAtStartOfStatement = true;
     if (peekNextChar() == '\n')
       ++CurPtr;
+    setState(LexerState::Label);
     return ALToken(ALToken::EndOfStatement,
                    StringRef(TokStart, CurPtr - TokStart));
   case '\n':
     IsAtStartOfLine = true;
     IsAtStartOfStatement = true;
+    setState(LexerState::Label);
     return ALToken(ALToken::EndOfStatement, StringRef(TokStart, 1));
   case '+':
     return ALToken(ALToken::Plus, StringRef(TokStart, 1));
@@ -245,6 +317,15 @@ ALToken ALLexer::LexToken() {
     return ALToken(ALToken::Caret, StringRef(TokStart, 1));
   case ';':
     return ALToken(ALToken::EndOfStatement, StringRef(TokStart, 1));
+  case '#': {
+    while (llvm::isHexDigit(peekNextChar()))
+      std::ignore = getNextChar();
+    StringRef TokRef = StringRef(TokStart, CurPtr - TokStart);
+    uint64_t IntVal = 0;
+    if (TokRef.drop_front().getAsInteger(16, IntVal))
+      return returnError(TokStart, "illegal hexadecimal constant!");
+    return ALToken(ALToken::Integer, TokRef, IntVal);
+  }
   }
 
   return returnError(TokStart, "unexpected char");

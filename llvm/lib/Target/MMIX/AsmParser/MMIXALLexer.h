@@ -12,11 +12,19 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCAsmInfo.h"
+#include "llvm/MC/MCParser/AsmLexer.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/SMLoc.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace llvm::MMIX {
+
+enum class LexerState {
+  Label,
+  Mnemonic,
+  Operand,
+  Comment,
+};
 
 /// @brief Similar to ALToken, but only for MMIXAL
 class ALToken {
@@ -29,6 +37,7 @@ public:
     // String values.
     Identifier,
     String,
+    DirectionalLabel,
 
     // Integer values.
     Integer,
@@ -65,6 +74,10 @@ public:
   TokenKind getKind() const { return Kind; }
   bool is(TokenKind K) const { return Kind == K; }
   bool isNot(TokenKind K) const { return Kind != K; }
+  bool isBefore() const {
+    assert(is(DirectionalLabel) && "not a directional label!");
+    return Str.ends_with('B');
+  }
 
   LLVM_ABI SMLoc getLoc() const;
   LLVM_ABI SMLoc getEndLoc() const;
@@ -97,7 +110,8 @@ public:
   // also not generally what we want (it is nicer for recovery etc. to lex 123br
   // as a single token, then diagnose as an invalid number).
   uint64_t getUIntVal() const {
-    assert(Kind == Integer && "This token isn't an integer!");
+    assert((Kind == Integer || Kind == DirectionalLabel) &&
+           "This token isn't an integer or directional label!");
     return IntVal;
   }
 
@@ -129,14 +143,16 @@ class ALLexer {
   bool IsAtStartOfLine = true;
   bool JustConsumedEOL = true;
   bool IsPeeking = false;
-  bool EndStatementAtEOF = true;
+
+  LexerState State = LexerState::Label;
+  AsmCommentConsumer *CommentConsumer = nullptr;
 
   const char *TokStart = nullptr;
   bool SkipSpace = true;
   bool IsAtStartOfStatement = true;
 
 private:
-  LLVM_ABI ALToken LexToken();
+  LLVM_ABI ALToken lexToken();
 
   [[nodiscard]] int getNextChar();
   [[nodiscard]] int peekNextChar();
@@ -147,6 +163,15 @@ public:
   ALLexer &operator=(const ALLexer &) = delete;
 
 public:
+  bool is(ALToken::TokenKind Kind) const { return getTok().is(Kind); }
+  bool isNot(ALToken::TokenKind Kind) const { return !is(Kind); }
+  ALToken::TokenKind getKind() const { return getTok().getKind(); }
+  bool justConsumedEOL() const { return JustConsumedEOL; }
+  LexerState getState() const { return State; }
+  void setState(LexerState S) { State = S; }
+
+  void setCommentConsumer(AsmCommentConsumer &CC) { CommentConsumer = &CC; }
+
   /// Get the current error location
   SMLoc getErrLoc() { return ErrLoc; }
 
@@ -184,6 +209,10 @@ public:
                              bool ShouldSkipSpace = true);
 
 public:
+  /// Set buffer to be lexed.
+  /// `Buf` must be NULL-terminated. NULL terminator must reside at `Buf.end()`.
+  /// `ptr` if provided must be in range [`Buf.begin()`, `buf.end()`] or NULL.
+  /// Specifies where lexing of buffer should begin.
   void setBuffer(StringRef Buf, const char *ptr = nullptr);
 
 private:
@@ -195,7 +224,9 @@ private:
   ALToken returnError(const char *Loc, const std::string &Msg);
 
 private:
-  ALToken lexIdentifier();
+  ALToken lexLineComment();
+  ALToken lexValTok();
+  ALToken lexDirectionalLabel();
 };
 
 } // namespace llvm::MMIX

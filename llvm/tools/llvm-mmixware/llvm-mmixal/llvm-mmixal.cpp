@@ -31,11 +31,11 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compression.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Driver.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/InitLLVM.h"
-#include "llvm/Support/LLVMDriver.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
@@ -104,6 +104,15 @@ static cl::opt<ActionType> Action(
                clEnumValN(ActionType::AC_MDisassemble, "mdis",
                           "Marked up disassembly of strings of hex bytes")),
     cl::cat(MCCategory));
+
+static cl::opt<bool>
+    ShowInst("show-inst", cl::desc("Show internal instruction representation"),
+             cl::cat(MCCategory));
+
+static cl::opt<bool>
+    ShowInstOperands("show-inst-operands",
+                     cl::desc("Show instructions operands as parsed"),
+                     cl::cat(MCCategory));
 } // namespace
 
 static std::unique_ptr<ToolOutputFile> GetOutputStream(std::string Path) {
@@ -134,9 +143,8 @@ static int AsLexInput(ALParser &Parser, raw_ostream &OS) {
   while (Parser.lex().isNot(ALToken::Eof)) {
     auto Tok = Parser.getTok();
     Tok.dump(OS);
-    if (Tok.is(ALToken::Integer)) {
+    if (Tok.is(ALToken::Integer) || Tok.is(ALToken::DirectionalLabel))
       OS << " [ " << Tok.getUIntVal() << " ]";
-    }
     OS << "\n";
     if (Parser.getTok().getKind() == ALToken::Error)
       Error = true;
@@ -177,6 +185,7 @@ int llvm_mmixal_main(int argc, char *argv[], const llvm::ToolContext &) {
   MCTargetOptions MCOptions;
   MCOptions.AssemblyLanguage = "mmixal";
   MCOptions.MCRelaxAll = RelaxAll;
+  MCOptions.ShowMCInst = ShowInst;
   std::unique_ptr<MCAsmInfo> MAI(
       TheTarget->createMCAsmInfo(*MRI, MMIXTriple, MCOptions));
   std::unique_ptr<MCSubtargetInfo> STI(
@@ -209,6 +218,10 @@ int llvm_mmixal_main(int argc, char *argv[], const llvm::ToolContext &) {
 
   std::unique_ptr<ALParser> Parser(
       createMCMMIXALParser(SrcMgr, Ctx, *Str, *MAI));
+  MCTargetAsmParser *TAP = TheTarget->createMCAsmParser(*STI, *Parser, *MCII);
+  Parser->setTargetParser(*TAP);
+
+  Parser->setShowParsedOperands(ShowInstOperands);
 
   int Res = 1;
   switch (Action) {
