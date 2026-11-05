@@ -313,7 +313,7 @@ bool MMIXAsmParser::parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc) {
   bool Result = MCTargetAsmParser::parsePrimaryExpr(Res, EndLoc);
   if (!Result) {
     if (const auto *Ref = dyn_cast<MCSymbolRefExpr>(Res))
-      assignIndex(const_cast<MCSymbol &>(Ref->getSymbol()));
+      assignIndex(*getContext().getOrCreateSymbol(Ref->getSymbol().getName()));
   }
   return Result;
 }
