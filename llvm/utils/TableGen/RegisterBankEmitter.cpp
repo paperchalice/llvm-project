@@ -130,7 +130,8 @@ public:
   void collectMappings() {
     for (const auto *RC : register_classes())
       for (const auto &[Mode, RSI] : RC->RSI)
-        PartialMappings.emplace(RSI.RegSize);
+        if (RSI.RegSize != 0)
+          PartialMappings.emplace(RSI.RegSize);
 
     for (const auto *IgnoreDef :
          TheDef.getValueAsListOfDefs("IgnoredPartialMappings"))
